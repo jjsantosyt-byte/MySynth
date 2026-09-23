@@ -19,6 +19,7 @@ import {
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao } from './interface/modulacao.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
+import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -79,6 +80,11 @@ const estado = {
   },
   // Ligações de modulação: [{ fonte: 'lfo1', destino: 'cutoff', quantidade: 0.5 }]
   ligacoes: [],
+  // Efeitos (mesmos valores iniciais do motor de som)
+  efeitos: {
+    delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false },
+    reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3 },
+  },
   // O que a nota mais recente está fazendo agora (vem do motor ~30 vezes por segundo):
   // mod = quanto cada controle está sendo modulado; lfos = fase e valor de cada LFO.
   aoVivo: { mod: null, lfos: [null, null] },
@@ -162,6 +168,7 @@ async function ligarSom() {
     // Envia as opções atuais (tipo de filtro, legato...), as fontes e as ligações.
     for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
     for (const id of Object.keys(estado.fontes)) enviarFonte(id);
+    for (const id of Object.keys(estado.efeitos)) enviarEfeito(id);
     enviarLigacoes();
 
     // Notas que já estavam sendo seguradas enquanto o som ligava começam a tocar agora.
@@ -234,6 +241,16 @@ function definirFonte(id, nome, valor) {
 
 function enviarFonte(id) {
   estado.synth?.port.postMessage({ tipo: 'fonte', id, ajustes: { ...estado.fontes[id] } });
+}
+
+// Muda um ajuste de um efeito (ex.: mix do reverb).
+function definirEfeito(id, nome, valor) {
+  estado.efeitos[id][nome] = valor;
+  enviarEfeito(id);
+}
+
+function enviarEfeito(id) {
+  estado.synth?.port.postMessage({ tipo: 'efeito', id, ajustes: { ...estado.efeitos[id] } });
 }
 
 function enviarLigacoes() {
@@ -485,6 +502,52 @@ document.getElementById('knobs-glide').append(
 botaoGlideSempre.addEventListener('click', () => {
   definirOpcao('glideSempre', !estado.opcoes.glideSempre);
   botaoGlideSempre.setAttribute('aria-pressed', estado.opcoes.glideSempre);
+});
+
+// ---------- Aba FX (efeitos) ----------
+
+// Botões Ligado/Desligado de cada efeito
+document.querySelectorAll('[data-ligar-efeito]').forEach((botao) => {
+  const id = botao.dataset.ligarEfeito;
+  const mostrar = () => {
+    const ligado = estado.efeitos[id].ligado;
+    botao.setAttribute('aria-pressed', ligado);
+    botao.textContent = ligado ? 'Ligado' : 'Desligado';
+  };
+  botao.addEventListener('click', () => {
+    definirEfeito(id, 'ligado', !estado.efeitos[id].ligado);
+    mostrar();
+  });
+  mostrar();
+});
+
+// Knob de um efeito
+const knobEfeito = (id, rotulo, nome, escala, formatar) =>
+  criarKnob({
+    rotulo,
+    escala,
+    padrao: estado.efeitos[id][nome],
+    formatar,
+    aoMudar: (v) => definirEfeito(id, nome, v),
+  });
+
+document.querySelector('[data-knobs-efeito="delay"]').append(
+  knobEfeito('delay', 'Tempo', 'tempo', escalaExponencial(0.01, 2), formatarTempo),
+  knobEfeito('delay', 'Feedback', 'feedback', escalaLinear(0, 0.95), formatarPorcentagem),
+  knobEfeito('delay', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+
+document.querySelector('[data-knobs-efeito="reverb"]').append(
+  // Tamanho mostra quanto tempo a cauda leva para sumir
+  knobEfeito('reverb', 'Tamanho', 'tamanho', escalaLinear(0, 1), (v) => formatarTempo(tempoDoTamanho(v))),
+  knobEfeito('reverb', 'Brilho', 'brilho', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('reverb', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+
+const botaoPingPong = document.getElementById('delay-pingpong');
+botaoPingPong.addEventListener('click', () => {
+  definirEfeito('delay', 'pingpong', !estado.efeitos.delay.pingpong);
+  botaoPingPong.setAttribute('aria-pressed', estado.efeitos.delay.pingpong);
 });
 
 // ---------- Aba Filtro ----------

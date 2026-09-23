@@ -162,8 +162,39 @@
           </article>
         </div>
       </section>
+      <!-- Aba FX: efeitos na ordem do caminho do som (Distorção → Chorus → Delay → Reverb) -->
       <section class="conteudo-aba" data-painel="fx" hidden>
-        <div class="cartao reservado"><h2 class="titulo-cartao">Efeitos</h2><p class="em-breve">em breve</p></div>
+        <div class="modulos modulos-4">
+          <article class="cartao reservado">
+            <h2 class="titulo-cartao">Distorção</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+
+          <article class="cartao reservado">
+            <h2 class="titulo-cartao">Chorus</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Delay</h2>
+              <button class="chave" data-ligar-efeito="delay" aria-pressed="false">Desligado</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="delay"></div>
+            <div class="linha-opcao">
+              <!-- Ping-pong: os ecos alternam entre esquerda e direita -->
+              <button id="delay-pingpong" class="chave" aria-pressed="false">Ping-pong</button>
+            </div>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Reverb</h2>
+              <button class="chave" data-ligar-efeito="reverb" aria-pressed="false">Desligado</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="reverb"></div>
+          </article>
+        </div>
       </section>
 
       <!-- Aba Global: ajustes do synth todo (voz, glide, qualidade) -->

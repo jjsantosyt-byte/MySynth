@@ -19,6 +19,8 @@ import { Voz } from './dsp/voz.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
 import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
+import { Delay } from './dsp/efeitos/delay.js';
+import { Reverb } from './dsp/efeitos/reverb.js';
 
 const MAX_VOZES = 16;
 const PEDACO = 32; // amostras por pedaço de modulação (igual ao da voz)
@@ -77,6 +79,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
+    // Efeitos (depois das notas somadas): Delay → Reverb
+    this.delay = new Delay(sampleRate);
+    this.reverb = new Reverb(sampleRate);
+
     this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
     this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
 
@@ -111,6 +117,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'fonte':
         this.definirFonte(msg.id, msg.ajustes);
+        break;
+      case 'efeito':
+        if (msg.id === 'delay') this.delay.definir(msg.ajustes);
+        if (msg.id === 'reverb') this.reverb.definir(msg.ajustes);
         break;
     }
   }
@@ -261,13 +271,21 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
     this.matriz.avancarBloco();
 
+    // Notas (só se alguma estiver soando)
     let algumaAtiva = false;
     for (const voz of this.vozes) if (voz.ativa) algumaAtiva = true;
-    if (!this.tabela || !algumaAtiva) {
-      this.enviarAoVivo(); // LFOs livres continuam aparecendo andando
-      return true; // silêncio: não calcula nada
-    }
+    if (this.tabela && algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
 
+    // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
+    // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
+    this.delay.processar(saidaE, saidaD, tamanhoBloco);
+    this.reverb.processar(saidaE, saidaD, tamanhoBloco);
+
+    this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
+    return true;
+  }
+
+  processarVozes(saidaE, saidaD, tamanhoBloco, parametros) {
     // Dados iguais para todas as vozes neste bloco.
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
     const comum = this.comum;
@@ -296,8 +314,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       voz.envsMod[1].definir(env3.ataque, env3.decaimento, env3.sustentacao, env3.soltura);
       voz.processar(saidaE, saidaD, tamanhoBloco, comum);
     }
-    this.enviarAoVivo();
-    return true;
   }
 
   // Manda para a tela o que a nota mais recente está fazendo: quanto cada

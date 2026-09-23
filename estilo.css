@@ -560,11 +560,15 @@ h1 {
   min-height: 120px;
 }
 
-/* Módulos de cada aba: 3 cartões lado a lado */
+/* Módulos de cada aba: 3 cartões lado a lado (a aba FX tem 4) */
 .modulos {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
+}
+
+.modulos.modulos-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
 /* ---------- Painéis de desenho (onda, envelope, filtro) ---------- */
@@ -802,7 +806,8 @@ h1 {
   }
 
   /* Módulos um embaixo do outro; os reservados viram faixas finas */
-  .modulos {
+  .modulos,
+  .modulos.modulos-4 {
     grid-template-columns: 1fr;
     gap: 6px;
   }

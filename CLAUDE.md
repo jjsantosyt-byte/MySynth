@@ -203,6 +203,19 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - PWA básico: `manifest.json`, ícones em `icones/`, metas da Apple → "Adicionar à
   Tela de Início" abre em tela cheia (ganha ~50 px de altura).
 
+**Item 5a (Delay + Reverb) — feito, em teste no iPhone:**
+- Efeitos no motor (`dsp/efeitos/`), depois das notas somadas, em estéreo:
+  [Distorção → Chorus: 5b] → Delay → Reverb → volume geral → limitador.
+- Os efeitos rodam mesmo sem notas (caudas terminam) e "dormem" quando silenciam.
+  Desligar: para de entrar som novo, a cauda termina naturalmente.
+- Mix: até 50% o original fica cheio; de 50% a 100% ele some (`ganhosMix`).
+- Delay: até 2 s, Feedback até 95% (ecos sempre somem), repetições perdem agudo (~6 kHz),
+  Ping-pong. Mudar o Tempo: transição de 50 ms entre o eco antigo e o novo (sem "zzzp").
+- Reverb: FDN de 8 linhas + 4 difusores; Tamanho = tempo da cauda (0,3 a 8 s),
+  Brilho = abafamento (1,5 a 16 kHz); tira graves < ~120 Hz da entrada.
+- Medido: ecos caem 8 dB por repetição com Feedback 40%; ligar/desligar sem estalo;
+  8 vozes × 8 cópias: 24% → 26% com delay + reverb.
+
 **Online (GitHub Pages) — no ar desde 23/09/2026:**
 - Endereço: https://jjsantosyt-byte.github.io/MySynth/
 - Repositório público: https://github.com/jjsantosyt-byte/MySynth (branch `main`, pasta raiz).
