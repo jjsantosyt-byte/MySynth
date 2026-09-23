@@ -35,6 +35,17 @@
         <button class="aba" role="tab" aria-selected="false" data-aba="fx">FX</button>
       </nav>
 
+      <!-- Opções de voz (valem para o synth todo, visíveis em todas as abas) -->
+      <div class="barra-voz">
+        <div id="modo-voz" class="grupo-botoes modo-voz">
+          <button class="botao" data-modo="mono">Mono</button>
+          <button class="botao" data-modo="poly">Poly</button>
+        </div>
+        <div id="seletor-vozes"></div>
+        <!-- Legato (só no Mono): deslizar entre teclas não reinicia o envelope -->
+        <button id="legato" class="chave" aria-pressed="true">Legato</button>
+      </div>
+
       <!-- Aba OSC: 3 espaços de oscilador (só o A funciona por enquanto) -->
       <section class="conteudo-aba" data-painel="osc">
         <div class="modulos">
@@ -51,6 +62,8 @@
             </label>
             <!-- Atalhos: tocar no nome pula direto para aquela forma de onda -->
             <div id="atalhos-wt" class="atalhos-wt"></div>
+            <!-- Unison: quantas cópias, quanto desafinam (Detune), quanto abrem no estéreo (Width) -->
+            <div id="unison-osc" class="linha-knobs"></div>
           </article>
 
           <article class="cartao reservado">
@@ -84,11 +97,7 @@
       <section class="conteudo-aba" data-painel="env" hidden>
         <div class="modulos">
           <article class="cartao">
-            <div class="cabecalho-cartao">
-              <h2 class="titulo-cartao">ENV 1 · Volume</h2>
-              <!-- Legato: deslizar entre teclas não reinicia o envelope -->
-              <button id="legato" class="chave" aria-pressed="true">Legato</button>
-            </div>
+            <h2 class="titulo-cartao">ENV 1 · Volume</h2>
             <div class="tela-grafico"><canvas id="tela-envelope"></canvas></div>
             <div id="knobs-envelope" class="linha-knobs"></div>
           </article>

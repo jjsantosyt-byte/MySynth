@@ -2,29 +2,18 @@
 // O "motor" de som. Roda num processo de áudio separado (AudioWorklet),
 // para o som não falhar mesmo se a tela ficar lenta.
 //
-// Caminho do som (1 voz, monofônico):
-//   oscilador wavetable → filtro → envelope de volume (ENV 1) → saída
+// Ele é o "gerente de vozes": cada nota tocada ganha uma voz completa
+// (unison → filtro → envelope, ver dsp/voz.js). A saída é estéreo.
 //
-// - WT Pos: escolhe a posição na wavetable, misturando os 2 frames vizinhos
-//   (morphing). É um "parâmetro de áudio", então muda suave, sem degraus,
-//   e no futuro poderá ser movido por LFOs e envelopes.
-// - Sem aliasing: escolhe o nível da tabela certo para cada nota e mistura
-//   suavemente entre dois níveis vizinhos.
-// - Sem estalos: o envelope sempre tem uma rampinha mínima de 1,5 ms.
-// - Legato (opcional): deslizar entre teclas não reinicia o envelope.
+// - Poly: até N notas ao mesmo tempo. Se faltar voz, "rouba" a melhor
+//   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
+// - Mono: uma nota por vez (sempre a voz 1), com Legato opcional:
+//   deslizar entre teclas não reinicia o envelope.
 
-import { Envelope } from './dsp/envelope.js';
-import { Filtro } from './dsp/filtro.js';
+import { Voz } from './dsp/voz.js';
+import { CoeficientesFiltro } from './dsp/filtro.js';
 
-// Converte número de nota MIDI em frequência (Hz). Nota 69 = Lá 440 Hz.
-function notaParaFrequencia(nota) {
-  return 440 * Math.pow(2, (nota - 69) / 12);
-}
-
-// Lê um ponto da onda com interpolação (liga os pontos da tabela por retas).
-function lerOnda(onda, i0, i1, frac) {
-  return onda[i0] + frac * (onda[i1] - onda[i0]);
-}
+const MAX_VOZES = 16;
 
 class ProcessadorSynth extends AudioWorkletProcessor {
   // Controles que a página pode mexer de forma suave.
@@ -32,6 +21,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     return [
       // Oscilador: 0 = primeiro frame, 1 = último frame
       { name: 'wtPos', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+      // Unison: Detune e Width de 0 a 1
+      { name: 'detune', defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'width', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Filtro
       { name: 'cutoff', defaultValue: 2000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
       { name: 'resonancia', defaultValue: 0.1, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
@@ -46,27 +38,20 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   constructor() {
     super();
     this.tabela = null; // wavetable recebida da página
-    this.fase = 0; // posição dentro do ciclo da onda (0 a 1)
-    this.frequencia = 440;
-    this.notasPresas = []; // notas seguradas, na ordem em que foram tocadas
-    this.notaAtual = null; // a nota que está soando
-    this.legato = true;
+    this.vozes = Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
+    this.coef = new CoeficientesFiltro(sampleRate);
 
-    this.envelope = new Envelope(sampleRate);
-    this.filtro = new Filtro(sampleRate);
+    // Opções (a página manda os valores escolhidos logo ao ligar)
+    this.modo = 'poly';
+    this.maxVozes = 8;
+    this.legato = true;
+    this.unison = 1;
+
+    this.notasPresas = []; // (modo Mono) notas seguradas, na ordem em que foram tocadas
+    this.contador = 0; // numera as notas, para saber qual é a mais antiga
+    this.comum = {}; // dados do bloco, compartilhados por todas as vozes
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
-  }
-
-  // Toca uma nota: muda a altura e decide se o envelope recomeça.
-  tocar(nota, recomecar) {
-    this.notaAtual = nota;
-    this.frequencia = notaParaFrequencia(nota);
-    if (recomecar) {
-      // Vindo do silêncio, o filtro começa "limpo".
-      if (!this.envelope.ativo) this.filtro.reiniciar();
-      this.envelope.disparar();
-    }
   }
 
   receberMensagem(msg) {
@@ -74,133 +59,149 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'wavetable':
         this.tabela = msg.wavetable;
         break;
-
-      case 'notaOn': {
-        const ninguemSegurando = this.notasPresas.length === 0;
-        // Se a nota já estava na lista, tira e coloca no fim (vira a mais recente).
-        this.notasPresas = this.notasPresas.filter((n) => n !== msg.nota);
-        this.notasPresas.push(msg.nota);
-        // Com legato, só recomeça o envelope se nenhuma tecla estava segurada.
-        this.tocar(msg.nota, ninguemSegurando || !this.legato);
+      case 'notaOn':
+        if (this.modo === 'mono') this.notaOnMono(msg.nota);
+        else this.notaOnPoly(msg.nota);
         break;
-      }
-
       case 'notaOff':
-        this.notasPresas = this.notasPresas.filter((n) => n !== msg.nota);
-        if (this.notasPresas.length === 0) {
-          this.envelope.soltar(); // soltou tudo: entra a soltura (R)
-        } else if (msg.nota === this.notaAtual) {
-          // Soltou a nota que soava, mas ainda tem outra segurada: volta para ela.
-          const ultima = this.notasPresas[this.notasPresas.length - 1];
-          this.tocar(ultima, !this.legato);
-        }
+        if (this.modo === 'mono') this.notaOffMono(msg.nota);
+        else this.notaOffPoly(msg.nota);
         break;
-
       case 'tudoOff':
-        this.notasPresas = [];
-        this.envelope.soltar();
+        this.soltarTudo();
         break;
-
-      // Opções que não são "knobs": tipo de filtro, liga/desliga, legato.
       case 'opcao':
-        if (msg.nome === 'filtroTipo') this.filtro.definirTipo(msg.valor);
-        if (msg.nome === 'filtroLigado') this.filtro.definirLigado(msg.valor);
-        if (msg.nome === 'legato') this.legato = msg.valor;
+        this.definirOpcao(msg.nome, msg.valor);
         break;
     }
   }
 
-  // Decide quais 2 níveis da tabela usar para esta frequência e quanto de cada.
-  escolherNiveis(frequencia) {
-    const h = this.tabela.harmonicos;
-    const ultimo = h.length - 1;
-    // Quantos harmônicos cabem sem passar do limite (metade da taxa de amostragem).
-    const limite = (0.5 * sampleRate) / frequencia;
-
-    // Primeiro nível (o mais cheio) que ainda não gera aliasing.
-    let nivel = 0;
-    while (nivel < ultimo && h[nivel] > limite) nivel++;
-    if (nivel === ultimo) return { nivel, mistura: 0 };
-
-    // Mistura com o próximo nível conforme a nota sobe, para a troca ser
-    // gradual. Chega em 100% do próximo exatamente no limite deste nível.
-    const freqMaxima = (0.5 * sampleRate) / h[nivel];
-    const razao = nivel > 0 ? h[nivel] / h[nivel - 1] : h[1] / h[0];
-    const freqMinima = freqMaxima * razao;
-    let mistura = Math.log(frequencia / freqMinima) / Math.log(freqMaxima / freqMinima);
-    mistura = Math.min(1, Math.max(0, mistura));
-    return { nivel, mistura };
+  definirOpcao(nome, valor) {
+    switch (nome) {
+      case 'modo':
+        if (valor !== this.modo) this.soltarTudo();
+        this.modo = valor;
+        break;
+      case 'vozes':
+        this.maxVozes = Math.min(MAX_VOZES, Math.max(1, valor));
+        break;
+      case 'legato':
+        this.legato = valor;
+        break;
+      case 'unison':
+        this.unison = Math.min(16, Math.max(1, valor));
+        break;
+      case 'filtroTipo':
+      case 'filtroLigado':
+        for (const voz of this.vozes) voz.definirFiltro(nome, valor);
+        break;
+    }
   }
+
+  soltarTudo() {
+    this.notasPresas = [];
+    for (const voz of this.vozes) {
+      voz.pendente = null;
+      voz.soltar();
+    }
+  }
+
+  // ---------- Modo Poly ----------
+
+  notaOnPoly(nota) {
+    const idade = ++this.contador;
+
+    // A mesma nota ainda está soando? Reaproveita a voz dela.
+    let voz = this.vozes.find((v) => v.ativa && !v.pendente && v.nota === nota);
+    if (voz) return voz.iniciar(nota, idade);
+
+    // Uma voz livre (dentro do limite de vozes escolhido)?
+    const disponiveis = this.vozes.slice(0, this.maxVozes);
+    voz = disponiveis.find((v) => !v.ativa);
+    if (voz) return voz.iniciar(nota, idade);
+
+    // Sem voz livre: rouba. Prefere uma já solta (sumindo) e mais baixa;
+    // se todas estão seguradas, rouba a mais antiga.
+    let escolhida = null;
+    for (const v of disponiveis) {
+      if (v.pendente) continue;
+      if (!escolhida) escolhida = v;
+      else if (!v.segurada && (escolhida.segurada || v.nivel < escolhida.nivel)) escolhida = v;
+      else if (v.segurada && escolhida.segurada && v.idade < escolhida.idade) escolhida = v;
+    }
+    if (!escolhida) {
+      // Todas já estão trocando de nota: troca a nota que estava esperando.
+      disponiveis[0].pendente = { nota, idade };
+      return;
+    }
+    // Já quase muda? Começa direto. Senão, some rápido e depois toca.
+    if (escolhida.nivel < 0.001) escolhida.iniciar(nota, idade);
+    else escolhida.roubar(nota, idade);
+  }
+
+  notaOffPoly(nota) {
+    for (const voz of this.vozes) {
+      if (voz.pendente && voz.pendente.nota === nota) voz.pendente = null;
+      else if (voz.nota === nota && voz.segurada) voz.soltar();
+    }
+  }
+
+  // ---------- Modo Mono (sempre a voz 1) ----------
+
+  notaOnMono(nota) {
+    const ninguemSegurando = this.notasPresas.length === 0;
+    // Se a nota já estava na lista, tira e coloca no fim (vira a mais recente).
+    this.notasPresas = this.notasPresas.filter((n) => n !== nota);
+    this.notasPresas.push(nota);
+    // Com legato, só recomeça o envelope se nenhuma tecla estava segurada.
+    this.vozes[0].iniciar(nota, ++this.contador, ninguemSegurando || !this.legato);
+  }
+
+  notaOffMono(nota) {
+    const voz = this.vozes[0];
+    this.notasPresas = this.notasPresas.filter((n) => n !== nota);
+    if (this.notasPresas.length === 0) {
+      voz.soltar(); // soltou tudo: entra a soltura (R)
+    } else if (nota === voz.nota) {
+      // Soltou a nota que soava, mas ainda tem outra segurada: volta para ela.
+      const ultima = this.notasPresas[this.notasPresas.length - 1];
+      voz.iniciar(ultima, ++this.contador, !this.legato);
+    }
+  }
+
+  // ---------- Som ----------
 
   process(entradas, saidas, parametros) {
-    const saida = saidas[0][0];
-    const tamanhoBloco = saida.length;
+    const saidaE = saidas[0][0];
+    const saidaD = saidas[0][1];
+    const tamanhoBloco = saidaE.length;
+    saidaE.fill(0);
+    saidaD.fill(0);
+    if (!this.tabela) return true;
 
-    // Sem tabela, ou envelope parado (silêncio): não calcula nada.
-    if (!this.tabela || !this.envelope.ativo) {
-      saida.fill(0);
-      return true;
-    }
+    let algumaAtiva = false;
+    for (const voz of this.vozes) if (voz.ativa) algumaAtiva = true;
+    if (!algumaAtiva) return true; // silêncio: não calcula nada
 
-    // Envelope: lê os knobs A, D, S, R uma vez por bloco.
-    this.envelope.definir(
-      parametros.ataque[0],
-      parametros.decaimento[0],
-      parametros.sustentacao[0],
-      parametros.soltura[0]
-    );
+    // Dados iguais para todas as vozes neste bloco.
+    this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
+    const comum = this.comum;
+    comum.tabela = this.tabela;
+    comum.posicoesWT = parametros.wtPos;
+    comum.coef = this.coef;
+    comum.unison = this.unison;
+    comum.detune = parametros.detune[0];
+    comum.width = parametros.width[0];
 
-    // Filtro: se Cutoff/ressonância estão parados, calcula uma vez por bloco;
-    // se estão mudando, recalcula a cada amostra (varredura suave).
-    const cortes = parametros.cutoff;
-    const resonancias = parametros.resonancia;
-    const filtroMudando = cortes.length > 1 || resonancias.length > 1;
-    if (!filtroMudando) this.filtro.definirCorte(cortes[0], resonancias[0]);
-
-    const frames = this.tabela.frames;
-    const ultimoFrame = frames.length - 1;
-    const tamanho = this.tabela.tamanho;
-    const mascara = tamanho - 1;
-    const { nivel, mistura } = this.escolherNiveis(this.frequencia);
-    const nivelB = Math.min(nivel + 1, frames[0].length - 1);
-    const passo = this.frequencia / sampleRate;
-    const posicoesWT = parametros.wtPos; // 1 valor (parado) ou 128 (mudando)
-
-    for (let i = 0; i < tamanhoBloco; i++) {
-      // Onde estamos na wavetable: entre o frame f0 e o f1, "t" mede o quanto.
-      const wt = (posicoesWT.length > 1 ? posicoesWT[i] : posicoesWT[0]) * ultimoFrame;
-      const f0 = Math.min(wt | 0, ultimoFrame);
-      const f1 = Math.min(f0 + 1, ultimoFrame);
-      const t = wt - f0;
-
-      // Posição dentro do ciclo da onda.
-      const posicao = this.fase * tamanho;
-      const i0 = posicao | 0;
-      const i1 = (i0 + 1) & mascara;
-      const frac = posicao - i0;
-
-      // Para cada um dos 2 frames: mistura os 2 níveis anti-aliasing.
-      const a0 = lerOnda(frames[f0][nivel], i0, i1, frac);
-      const b0 = lerOnda(frames[f0][nivelB], i0, i1, frac);
-      const a1 = lerOnda(frames[f1][nivel], i0, i1, frac);
-      const b1 = lerOnda(frames[f1][nivelB], i0, i1, frac);
-      const som0 = a0 + mistura * (b0 - a0);
-      const som1 = a1 + mistura * (b1 - a1);
-
-      // Morphing: mistura os 2 frames conforme o WT Pos.
-      const oscilador = som0 + t * (som1 - som0);
-
-      // Filtro e envelope de volume.
-      if (filtroMudando) {
-        this.filtro.definirCorte(
-          cortes.length > 1 ? cortes[i] : cortes[0],
-          resonancias.length > 1 ? resonancias[i] : resonancias[0]
-        );
-      }
-      saida[i] = this.filtro.processar(oscilador) * this.envelope.proximo();
-
-      this.fase += passo;
-      if (this.fase >= 1) this.fase -= 1;
+    for (const voz of this.vozes) {
+      if (!voz.ativa) continue;
+      voz.envelope.definir(
+        parametros.ataque[0],
+        parametros.decaimento[0],
+        parametros.sustentacao[0],
+        parametros.soltura[0]
+      );
+      voz.processar(saidaE, saidaD, tamanhoBloco, comum);
     }
     return true;
   }

@@ -21,6 +21,8 @@ const SOLTURA = 4;
 const ATAQUE_MINIMO = 0.0015;
 const QUEDA_MINIMA = 0.006;
 const QUEDA_60DB = Math.log(0.001);
+// Quando uma voz é "roubada" para outra nota, ela some neste tempo.
+const QUEDA_ROUBO = 0.004;
 
 export class Envelope {
   constructor(taxaAmostragem) {
@@ -29,6 +31,8 @@ export class Envelope {
     this.nivel = 0;
     // Se o S mudar com a nota segurada, o volume acompanha em ~5 ms (sem degrau).
     this.suavizarSustentacao = 1 - Math.exp(-1 / (0.005 * taxaAmostragem));
+    this.coefRoubo = Math.exp(QUEDA_60DB / (QUEDA_ROUBO * taxaAmostragem));
+    this.rapido = false; // true = sumindo rápido (voz roubada)
     this.definir(0.005, 0.5, 1, 0.08);
   }
 
@@ -43,11 +47,19 @@ export class Envelope {
   // Começa (ou recomeça) a nota. Parte do nível em que está: nunca pula, nunca estala.
   disparar() {
     this.estagio = ATAQUE;
+    this.rapido = false;
   }
 
   // Tecla solta: vai para a soltura.
   soltar() {
     if (this.estagio !== PARADO) this.estagio = SOLTURA;
+  }
+
+  // Some rápido (em ~4 ms, sem estalo), ignorando o R. Usado ao roubar a voz.
+  silenciarRapido() {
+    if (this.estagio === PARADO) return;
+    this.estagio = SOLTURA;
+    this.rapido = true;
   }
 
   get ativo() {
@@ -75,10 +87,11 @@ export class Envelope {
         break;
 
       case SOLTURA:
-        this.nivel *= this.coefSoltura;
+        this.nivel *= this.rapido ? this.coefRoubo : this.coefSoltura;
         if (this.nivel < 1e-5) {
           this.nivel = 0;
           this.estagio = PARADO;
+          this.rapido = false;
         }
         break;
     }

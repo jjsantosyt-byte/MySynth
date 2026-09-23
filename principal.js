@@ -13,6 +13,7 @@ import {
   formatarPorcentagem,
   formatarFrequencia,
 } from './interface/knob.js';
+import { criarSeletor } from './interface/seletor.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -32,6 +33,9 @@ const knobsFiltro = document.getElementById('knobs-filtro');
 const telaEnvelope = document.getElementById('tela-envelope');
 const botaoLegato = document.getElementById('legato');
 const knobsEnvelope = document.getElementById('knobs-envelope');
+const unisonOsc = document.getElementById('unison-osc');
+const modoVoz = document.getElementById('modo-voz');
+const lugarSeletorVozes = document.getElementById('seletor-vozes');
 
 // A wavetable é montada uma vez, ao abrir a página.
 // A página guarda uma cópia para desenhar; o motor de som recebe outra.
@@ -41,6 +45,8 @@ const estado = {
   // Valores dos controles de som (os nomes são os mesmos do motor de som).
   parametros: {
     wtPos: 0, // posição na wavetable (0 a 1)
+    detune: 0.25, // unison: quanto as cópias desafinam (0 a 1)
+    width: 1, // unison: abertura no estéreo (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
     ataque: 0.005, // segundos
@@ -52,7 +58,10 @@ const estado = {
   opcoes: {
     filtroLigado: false,
     filtroTipo: 'lp24',
-    legato: true,
+    modo: 'poly', // 'mono' ou 'poly'
+    vozes: 8, // quantas notas ao mesmo tempo (Poly)
+    legato: true, // só vale no Mono
+    unison: 1, // cópias do oscilador por nota
   },
   contexto: null, // o "motor" de áudio do navegador
   synth: null, // nosso processador de som
@@ -89,7 +98,7 @@ async function ligarSom() {
     const synth = new AudioWorkletNode(contexto, 'processador-synth', {
       numberOfInputs: 0,
       numberOfOutputs: 1,
-      outputChannelCount: [1],
+      outputChannelCount: [2], // estéreo
       parameterData: { ...estado.parametros },
     });
     const ganho = contexto.createGain();
@@ -238,7 +247,7 @@ function desenharPainelOnda() {
   for (let j = 0; j < ondaDesenhada.length; j++) {
     ondaDesenhada[j] = a[j] + t * (b[j] - a[j]);
   }
-  desenharOnda(telaOnda, ondaDesenhada);
+  desenharOnda(telaOnda, ondaDesenhada, marcasUnison());
 
   // Nome: a forma exata, ou "de → para" com a porcentagem do caminho.
   const maisProximo = Math.round(wt);
@@ -279,6 +288,82 @@ const terminarArraste = (evento) => {
 };
 telaOnda.addEventListener('pointerup', terminarArraste);
 telaOnda.addEventListener('pointercancel', terminarArraste);
+
+// ---------- Unison (no cartão OSC A) ----------
+
+// Posições das cópias para as marcas no desenho (de -1 a +1, vezes o Detune).
+// Mesma distribuição que o motor de som usa.
+function marcasUnison() {
+  const qtd = estado.opcoes.unison;
+  if (qtd < 2) return [];
+  const marcas = [];
+  for (let c = 0; c < qtd; c++) marcas.push(((c / (qtd - 1)) * 2 - 1) * estado.parametros.detune);
+  return marcas;
+}
+
+unisonOsc.append(
+  criarSeletor({
+    rotulo: 'Unison',
+    min: 1,
+    max: 16,
+    padrao: estado.opcoes.unison,
+    aoMudar: (v) => definirOpcao('unison', v),
+  }),
+  criarKnob({
+    rotulo: 'Detune',
+    escala: escalaLinear(0, 1),
+    padrao: estado.parametros.detune,
+    formatar: formatarPorcentagem,
+    aoMudar: (v) => definirParametro('detune', v),
+  }),
+  criarKnob({
+    rotulo: 'Width',
+    escala: escalaLinear(0, 1),
+    padrao: estado.parametros.width,
+    formatar: formatarPorcentagem,
+    aoMudar: (v) => definirParametro('width', v),
+  })
+);
+
+// ---------- Opções de voz (Mono/Poly, vozes, Legato) ----------
+
+const seletorVozes = criarSeletor({
+  rotulo: 'Vozes',
+  min: 1,
+  max: 16,
+  padrao: estado.opcoes.vozes,
+  aoMudar: (v) => definirOpcao('vozes', v),
+  rotuloAoLado: true,
+});
+lugarSeletorVozes.replaceWith(seletorVozes);
+
+modoVoz.querySelectorAll('.botao').forEach((botao) => {
+  botao.addEventListener('click', () => {
+    if (botao.dataset.modo === estado.opcoes.modo) return;
+    soltarTudo(); // trocar de modo solta todas as notas
+    definirOpcao('modo', botao.dataset.modo);
+    atualizarOpcoesVoz();
+  });
+});
+
+botaoLegato.addEventListener('click', () => {
+  definirOpcao('legato', !estado.opcoes.legato);
+  atualizarOpcoesVoz();
+});
+
+// Marca o modo escolhido. "Vozes" só vale no Poly; "Legato" só no Mono.
+function atualizarOpcoesVoz() {
+  const mono = estado.opcoes.modo === 'mono';
+  modoVoz.querySelectorAll('.botao').forEach((botao) => {
+    botao.classList.toggle('escolhido', botao.dataset.modo === estado.opcoes.modo);
+  });
+  seletorVozes.habilitar(!mono);
+  botaoLegato.disabled = !mono;
+  botaoLegato.setAttribute('aria-pressed', estado.opcoes.legato);
+  botaoLegato.title = mono ? '' : 'Legato só funciona no modo Mono';
+}
+
+atualizarOpcoesVoz();
 
 // ---------- Aba Filtro ----------
 
@@ -369,17 +454,6 @@ knobsEnvelope.append(
     aoMudar: (v) => definirParametro('soltura', v),
   })
 );
-
-function atualizarBotaoLegato() {
-  botaoLegato.setAttribute('aria-pressed', estado.opcoes.legato);
-}
-
-botaoLegato.addEventListener('click', () => {
-  definirOpcao('legato', !estado.opcoes.legato);
-  atualizarBotaoLegato();
-});
-
-atualizarBotaoLegato();
 
 // ---------- Abas ----------
 

@@ -74,8 +74,33 @@ function linhaComBrilho(g, pontos, base, altura, apagada = false) {
 
 // ---------- Forma de onda ----------
 
+// Marcas das cópias de unison (risquinhos verticais, como no Serum).
+// "posicoes" vão de -1 a +1: 0 = afinada; pontas = detune máximo.
+const COR_MARCA = 'rgba(255, 200, 87, 0.85)';
+
+function desenharMarcasUnison(g, largura, altura, posicoes) {
+  if (posicoes.length < 2) return;
+  const meio = largura / 2;
+  const espalhamento = largura * 0.42;
+  g.save();
+  g.strokeStyle = COR_MARCA;
+  g.lineWidth = 2;
+  g.lineCap = 'round';
+  g.beginPath();
+  for (const p of posicoes) {
+    const x = meio + p * espalhamento;
+    // Cópias do centro um pouco mais altas, as das pontas mais baixas.
+    const alturaMarca = altura * (0.55 - 0.2 * Math.abs(p));
+    g.moveTo(x, altura - 6);
+    g.lineTo(x, altura - 6 - alturaMarca);
+  }
+  g.stroke();
+  g.restore();
+}
+
 // "amostras" é um ciclo da onda, com valores entre -1 e 1.
-export function desenharOnda(canvas, amostras) {
+// "marcasUnison" (opcional): posições das cópias de unison, de -1 a +1.
+export function desenharOnda(canvas, amostras, marcasUnison = []) {
   const tela = prepararCanvas(canvas);
   if (!tela) return;
   const { g, largura, altura } = tela;
@@ -92,6 +117,7 @@ export function desenharOnda(canvas, amostras) {
     const indice = Math.min(total - 1, Math.floor((k / qtd) * total));
     pontos.push([(k / qtd) * largura, meio - amostras[indice] * amplitude]);
   }
+  desenharMarcasUnison(g, largura, altura, marcasUnison);
   linhaComBrilho(g, pontos, meio, altura);
 }
 

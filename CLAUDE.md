@@ -67,6 +67,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais
   (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
   (o Cutoff acompanhar a nota tocada).
+- Glide (portamento): a nota "escorrega" até a próxima; ótimo para reese/baixos no modo Mono.
+- Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).
+- Oscilador: knobs Blend (volume das cópias de fora vs. centro), Phase (ponto de início
+  da onda) e Rand (quanto esse início é sorteado). Hoje: Blend fixo (todas iguais) e
+  fase sorteada a cada nota.
 
 ## Estado atual
 **Item 0 (base) — feito e aprovado (testado no computador):**
@@ -107,12 +112,28 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Volume geral com folga (× 0,5) + limitador neutro (compensa o "makeup gain").
 - Envelope do filtro: decidido esperar o item 4 (ENV 2/3 arrastáveis).
 
+**Item 3 (polifonia, unison, detune) — feito e aprovado pelo ouvido:**
+- Motor = gerente de vozes (até 16). Cada voz: cópias de unison → filtro estéreo → ENV 1.
+- Poly (padrão, 8 vozes) / Mono (voz 1, Legato só no Mono). Trocar de modo solta as notas.
+- Roubo de voz: prefere voz já solta e mais baixa; senão a mais antiga. A voz roubada
+  some em ~4 ms e depois toca a nota nova (sem estalo).
+- Unison 1–16 (seletor ‹ N ›), Detune (100% = pontas a ±1 semitom, espalhadas por igual),
+  Width (estéreo de potência igual). Volume por cópia 1/√N. Fase sorteada a cada nota.
+- Saída estéreo. Marcas do detune desenhadas no painel da onda (estilo Serum).
+- Fileira de voz abaixo das abas: [Mono|Poly] Vozes ‹ 8 › (Legato).
+- Otimização: cópia inteira por bloco; caminho rápido com WT Pos parado; mistura entre
+  níveis anti-aliasing só no último 1/4 da faixa. Peso medido no PC (render offline):
+  8 vozes × 8 cópias ≈ 18% do tempo real; 16 × 16 ≈ 47%.
+
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques, abas e controles
-- `processador-synth.js` — motor de som (AudioWorklet)
-- `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelo motor)
+- `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
+- `dsp/voz.js` — uma voz completa (unison → filtro estéreo → envelope)
+- `dsp/oscilador.js` — leitura da wavetable sem aliasing
+- `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelas vozes)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
+- `interface/seletor.js` — seletor de número inteiro ‹ N ›
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
@@ -120,4 +141,4 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 **Pendências:**
 - Teste no celular exige endereço https (ex.: GitHub Pages).
 - Visualização em perspectiva (frames empilhados) fica para a fase de aparência.
-- Próximo: item 3 (unison, polifonia e detune).
+- Próximo: item 4 (LFOs e envelopes de modulação com arrastar-e-soltar).

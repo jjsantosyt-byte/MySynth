@@ -144,6 +144,104 @@ h1 {
   box-shadow: inset 0 -3px 0 var(--destaque);
 }
 
+/* ---------- Opções de voz (Mono/Poly, vozes, Legato) ---------- */
+
+.barra-voz {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.modo-voz {
+  flex: 0 0 auto;
+}
+
+.grupo-botoes.modo-voz .botao {
+  flex: 0 0 auto;
+  min-width: 68px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.chave:disabled {
+  opacity: 0.35;
+}
+
+/* ---------- Seletor de número (‹ 4 ›) ---------- */
+
+.seletor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.seletor-linha {
+  flex-direction: row;
+  gap: 8px;
+  padding: 0;
+}
+
+.seletor-controle {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+}
+
+.seletor-botao {
+  width: 30px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--texto);
+  font-size: 20px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.seletor-botao:disabled {
+  opacity: 0.3;
+}
+
+.seletor-numero {
+  min-width: 26px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  touch-action: none; /* arrastar aqui muda o número, não rola a página */
+  cursor: ns-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+.seletor-numero:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--destaque);
+}
+
+.seletor-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.seletor-linha .seletor-rotulo {
+  font-size: 13px;
+}
+
+.seletor.desabilitado {
+  opacity: 0.4;
+}
+
 /* Conteúdo das abas: se não couber, rola só esta parte (o teclado fica no lugar) */
 .conteudo-aba {
   flex: 0 1 auto;
@@ -400,6 +498,38 @@ h1 {
 
   .texto-longo {
     display: none;
+  }
+
+  /* Fileira de voz numa linha só: botões e seletor mais justos */
+  .barra-voz {
+    gap: 8px 10px;
+  }
+
+  .grupo-botoes.modo-voz .botao {
+    min-width: 54px;
+    padding: 0 8px;
+  }
+
+  .barra-voz .seletor-botao {
+    width: 26px;
+  }
+
+  /* Mais compacto no celular em pé, para caber tudo sem rolar */
+  .tela-grafico {
+    height: 80px;
+  }
+
+  .knob-desenho {
+    width: 40px;
+    height: 40px;
+  }
+
+  .atalhos-wt .botao {
+    min-height: 36px;
+  }
+
+  .teclado {
+    flex-basis: 150px;
   }
 
   /* Módulos um embaixo do outro; os reservados viram faixas finas */
