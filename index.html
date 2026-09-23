@@ -165,14 +165,22 @@
       <!-- Aba FX: efeitos na ordem do caminho do som (Distorção → Chorus → Delay → Reverb) -->
       <section class="conteudo-aba" data-painel="fx" hidden>
         <div class="modulos modulos-4">
-          <article class="cartao reservado">
-            <h2 class="titulo-cartao">Distorção</h2>
-            <p class="em-breve">em breve</p>
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Distorção</h2>
+              <button class="chave" data-ligar-efeito="distorcao" aria-pressed="false">Desligado</button>
+            </div>
+            <!-- Tipo: Suave (arredonda), Dura (corta), Válvula (assimétrica) -->
+            <div id="tipos-distorcao" class="grupo-botoes"></div>
+            <div class="linha-knobs" data-knobs-efeito="distorcao"></div>
           </article>
 
-          <article class="cartao reservado">
-            <h2 class="titulo-cartao">Chorus</h2>
-            <p class="em-breve">em breve</p>
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Chorus</h2>
+              <button class="chave" data-ligar-efeito="chorus" aria-pressed="false">Desligado</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="chorus"></div>
           </article>
 
           <article class="cartao">

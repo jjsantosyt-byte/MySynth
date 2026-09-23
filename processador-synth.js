@@ -19,6 +19,8 @@ import { Voz } from './dsp/voz.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
 import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
+import { Distorcao } from './dsp/efeitos/distorcao.js';
+import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
 
@@ -79,9 +81,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
-    // Efeitos (depois das notas somadas): Delay → Reverb
+    // Efeitos (depois das notas somadas): Distorção → Chorus → Delay → Reverb
+    this.distorcao = new Distorcao(sampleRate);
+    this.chorus = new Chorus(sampleRate);
     this.delay = new Delay(sampleRate);
     this.reverb = new Reverb(sampleRate);
+    this.efeitos = { distorcao: this.distorcao, chorus: this.chorus, delay: this.delay, reverb: this.reverb };
 
     this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
     this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
@@ -119,8 +124,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.definirFonte(msg.id, msg.ajustes);
         break;
       case 'efeito':
-        if (msg.id === 'delay') this.delay.definir(msg.ajustes);
-        if (msg.id === 'reverb') this.reverb.definir(msg.ajustes);
+        this.efeitos[msg.id]?.definir(msg.ajustes);
         break;
     }
   }
@@ -278,6 +282,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
+    this.distorcao.processar(saidaE, saidaD, tamanhoBloco);
+    this.chorus.processar(saidaE, saidaD, tamanhoBloco);
     this.delay.processar(saidaE, saidaD, tamanhoBloco);
     this.reverb.processar(saidaE, saidaD, tamanhoBloco);
 

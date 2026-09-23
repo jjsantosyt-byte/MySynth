@@ -216,6 +216,18 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Medido: ecos caem 8 dB por repetição com Feedback 40%; ligar/desligar sem estalo;
   8 vozes × 8 cópias: 24% → 26% com delay + reverb.
 
+**Item 5b (Distorção + Chorus) — feito, em teste no iPhone:**
+- Cadeia completa: Distorção → Chorus → Delay → Reverb.
+- Distorção (`dsp/efeitos/distorcao.js`): Suave (tanh), Dura (corte), Válvula
+  (assimétrica + filtro que tira o desvio DC). Anti-aliasing: 2x oversampling (filtro
+  meia-banda de 31 coeficientes, só os não-zero são calculados) + ADAA de 1ª ordem.
+  Volume compensado (máx. ~+3 dB com Drive 100%). O original é atrasado 15 amostras
+  (sempre, mesmo dormindo) para alinhar com o distorcido sem estalo.
+  Medido: aliasing em A7 com Drive 100% ≈ -44 a -48 dB (sem proteção: -24 dB); custo ~5%.
+- Chorus (`dsp/efeitos/chorus.js`): 2 cópias por lado, atraso base 12 ms ± até 6 ms,
+  defasadas 1/4 de ciclo (esq. = seno, dir. = cosseno). Rate 0,05–5 Hz. Custo ~1%.
+- 8 vozes × 8 cópias com os 4 efeitos: ~33% do tempo real (sem efeitos: ~24%).
+
 **Teclado do computador — feito:**
 - Padrão FL Studio, pela posição da tecla (`evento.code`, funciona em ABNT e americano):
   Q W E R T Y U I O P [ ] = brancas a partir do 1º C da tela; 2 3 5 6 7 9 0 = = pretas;

@@ -20,6 +20,7 @@ import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao } from './interface/modulacao.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
+import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -82,6 +83,8 @@ const estado = {
   ligacoes: [],
   // Efeitos (mesmos valores iniciais do motor de som)
   efeitos: {
+    distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1 },
+    chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5 },
     delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false },
     reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3 },
   },
@@ -531,6 +534,35 @@ const knobEfeito = (id, rotulo, nome, escala, formatar) =>
     formatar,
     aoMudar: (v) => definirEfeito(id, nome, v),
   });
+
+// Distorção: tipo (botões) + Drive e Mix
+const NOMES_DISTORCAO = { suave: 'Suave', dura: 'Dura', valvula: 'Válvula' };
+const tiposDistorcao = document.getElementById('tipos-distorcao');
+const marcarTipoDistorcao = () =>
+  tiposDistorcao.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.efeitos.distorcao.tipo));
+TIPOS_DISTORCAO.forEach((tipo) => {
+  const botao = document.createElement('button');
+  botao.className = 'botao';
+  botao.textContent = NOMES_DISTORCAO[tipo];
+  botao.dataset.tipo = tipo;
+  botao.addEventListener('click', () => {
+    definirEfeito('distorcao', 'tipo', tipo);
+    marcarTipoDistorcao();
+  });
+  tiposDistorcao.appendChild(botao);
+});
+marcarTipoDistorcao();
+
+document.querySelector('[data-knobs-efeito="distorcao"]').append(
+  knobEfeito('distorcao', 'Drive', 'drive', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('distorcao', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+
+document.querySelector('[data-knobs-efeito="chorus"]').append(
+  knobEfeito('chorus', 'Rate', 'rate', escalaExponencial(0.05, 5), formatarRate),
+  knobEfeito('chorus', 'Depth', 'depth', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('chorus', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
 
 document.querySelector('[data-knobs-efeito="delay"]').append(
   knobEfeito('delay', 'Tempo', 'tempo', escalaExponencial(0.01, 2), formatarTempo),
