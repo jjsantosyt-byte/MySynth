@@ -46,6 +46,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Sem cliques ou estalos ao começar/soltar notas.
 - Sem aliasing (chiado agudo) nas notas altas.
 - Código simples e organizado, com comentários em português.
+- O motor de som (`dsp/` e `processador-synth.js`) não pode depender de nada do navegador
+  (DOM, botões, janela): só contas de áudio. Assim ele pode ser traduzido para C++
+  no futuro (motor nativo), se a latência no celular exigir.
 
 ## Fluxo de trabalho
 - Uma coisa de cada vez, em etapas pequenas.
@@ -72,6 +75,17 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Oscilador: knobs Blend (volume das cópias de fora vs. centro), Phase (ponto de início
   da onda) e Rand (quanto esse início é sorteado). Hoje: Blend fixo (todas iguais) e
   fase sorteada a cada nota.
+- LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
+  (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
+
+## Distribuição (caminho combinado)
+1. Colocar online (https, ex.: GitHub Pages) e testar no celular.
+2. PWA: ícone na tela inicial, tela cheia, funciona sem internet.
+3. APK/AAB para a Play Store via TWA (PWABuilder/Bubblewrap). Conta Google: US$ 25 uma vez.
+4. Só se a latência no celular incomodar: motor de som em C++ (Oboe no Android),
+   tela continua em HTML/JS dentro do Capacitor. Alternativa radical: JUCE (tela + motor
+   em C++, gera também VST/AU). iPhone exige Mac + conta Apple.
+   Medir a latência no celular antes de decidir.
 
 ## Estado atual
 **Item 0 (base) — feito e aprovado (testado no computador):**
