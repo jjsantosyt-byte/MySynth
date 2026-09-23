@@ -123,7 +123,7 @@ h1 {
   height: 44px;
 }
 
-/* ---------- Linha das abas + voz + Mod ---------- */
+/* ---------- Linha das abas + fichas de modulação ---------- */
 
 .linha-abas {
   display: flex;
@@ -133,16 +133,7 @@ h1 {
 }
 
 .linha-abas .abas {
-  flex: 1 1 300px;
-}
-
-.botao-mod {
-  flex: 0 0 auto;
-}
-
-.botao-mod[aria-expanded='true'] {
-  border-color: var(--destaque);
-  color: var(--destaque);
+  flex: 1 1 360px;
 }
 
 /* ---------- Abas ---------- */
@@ -175,13 +166,18 @@ h1 {
   box-shadow: inset 0 -3px 0 var(--destaque);
 }
 
-/* ---------- Opções de voz (Mono/Poly, vozes, Legato) ---------- */
+/* ---------- Opções de voz (aba Global: Mono/Poly, vozes, Legato) ---------- */
 
-.barra-voz {
+.linha-opcao {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
+  gap: 4px 10px;
+}
+
+.dica-opcao {
+  font-size: 12px;
+  color: var(--texto-suave);
 }
 
 .modo-voz {
@@ -203,13 +199,8 @@ h1 {
 
 .barra-fontes {
   display: flex;
-  flex: 1 1 100%; /* linha própria, abaixo das abas */
-  order: 10;
+  flex: 1 1 320px; /* ao lado das abas; se não couber, desce para a linha de baixo */
   gap: 8px;
-}
-
-.barra-fontes[hidden] {
-  display: none;
 }
 
 .ficha {
@@ -781,37 +772,15 @@ h1 {
     display: none;
   }
 
-  /* Abas e botão Mod na mesma linha; opções de voz na linha de baixo */
-  .linha-abas .abas {
-    flex: 1 1 0;
+  /* Abas numa linha; fichas de modulação na linha de baixo */
+  .linha-abas .abas,
+  .barra-fontes {
+    flex: 1 1 100%;
     min-width: 0;
   }
 
-  .botao-mod {
-    order: 1;
-  }
-
-  .linha-abas .barra-voz {
-    order: 2;
-    flex-basis: 100%;
-  }
-
-  .barra-fontes {
-    order: 3;
-  }
-
-  /* Fileira de voz numa linha só: botões e seletor mais justos */
-  .barra-voz {
-    gap: 8px 10px;
-  }
-
-  .grupo-botoes.modo-voz .botao {
-    min-width: 54px;
-    padding: 0 8px;
-  }
-
-  .barra-voz .seletor-botao {
-    width: 26px;
+  .aba {
+    font-size: 14px;
   }
 
   /* Mais compacto no celular em pé, para caber tudo sem rolar */
@@ -951,7 +920,7 @@ h1 {
     height: 30px;
   }
 
-  /* --- Abas + voz + Mod: uma linha só --- */
+  /* --- Abas + fichas de modulação: uma linha só --- */
   .linha-abas {
     flex-wrap: nowrap;
     gap: 8px;
@@ -967,9 +936,9 @@ h1 {
     font-size: 13px;
   }
 
-  .barra-voz {
-    flex-wrap: nowrap;
-    gap: 8px;
+  /* Explicações das opções somem no celular deitado (falta altura) */
+  .dica-opcao {
+    display: none;
   }
 
   .grupo-botoes.modo-voz .botao {
@@ -998,14 +967,8 @@ h1 {
     font-size: 12px;
   }
 
-  /* Mod aberto: as fichas ocupam o lugar das opções de voz (mesma linha) */
   .barra-fontes {
     flex: 1 1 auto;
-    order: 0;
-  }
-
-  .linha-abas.mod-aberto .barra-voz {
-    display: none;
   }
 
   .ficha {

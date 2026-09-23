@@ -71,6 +71,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
   (o Cutoff acompanhar a nota tocada).
 - Glide (portamento): a nota "escorrega" até a próxima; ótimo para reese/baixos no modo Mono.
+  Lugar reservado: aba Global.
+- Qualidade (aba Global): escolher a taxa de amostragem (44,1/48 kHz — exige religar o
+  motor de som por um instante) e/ou um modo "qualidade alta" (mais limpo, mais pesado).
 - Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).
 - Oscilador: knobs Blend (volume das cópias de fora vs. centro), Phase (ponto de início
   da onda) e Rand (quanto esse início é sorteado). Hoje: Blend fixo (todas iguais) e
@@ -182,9 +185,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Prioridade: celular DEITADO, sem rolagem em nenhuma aba. Celular em pé continua
   funcionando (com rolagem permitida).
 - Regras do layout deitado (`@media (orientation: landscape) and (max-height: 500px)`):
-  barra de cima numa linha; abas + voz + botão Mod numa linha; Mod ▾ troca as opções
-  de voz pelas fichas na MESMA linha; teclado ~22% da altura; os desenhos (onda,
-  filtro, envelopes, LFO) encolhem para o resto caber; só as listas de ligações rolam.
+  barra de cima numa linha; abas + fichas de modulação (sempre visíveis) numa linha;
+  teclado ~22% da altura; os desenhos (onda, filtro, envelopes, LFO) encolhem para o
+  resto caber; só as listas de ligações rolam; explicações de opções escondidas.
+- Aba Global (ajustes do synth todo): cartão Voz (Mono/Poly, Vozes, Legato) +
+  espaços reservados para Glide e Qualidade (taxa de amostragem / qualidade do som).
+  O botão "Mod" foi removido (as fichas cabem sempre).
 - Medido: 852×340 (Safari) e 852×393 (instalado) sem rolagem e sem cortes.
 - Margens da ilha/câmera: `viewport-fit=cover` + `env(safe-area-inset-*)`.
 - PWA básico: `manifest.json`, ícones em `icones/`, metas da Apple → "Adicionar à

@@ -650,19 +650,6 @@ const telaModulacao = criarModulacao({
   aoMudar: enviarLigacoes,
 });
 
-// Botão "Mod": mostra/esconde as fichas. No celular deitado, elas ocupam o
-// lugar das opções de voz na mesma linha (o estilo cuida disso).
-const botaoMod = document.getElementById('botao-mod');
-const linhaAbas = document.getElementById('linha-abas');
-botaoMod.addEventListener('click', () => {
-  const abrir = barraFontes.hidden;
-  barraFontes.hidden = !abrir;
-  linhaAbas.classList.toggle('mod-aberto', abrir);
-  botaoMod.setAttribute('aria-expanded', abrir);
-  botaoMod.textContent = abrir ? 'Mod ▴' : 'Mod ▾';
-  if (!abrir) telaModulacao.desarmar();
-});
-
 // ---------- Abas ----------
 
 const abas = document.querySelectorAll('.aba');
