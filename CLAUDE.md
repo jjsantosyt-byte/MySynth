@@ -76,6 +76,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Oscilador: knobs Blend (volume das cópias de fora vs. centro), Phase (ponto de início
   da onda) e Rand (quanto esse início é sorteado). Hoje: Blend fixo (todas iguais) e
   fase sorteada a cada nota.
+- OSC A: botão liga/desliga e Nível próprio (hoje ele sempre toca; com isso daria para
+  fazer sons só de ruído, ex.: risers e percussão).
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
 
@@ -245,7 +247,17 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Tela acompanha ao carregar: knobs/seletores têm `ler` + `sincronizar()`; botões ficam na
   lista `sincronizadores`. Novo controle = dar `ler` ao knob ou registrar o sincronizador.
 
-**Item 6b (mais wavetables + seletor) — feito, em teste no iPhone:**
+**Ruído + arquivo .synth — feito, em teste no iPhone:**
+- Ruído (`dsp/ruido.js`), um gerador por voz (semente diferente por voz): White, Pink
+  (Paul Kellet, -3 dB/oitava), Brown (-6 dB/oitava); volumes medidos e igualados (~0,35 RMS).
+  Somado ao oscilador ANTES do filtro e do ENV 1. Nível = parâmetro `ruido` (0–1), também
+  destino de modulação ('ruido'); opções `ruidoLigado` e `ruidoTipo`. Rampa suave ao ligar.
+- Aba OSC com 4 colunas: OSC A (1,35) · OSC B · OSC C · Ruído (0,8).
+- Presets exportados como `mysynth-presets.synth` (JSON por dentro, tipo octet-stream para o
+  navegador não trocar a extensão). Importar aceita qualquer arquivo e confere o conteúdo
+  (.synth e .json antigos).
+
+**Item 6b (mais wavetables + seletor) — feito e aprovado:**
 - `wavetable.js` reescrito: frames descritos por harmônicos (a = cosseno, b = seno) e
   montados com FFT (rápido: < 50 ms por tabela). `harmonicosDeAmostras()` faz o caminho
   inverso (onda → harmônicos): base para importar .wav na 6c.

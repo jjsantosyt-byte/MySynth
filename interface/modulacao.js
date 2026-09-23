@@ -22,6 +22,7 @@ export const NOMES_DESTINOS = {
   width: 'Width',
   cutoff: 'Cutoff',
   resonancia: 'Reso',
+  ruido: 'Ruído',
 };
 
 const QUANTIDADE_INICIAL = 0.5; // +50% ao criar uma ligação

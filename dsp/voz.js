@@ -1,6 +1,6 @@
 // dsp/voz.js
 // Uma "voz" = uma nota tocando, completa:
-//   cópias de unison (oscilador) → filtro estéreo → envelope de volume (ENV 1)
+//   cópias de unison (oscilador) + ruído → filtro estéreo → envelope de volume (ENV 1)
 // e as fontes de modulação da própria nota: LFO 1 e 2 (modo Retrig), ENV 2 e 3.
 //
 // Unison: várias cópias do oscilador, desafinadas por igual para cima e
@@ -15,7 +15,8 @@ import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { escolherNiveis, lerAmostra } from './oscilador.js';
 import { EstadoLFO } from './lfo.js';
-import { DESTINOS_MOD, FONTES_MOD, D_WTPOS, D_DETUNE, D_WIDTH, D_CUTOFF, D_RESO } from './modulacao.js';
+import { DESTINOS_MOD, FONTES_MOD, D_WTPOS, D_DETUNE, D_WIDTH, D_CUTOFF, D_RESO, D_RUIDO } from './modulacao.js';
+import { Ruido } from './ruido.js';
 
 export const MAX_UNISON = 16;
 
@@ -36,9 +37,12 @@ function notaParaFrequencia(nota) {
 }
 
 export class Voz {
-  constructor(taxaAmostragem) {
+  // "numero" = qual voz é (1, 2, 3...): usado para cada voz ter um ruído diferente.
+  constructor(taxaAmostragem, numero = 1) {
     this.taxa = taxaAmostragem;
     this.envelope = new Envelope(taxaAmostragem); // ENV 1: volume
+    this.ruido = new Ruido(numero);
+    this.nivelRuido = 0;
     this.filtroE = new Filtro(taxaAmostragem); // lado esquerdo
     this.filtroD = new Filtro(taxaAmostragem); // lado direito
 
@@ -208,6 +212,7 @@ export class Voz {
     if (!this.envelope.ativo) return;
 
     const { tabela, posicoesWT, cortes, resonancias, coef, unison, detune, width, matriz } = comum;
+    const { ruidoLigado, ruidoNivel, ruidoTipo } = comum;
 
     // Volume de cada cópia: 1/√N, para o som não ficar N vezes mais alto.
     const volumeCopia = 1 / Math.sqrt(unison);
@@ -350,6 +355,20 @@ export class Voz {
 
         this.fases[c] = fase;
         this.volumes[c] = volume;
+      }
+
+      // 4b) Ruído: somado ao oscilador, antes do filtro e do envelope.
+      // O nível anda suavemente (ligar, desligar e modular não estalam).
+      const alvoRuido = ruidoLigado ? limitar01(ruidoNivel + this.mod[D_RUIDO]) : 0;
+      if (alvoRuido > 0 || this.nivelRuido > 1e-5) {
+        for (let i = inicio; i < fim; i++) {
+          this.nivelRuido += (alvoRuido - this.nivelRuido) * s;
+          const r = this.ruido.proximo(ruidoTipo) * this.nivelRuido;
+          somaE[i] += r;
+          somaD[i] += r;
+        }
+      } else {
+        this.nivelRuido = 0;
       }
 
       // 5) Filtro com Cutoff/Reso modulados: coeficientes próprios, em rampa suave

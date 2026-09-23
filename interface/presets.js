@@ -5,7 +5,8 @@
 // - Tocar no nome abre a lista, por categoria. Presets seus podem ser apagados (🗑).
 // - Presets de fábrica não podem ser apagados nem substituídos.
 // - Os seus presets ficam guardados NESTE aparelho (no navegador / no app instalado).
-//   Exportar/Importar gera um arquivo .json para backup ou para mandar para alguém.
+//   Exportar/Importar gera um arquivo .synth (texto JSON por dentro) para backup ou
+//   para mandar para alguém. Importar também aceita os .json antigos.
 
 const CHAVE_GUARDADOS = 'mysynth.presets.v1';
 const TAMANHO_MAXIMO_NOME = 40;
@@ -160,9 +161,10 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom 
   const janelaLista = criarJanela('Presets');
   const botaoExportar = criar('button', 'botao', 'Exportar meus presets');
   const botaoImportar = criar('button', 'botao', 'Importar');
+  // Aceita qualquer arquivo (o iPhone às vezes "apaga" extensões que não conhece,
+  // como .synth); o conteúdo é conferido ao importar. Arquivos .json antigos também valem.
   const escolherArquivo = criar('input');
   escolherArquivo.type = 'file';
-  escolherArquivo.accept = '.json,application/json';
   escolherArquivo.hidden = true;
   janelaLista.rodape.append(botaoExportar, botaoImportar, escolherArquivo);
 
@@ -220,17 +222,18 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom 
     montarLista();
   }
 
-  // Exportar: baixa um arquivo com os seus presets
+  // Exportar: baixa um arquivo .synth com os seus presets
+  // (por dentro é texto no formato JSON; o tipo "genérico" evita o navegador trocar a extensão)
   botaoExportar.addEventListener('click', () => {
     if (guardados.length === 0) {
       janelaLista.avisar('Você ainda não salvou nenhum preset.');
       return;
     }
     const conteudo = JSON.stringify({ app: 'MySynth', versao: 1, presets: guardados }, null, 2);
-    const endereco = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }));
+    const endereco = URL.createObjectURL(new Blob([conteudo], { type: 'application/octet-stream' }));
     const link = criar('a');
     link.href = endereco;
-    link.download = 'mysynth-presets.json';
+    link.download = 'mysynth-presets.synth';
     document.body.appendChild(link);
     link.click();
     link.remove();

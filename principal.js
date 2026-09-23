@@ -21,6 +21,7 @@ import { criarModulacao } from './interface/modulacao.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
+import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
 import { PRESETS_FABRICA, CATEGORIAS } from './presets-fabrica.js';
 
@@ -55,6 +56,7 @@ const estado = {
     wtPos: 0, // posição na wavetable (0 a 1)
     detune: 0.25, // unison: quanto as cópias desafinam (0 a 1)
     width: 1, // unison: abertura no estéreo (0 a 1)
+    ruido: 0.5, // nível do ruído (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
     ataque: 0.005, // segundos
@@ -73,6 +75,8 @@ const estado = {
     unison: 1, // cópias do oscilador por nota
     glide: 0, // segundos do escorregão entre notas (0 = desligado)
     glideSempre: false, // escorregar mesmo sem emendar as notas
+    ruidoLigado: false, // ruído somado ao oscilador
+    ruidoTipo: 'white', // 'white', 'pink' ou 'brown'
   },
   // Fontes de modulação (mesmos valores iniciais do motor de som).
   fontes: {
@@ -800,6 +804,47 @@ document.querySelectorAll('[data-knobs-env]').forEach((lugar) => {
     knob('R', 'soltura', escalaTempo, formatarTempo)
   );
 });
+
+// ---------- Ruído (aba OSC) ----------
+
+const botaoRuido = document.getElementById('ruido-ligado');
+const nomeRuido = document.getElementById('ruido-tipo');
+const NOMES_RUIDO = { white: 'White', pink: 'Pink', brown: 'Brown' };
+
+function mostrarRuido() {
+  const ligado = estado.opcoes.ruidoLigado;
+  botaoRuido.setAttribute('aria-pressed', ligado);
+  botaoRuido.textContent = ligado ? 'Ligado' : 'Desligado';
+  nomeRuido.textContent = NOMES_RUIDO[estado.opcoes.ruidoTipo];
+}
+
+botaoRuido.addEventListener('click', () => {
+  definirOpcao('ruidoLigado', !estado.opcoes.ruidoLigado);
+  mostrarRuido();
+});
+
+function andarRuido(passo) {
+  const i = TIPOS_RUIDO.indexOf(estado.opcoes.ruidoTipo);
+  definirOpcao('ruidoTipo', TIPOS_RUIDO[(i + passo + TIPOS_RUIDO.length) % TIPOS_RUIDO.length]);
+  mostrarRuido();
+}
+document.getElementById('ruido-anterior').addEventListener('click', () => andarRuido(-1));
+document.getElementById('ruido-proximo').addEventListener('click', () => andarRuido(1));
+
+document.getElementById('knobs-ruido').append(
+  criarKnob({
+    rotulo: 'Nível',
+    destino: 'ruido', // aceita modulação (ex.: ENV 2 curto = "tsc" no começo da nota)
+    escala: escalaLinear(0, 1),
+    padrao: estado.parametros.ruido,
+    formatar: formatarPorcentagem,
+    aoMudar: (v) => definirParametro('ruido', v),
+    ler: () => estado.parametros.ruido,
+  })
+);
+
+mostrarRuido();
+sincronizadores.push(mostrarRuido);
 
 // ---------- Aba LFO ----------
 

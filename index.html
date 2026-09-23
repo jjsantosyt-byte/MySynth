@@ -57,7 +57,7 @@
 
       <!-- Aba OSC: 3 espaços de oscilador (só o A funciona por enquanto) -->
       <section class="conteudo-aba" data-painel="osc">
-        <div class="modulos">
+        <div class="modulos modulos-osc">
           <article class="cartao cartao-osc">
             <div class="cabecalho-cartao cabecalho-osc">
               <h2 class="titulo-cartao"><span class="nome-longo">OSC </span>A</h2>
@@ -95,6 +95,20 @@
           <article class="cartao reservado">
             <h2 class="titulo-cartao">OSC C</h2>
             <p class="em-breve">em breve</p>
+          </article>
+
+          <!-- Ruído: passa pelo mesmo filtro e envelope das notas -->
+          <article class="cartao cartao-ruido">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Ruído</h2>
+              <button id="ruido-ligado" class="chave" aria-pressed="false">Desligado</button>
+            </div>
+            <div class="seletor-wt">
+              <button id="ruido-anterior" class="seletor-botao" aria-label="Tipo de ruído anterior">‹</button>
+              <span id="ruido-tipo" class="seletor-wt-nome">White</span>
+              <button id="ruido-proximo" class="seletor-botao" aria-label="Próximo tipo de ruído">›</button>
+            </div>
+            <div id="knobs-ruido" class="linha-knobs"></div>
           </article>
         </div>
       </section>

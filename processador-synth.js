@@ -38,6 +38,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       // Unison: Detune e Width de 0 a 1
       { name: 'detune', defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'width', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      // Ruído: nível de 0 a 1
+      { name: 'ruido', defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Filtro
       { name: 'cutoff', defaultValue: 2000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
       { name: 'resonancia', defaultValue: 0.1, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
@@ -55,7 +57,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.tabelaNova = null; // wavetable esperando para entrar (troca sem estalo)
     this.volumeTroca = 1; // abaixa até 0 na troca de wavetable e volta a 1
     this.suavizarTroca = 1 - Math.exp(-1 / (0.0015 * sampleRate)); // ~1,5 ms
-    this.vozes = Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
+    this.vozes = Array.from({ length: MAX_VOZES }, (_, k) => new Voz(sampleRate, k + 1));
     this.coef = new CoeficientesFiltro(sampleRate);
 
     // Opções (a página manda os valores escolhidos logo ao ligar)
@@ -72,6 +74,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.glideTempo = 0;
     this.glideSempre = false;
     this.ultimaNota = null;
+
+    // Ruído (o nível é o parâmetro "ruido")
+    this.ruidoLigado = false;
+    this.ruidoTipo = 'white';
     this.comum = {}; // dados do bloco, compartilhados por todas as vozes
 
     // Modulação
@@ -163,6 +169,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'glideSempre':
         this.glideSempre = valor;
+        break;
+      case 'ruidoLigado':
+        this.ruidoLigado = valor;
+        break;
+      case 'ruidoTipo':
+        this.ruidoTipo = valor;
         break;
       case 'filtroTipo':
       case 'filtroLigado':
@@ -329,6 +341,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     comum.unison = this.unison;
     comum.detune = parametros.detune[0];
     comum.width = parametros.width[0];
+    comum.ruidoLigado = this.ruidoLigado;
+    comum.ruidoNivel = parametros.ruido[0];
+    comum.ruidoTipo = this.ruidoTipo;
     comum.matriz = this.matriz;
     comum.ajustesLfo = this.ajustesLfo;
     comum.lfosLivres = this.valoresLivres;
