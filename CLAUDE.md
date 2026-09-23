@@ -63,6 +63,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 6. Presets e wavetables próprias
 7. Depois: gravação, sequenciador, exportação (o "DAW")
 
+## Ideias para o futuro (sem data)
+- Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais
+  (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
+  (o Cutoff acompanhar a nota tocada).
+
 ## Estado atual
 **Item 0 (base) — feito e aprovado (testado no computador):**
 - Teclado na tela (1 a 4 oitavas conforme a largura da tela), deslizar entre teclas,
