@@ -14,9 +14,11 @@ import {
   formatarPorcentagem,
   formatarFrequencia,
   formatarRate,
+  faixaModulacao,
 } from './interface/knob.js';
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao } from './interface/modulacao.js';
+import { DESTINOS_MOD } from './dsp/modulacao.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -75,6 +77,9 @@ const estado = {
   },
   // Ligações de modulação: [{ fonte: 'lfo1', destino: 'cutoff', quantidade: 0.5 }]
   ligacoes: [],
+  // O que a nota mais recente está fazendo agora (vem do motor ~30 vezes por segundo):
+  // mod = quanto cada controle está sendo modulado; lfos = fase e valor de cada LFO.
+  aoVivo: { mod: null, lfos: [null, null] },
   contexto: null, // o "motor" de áudio do navegador
   synth: null, // nosso processador de som
   ganho: null, // volume geral
@@ -140,6 +145,14 @@ async function ligarSom() {
 
     // Envia uma cópia da wavetable para o motor de som.
     synth.port.postMessage({ tipo: 'wavetable', wavetable });
+
+    // Valores ao vivo vindos do motor: atualizam os pontinhos e os desenhos.
+    synth.port.onmessage = (evento) => {
+      if (evento.data.tipo !== 'aoVivo') return;
+      estado.aoVivo = evento.data;
+      telaModulacao.atualizarAoVivo(evento.data.mod);
+      pedirDesenho();
+    };
 
     estado.synth = synth;
     estado.ganho = ganho;
@@ -225,6 +238,21 @@ function enviarLigacoes() {
   estado.synth?.port.postMessage({ tipo: 'modulacoes', lista: estado.ligacoes.map((l) => ({ ...l })) });
 }
 
+// ---------- Valores modulados "ao vivo" (para os desenhos) ----------
+
+// Controle de 0 a 1 somado à modulação que a nota mais recente está recebendo agora.
+function modulado(base, destino) {
+  const mod = estado.aoVivo.mod;
+  if (!mod) return base;
+  return Math.min(1, Math.max(0, base + mod[DESTINOS_MOD.indexOf(destino)]));
+}
+
+// Cutoff ao vivo: a modulação anda na escala do knob (exponencial de 20 Hz a 20 kHz).
+const escalaCutoff = escalaExponencial(20, 20000);
+function corteAoVivo() {
+  return escalaCutoff.paraValor(modulado(escalaCutoff.paraPosicao(estado.parametros.cutoff), 'cutoff'));
+}
+
 // ---------- Desenhos ----------
 
 let desenhoPendente = false;
@@ -241,11 +269,14 @@ function pedirDesenho() {
     desenharFiltro(telaFiltro, {
       tipo: estado.opcoes.filtroTipo,
       ligado: estado.opcoes.filtroLigado,
-      corte: estado.parametros.cutoff,
-      resonancia: estado.parametros.resonancia,
+      corte: corteAoVivo(),
+      resonancia: modulado(estado.parametros.resonancia, 'resonancia'),
       taxa: estado.contexto?.sampleRate || 48000,
     });
-    telasLfo.forEach((tela) => desenharLFO(tela, estado.fontes[tela.dataset.telaLfo].forma));
+    telasLfo.forEach((tela) => {
+      const id = tela.dataset.telaLfo;
+      desenharLFO(tela, estado.fontes[id].forma, estado.aoVivo.lfos[id === 'lfo1' ? 0 : 1]);
+    });
     telasEnv.forEach((tela) => desenharEnvelope(tela, estado.fontes[tela.dataset.telaEnv]));
   });
 }
@@ -267,11 +298,45 @@ function definirWTPos(valor) {
   const wtPos = Math.min(1, Math.max(0, valor));
   controleWTPos.value = wtPos;
   definirParametro('wtPos', wtPos);
+  desenharModulacaoWTPos(); // as faixas acompanham a barra
+}
+
+// Faixas de modulação e ponto ao vivo embaixo da barra do WT Pos
+// (o equivalente ao arco colorido dos knobs).
+const grupoWTPos = document.querySelector('.grupo-wtpos');
+const faixasWTPos = document.getElementById('faixas-wtpos');
+let modulacaoWTPos = { faixas: [], deslocamento: null };
+
+grupoWTPos.mostrarModulacao = (faixas, deslocamento) => {
+  modulacaoWTPos = { faixas, deslocamento };
+  desenharModulacaoWTPos();
+};
+
+function desenharModulacaoWTPos() {
+  const base = estado.parametros.wtPos;
+  const { faixas, deslocamento } = modulacaoWTPos;
+  faixasWTPos.innerHTML = '';
+  for (const faixa of faixas) {
+    const [ini, fim] = faixaModulacao(base, faixa.quantidade, faixa.bipolar);
+    const trecho = document.createElement('span');
+    trecho.className = 'faixa';
+    trecho.style.left = ini * 100 + '%';
+    trecho.style.width = (fim - ini) * 100 + '%';
+    trecho.style.background = faixa.cor;
+    faixasWTPos.appendChild(trecho);
+  }
+  if (deslocamento !== null && faixas.length > 0) {
+    const ponto = document.createElement('span');
+    ponto.className = 'ponto-aovivo';
+    ponto.style.left = Math.min(1, Math.max(0, base + deslocamento)) * 100 + '%';
+    faixasWTPos.appendChild(ponto);
+  }
 }
 
 function desenharPainelOnda() {
   // Mesma mistura que o motor de som faz, usando a versão mais cheia da onda.
-  const wt = estado.parametros.wtPos * ultimoFrame;
+  // Com modulação no WT Pos, mostra a onda na posição modulada, ao vivo.
+  const wt = modulado(estado.parametros.wtPos, 'wtPos') * ultimoFrame;
   const f0 = Math.min(Math.floor(wt), ultimoFrame);
   const f1 = Math.min(f0 + 1, ultimoFrame);
   const t = wt - f0;
@@ -330,7 +395,8 @@ function marcasUnison() {
   const qtd = estado.opcoes.unison;
   if (qtd < 2) return [];
   const marcas = [];
-  for (let c = 0; c < qtd; c++) marcas.push(((c / (qtd - 1)) * 2 - 1) * estado.parametros.detune);
+  const detune = modulado(estado.parametros.detune, 'detune');
+  for (let c = 0; c < qtd; c++) marcas.push(((c / (qtd - 1)) * 2 - 1) * detune);
   return marcas;
 }
 
@@ -572,7 +638,7 @@ document.querySelectorAll('[data-modo-lfo]').forEach((botao) => {
 const listasMod = {};
 document.querySelectorAll('[data-lista]').forEach((lista) => (listasMod[lista.dataset.lista] = lista));
 
-criarModulacao({
+const telaModulacao = criarModulacao({
   barra: document.getElementById('barra-fontes'),
   dica: document.getElementById('dica-modulacao'),
   listas: listasMod,
@@ -712,7 +778,11 @@ teclado.addEventListener('pointerdown', (evento) => {
   // Primeiro toque no teclado já liga o som (não precisa do botão).
   if (!estado.contexto) ligarSom();
   evento.preventDefault();
-  teclado.setPointerCapture(evento.pointerId);
+  try {
+    teclado.setPointerCapture(evento.pointerId);
+  } catch {
+    // Sem captura, o dedo ainda toca enquanto estiver em cima do teclado.
+  }
   estado.dedos.set(evento.pointerId, null);
   atualizarDedo(evento);
 });

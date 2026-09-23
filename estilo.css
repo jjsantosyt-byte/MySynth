@@ -601,6 +601,19 @@ h1 {
   stroke-linecap: round;
 }
 
+/* Modulação no knob: arco externo colorido e ponto do valor ao vivo */
+.knob-faixa {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.knob-aovivo {
+  fill: #fff;
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
+}
+
 .knob.girando .knob-valor {
   filter: drop-shadow(0 0 3px var(--destaque));
 }
@@ -640,10 +653,46 @@ h1 {
   color: var(--texto-suave);
 }
 
+.trilho-wtpos {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
 .grupo-wtpos input {
   flex: 1;
   min-width: 0;
   height: 40px;
+}
+
+/* Faixas de modulação embaixo de uma barra (ex.: WT Pos) */
+.faixas-barra {
+  position: absolute;
+  left: 8px; /* o "botão" da barra não chega até a ponta */
+  right: 8px;
+  bottom: 3px;
+  height: 4px;
+  pointer-events: none;
+}
+
+.faixas-barra .faixa {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.faixas-barra .ponto-aovivo {
+  position: absolute;
+  top: -3px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
 .atalhos-wt {

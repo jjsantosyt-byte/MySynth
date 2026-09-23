@@ -4,7 +4,10 @@
 // listas de ligações (com a quantidade e o botão ✕) dentro de cada cartão.
 //
 // Qualquer elemento com o atributo data-destino="cutoff" (por exemplo) pode
-// receber uma ligação.
+// receber uma ligação. Se ele tiver o método mostrarModulacao(faixas, deslocamento),
+// também mostra as faixas coloridas e o valor ao vivo (ver interface/knob.js).
+
+import { DESTINOS_MOD } from '../dsp/modulacao.js';
 
 export const FONTES = [
   { id: 'lfo1', nome: 'LFO 1' },
@@ -26,6 +29,8 @@ const DISTANCIA_ARRASTE = 8; // px: menos que isso é um toque, não um arraste
 
 const nomeDaFonte = (id) => FONTES.find((f) => f.id === id).nome;
 const corDaFonte = (id) => `var(--cor-${id})`;
+// LFOs vão de -1 a +1 (balançam para os dois lados); envelopes de 0 a 1.
+const ehBipolar = (id) => id.startsWith('lfo');
 
 // opcoes:
 //   barra: onde colocar as fichas
@@ -35,6 +40,7 @@ const corDaFonte = (id) => `var(--cor-${id})`;
 //   aoMudar: chamado sempre que as ligações mudam
 export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
   let armada = null; // fonte escolhida no modo "tocar para ligar"
+  let modAoVivo = null; // quanto cada destino está sendo modulado agora (ou null)
 
   // ---------- Fichas ----------
   const fichas = FONTES.map(({ id, nome }) => {
@@ -77,6 +83,8 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
       el.classList.remove('mod-ligou');
       void el.offsetWidth; // reinicia a animação
       el.classList.add('mod-ligou');
+      // Tira a marcação no fim, senão o brilho repete toda vez que a aba reabre.
+      el.addEventListener('animationend', () => el.classList.remove('mod-ligou'), { once: true });
     });
   }
 
@@ -198,6 +206,22 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
         bolinhas.appendChild(bolinha);
       }
     });
+    atualizarAoVivo(modAoVivo);
+  }
+
+  // Faixas coloridas e ponto ao vivo em cada controle ligado.
+  // "mod": lista do motor de som (na ordem de DESTINOS_MOD), ou null se nada toca.
+  function atualizarAoVivo(mod) {
+    modAoVivo = mod;
+    document.querySelectorAll('[data-destino]').forEach((el) => {
+      if (!el.mostrarModulacao) return;
+      const destino = el.dataset.destino;
+      const faixas = ligacoes
+        .filter((l) => l.destino === destino)
+        .map((l) => ({ cor: corDaFonte(l.fonte), quantidade: l.quantidade, bipolar: ehBipolar(l.fonte) }));
+      const deslocamento = mod ? mod[DESTINOS_MOD.indexOf(destino)] : null;
+      el.mostrarModulacao(faixas, deslocamento);
+    });
   }
 
   // Uma linha da lista: nome do destino, barra de quantidade, valor e ✕.
@@ -229,6 +253,7 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
     barraQuantidade.addEventListener('input', () => {
       ligacao.quantidade = Number(barraQuantidade.value);
       mostrar();
+      atualizarAoVivo(modAoVivo); // as faixas nos controles acompanham
       aoMudar();
     });
 
@@ -243,5 +268,5 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
   }
 
   atualizar();
-  return { atualizar };
+  return { atualizar, atualizarAoVivo };
 }

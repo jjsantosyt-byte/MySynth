@@ -147,7 +147,8 @@ function valorLFODesenho(forma, fase) {
 }
 
 // Desenha um ciclo da forma do LFO.
-export function desenharLFO(canvas, forma) {
+// "aoVivo" (opcional): { fase, valor } — onde o LFO está agora (pontinho que anda).
+export function desenharLFO(canvas, forma, aoVivo = null) {
   const tela = prepararCanvas(canvas);
   if (!tela) return;
   const { g, largura, altura } = tela;
@@ -164,6 +165,20 @@ export function desenharLFO(canvas, forma) {
     pontos.push([margem + (k / qtd) * (largura - 2 * margem), meio - valorLFODesenho(forma, fase) * amplitude]);
   }
   linhaComBrilho(g, pontos, meio, altura);
+
+  // Pontinho na posição atual do LFO (usa o valor de verdade, inclusive no S&H).
+  if (aoVivo) {
+    const x = margem + aoVivo.fase * (largura - 2 * margem);
+    const y = meio - aoVivo.valor * amplitude;
+    g.save();
+    g.fillStyle = '#fff';
+    g.shadowColor = 'rgba(255, 255, 255, 0.9)';
+    g.shadowBlur = 8;
+    g.beginPath();
+    g.arc(x, y, 4.5, 0, 2 * Math.PI);
+    g.fill();
+    g.restore();
+  }
 }
 
 // ---------- Envelope (ADSR) ----------

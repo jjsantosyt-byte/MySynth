@@ -81,6 +81,17 @@ function arco(anguloInicio, anguloFim, raio) {
   return `M ${x1} ${y1} A ${raio} ${raio} 0 ${arcoGrande} 1 ${x2} ${y2}`;
 }
 
+// ---------- Faixa de modulação ----------
+
+// Até onde uma ligação leva o controle, a partir da posição "base" (0 a 1).
+// LFO (bipolar) balança para os dois lados; ENV (unipolar) só para um.
+// Devolve [início, fim] já dentro de 0 a 1.
+export function faixaModulacao(base, quantidade, bipolar) {
+  const limitar = (v) => Math.min(1, Math.max(0, v));
+  if (bipolar) return [limitar(base - Math.abs(quantidade)), limitar(base + Math.abs(quantidade))];
+  return quantidade >= 0 ? [base, limitar(base + quantidade)] : [limitar(base + quantidade), base];
+}
+
 // ---------- O knob ----------
 
 // opcoes: { rotulo, escala, padrao, formatar, aoMudar, destino }
@@ -94,9 +105,11 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }
   elemento.setAttribute('aria-label', rotulo);
   elemento.innerHTML = `
     <svg class="knob-desenho" viewBox="0 0 48 48" aria-hidden="true">
+      <g class="knob-faixas"></g>
       <path class="knob-trilho" d="${arco(INICIO, INICIO + GIRO_TOTAL, 19)}" />
       <path class="knob-valor" />
       <line class="knob-ponteiro" x1="24" y1="24" x2="24" y2="10" />
+      <circle class="knob-aovivo" r="3" cx="24" cy="5" style="display: none" />
     </svg>
     <span class="knob-numero"></span>
     <span class="knob-rotulo">${rotulo}</span>`;
@@ -104,9 +117,51 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }
   const caminhoValor = elemento.querySelector('.knob-valor');
   const ponteiro = elemento.querySelector('.knob-ponteiro');
   const numero = elemento.querySelector('.knob-numero');
+  const grupoFaixas = elemento.querySelector('.knob-faixas');
+  const pontoAoVivo = elemento.querySelector('.knob-aovivo');
 
   const posicaoPadrao = escala.paraPosicao(padrao);
   let posicao = posicaoPadrao;
+
+  // Modulação: faixas coloridas (arco externo) e ponto do valor ao vivo.
+  let faixas = []; // [{ cor, quantidade, bipolar }]
+  let deslocamentoAoVivo = null; // quanto a modulação está somando agora (ou null)
+
+  let faixasDesenhadas = ''; // para só redesenhar os arcos quando algo mudar
+
+  function desenharModulacao() {
+    desenharFaixas();
+    if (deslocamentoAoVivo === null || faixas.length === 0) {
+      pontoAoVivo.style.display = 'none';
+    } else {
+      const ao = Math.min(1, Math.max(0, posicao + deslocamentoAoVivo));
+      pontoAoVivo.style.display = '';
+      pontoAoVivo.setAttribute('transform', `rotate(${INICIO + ao * GIRO_TOTAL} 24 24)`);
+    }
+  }
+
+  function desenharFaixas() {
+    const chave = posicao + JSON.stringify(faixas);
+    if (chave === faixasDesenhadas) return;
+    faixasDesenhadas = chave;
+    grupoFaixas.innerHTML = '';
+    for (const faixa of faixas) {
+      const [ini, fim] = faixaModulacao(posicao, faixa.quantidade, faixa.bipolar);
+      if (fim - ini < 0.002) continue;
+      const caminho = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      caminho.setAttribute('class', 'knob-faixa');
+      caminho.setAttribute('d', arco(INICIO + ini * GIRO_TOTAL, INICIO + fim * GIRO_TOTAL, 22.5));
+      caminho.style.stroke = faixa.cor;
+      grupoFaixas.appendChild(caminho);
+    }
+  }
+
+  // Chamado pela tela de modulação: quais ligações este knob tem e o valor ao vivo.
+  elemento.mostrarModulacao = (novasFaixas, deslocamento) => {
+    faixas = novasFaixas;
+    deslocamentoAoVivo = deslocamento;
+    desenharModulacao();
+  };
 
   function atualizar() {
     const valor = escala.paraValor(posicao);
@@ -115,6 +170,7 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }
     ponteiro.setAttribute('transform', `rotate(${angulo} 24 24)`);
     numero.textContent = formatar(valor);
     elemento.setAttribute('aria-valuetext', numero.textContent);
+    desenharModulacao(); // as faixas acompanham o knob
     aoMudar(valor);
   }
 

@@ -62,7 +62,11 @@
             </div>
             <label class="grupo-wtpos" data-destino="wtPos">
               <span>WT Pos</span>
-              <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
+              <span class="trilho-wtpos">
+                <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
+                <!-- Faixas de modulação e ponto ao vivo (desenhados pelo principal.js) -->
+                <span id="faixas-wtpos" class="faixas-barra" aria-hidden="true"></span>
+              </span>
             </label>
             <!-- Atalhos: tocar no nome pula direto para aquela forma de onda -->
             <div id="atalhos-wt" class="atalhos-wt"></div>

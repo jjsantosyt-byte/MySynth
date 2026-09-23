@@ -20,6 +20,8 @@ import { EstadoLFO } from './dsp/lfo.js';
 
 const MAX_VOZES = 16;
 const PEDACO = 32; // amostras por pedaço de modulação (igual ao da voz)
+// A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
+const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 30);
 
 class ProcessadorSynth extends AudioWorkletProcessor {
   // Controles que a página pode mexer de forma suave.
@@ -69,6 +71,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     ];
     this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
     this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
+
+    // Valores "ao vivo" para a tela (pontinhos que se mexem)
+    this.blocosDesdeEnvio = 0;
+    this.enviouAtivo = false;
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
   }
@@ -221,10 +227,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
     this.matriz.avancarBloco();
 
-    if (!this.tabela) return true;
     let algumaAtiva = false;
     for (const voz of this.vozes) if (voz.ativa) algumaAtiva = true;
-    if (!algumaAtiva) return true; // silêncio: não calcula nada
+    if (!this.tabela || !algumaAtiva) {
+      this.enviarAoVivo(); // LFOs livres continuam aparecendo andando
+      return true; // silêncio: não calcula nada
+    }
 
     // Dados iguais para todas as vozes neste bloco.
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
@@ -254,7 +262,36 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       voz.envsMod[1].definir(env3.ataque, env3.decaimento, env3.sustentacao, env3.soltura);
       voz.processar(saidaE, saidaD, tamanhoBloco, comum);
     }
+    this.enviarAoVivo();
     return true;
+  }
+
+  // Manda para a tela o que a nota mais recente está fazendo: quanto cada
+  // controle está sendo modulado e onde estão os LFOs (fase e valor).
+  enviarAoVivo() {
+    if (++this.blocosDesdeEnvio < BLOCOS_ENTRE_ENVIOS) return;
+    this.blocosDesdeEnvio = 0;
+
+    let voz = null;
+    for (const v of this.vozes) {
+      if (v.envelope.ativo && (!voz || v.idade > voz.idade)) voz = v;
+    }
+    const algumLivre = this.ajustesLfo.some((a) => a.modo === 'livre');
+    if (!voz && !algumLivre) {
+      // Nada acontecendo: avisa uma vez só, para a tela esconder os pontinhos.
+      if (this.enviouAtivo) this.port.postMessage({ tipo: 'aoVivo', mod: null, lfos: [null, null] });
+      this.enviouAtivo = false;
+      return;
+    }
+
+    const lfos = this.ajustesLfo.map((ajustes, l) => {
+      if (ajustes.modo === 'livre') {
+        return { fase: this.lfosLivres[l].fase, valor: this.valoresLivres[l][this.valoresLivres[l].length - 1] };
+      }
+      return voz ? { fase: voz.lfos[l].fase, valor: voz.valoresFontes[l] } : null;
+    });
+    this.port.postMessage({ tipo: 'aoVivo', mod: voz ? Array.from(voz.mod) : null, lfos });
+    this.enviouAtivo = true;
   }
 }
 

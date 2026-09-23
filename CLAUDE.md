@@ -139,7 +139,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   níveis anti-aliasing só no último 1/4 da faixa. Peso medido no PC (render offline):
   8 vozes × 8 cópias ≈ 18% do tempo real; 16 × 16 ≈ 47%.
 
-**Item 4a (modulação: som e ligações) — feito, aguardando aprovação do ouvido:**
+**Item 4a (modulação: som e ligações) — feito e aprovado pelo ouvido:**
 - Fontes: LFO 1 e 2 (Seno, Tri, Serra ↑, Serra ↓, Quad, S&H; Rate 0,02–40 Hz;
   modo Retrig = por nota, Livre = um só para todas, rodando sempre) e ENV 2 e 3 (ADSR).
 - Destinos: WT Pos, Detune, Width, Cutoff, Reso. A modulação soma na posição do knob
@@ -152,8 +152,16 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Lista de ligações em cada cartão de fonte (barra de quantidade + ✕).
   Bolinhas coloridas no canto dos controles ligados.
 - Peso: 8 vozes × 8 cópias com 4 ligações ≈ 33% do tempo real (sem ligações ≈ 23%).
-- Próximo (4b): arcos coloridos nos knobs, ponto "ao vivo" do valor modulado e
-  pontinho andando no desenho do LFO.
+
+**Item 4b (visual da modulação ao vivo) — feito, aguardando aprovação:**
+- O motor manda ~30x/s os valores da nota mais recente (quanto cada destino está
+  sendo modulado + fase/valor dos LFOs). Sem nota e sem LFO livre, avisa uma vez e para.
+- Knobs: arco externo na cor da fonte (LFO: para os dois lados; ENV: para um lado)
+  e ponto branco no valor modulado ao vivo. WT Pos: faixa colorida + ponto embaixo da barra.
+- Desenhos ao vivo: onda na posição modulada do WT Pos, marcas do detune modulado,
+  curva do filtro com Cutoff/Reso modulados, pontinho andando nos desenhos dos LFOs.
+- Teclado e knobs toleram falha no "prender o ponteiro" (setPointerCapture).
+- Testes do Claude usam a porta 8091 (`.claude/launch.json`); o `Iniciar.bat` segue na 8080.
 
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência

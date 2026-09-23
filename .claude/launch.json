@@ -4,8 +4,8 @@
     {
       "name": "mysynth",
       "runtimeExecutable": "powershell",
-      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "servidor.ps1"],
-      "port": 8080
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "servidor.ps1", "-Porta", "8091"],
+      "port": 8091
     }
   ]
 }
