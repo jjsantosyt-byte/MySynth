@@ -59,6 +59,11 @@ export class Voz {
 
     this.nota = null;
     this.frequencia = 440;
+    // Glide: altura atual (em semitons, pode ser "entre" notas), altura de chegada
+    // e quanto anda por amostra (tempo igual para qualquer intervalo).
+    this.altura = 69;
+    this.alturaAlvo = 69;
+    this.passoGlide = 0;
     this.segurada = false; // tecla ainda apertada?
     this.idade = 0; // ordem em que a nota começou (para saber qual é a mais antiga)
     this.pendente = null; // nota que vai tocar assim que esta voz terminar de sumir
@@ -98,7 +103,8 @@ export class Voz {
 
   // Começa uma nota. "recomecar" = dispara os envelopes (falso no legato).
   // "ajustesLfo" diz quais LFOs estão em modo Retrig (recomeçam a cada nota).
-  iniciar(nota, idade, recomecar = true, ajustesLfo = null) {
+  // "glide" (opcional): { de: altura de partida em semitons, tempo: segundos }.
+  iniciar(nota, idade, recomecar = true, ajustesLfo = null, glide = null) {
     if (!this.envelope.ativo) {
       // Vindo do silêncio: filtro limpo e cada cópia num ponto sorteado da onda.
       this.filtroE.reiniciar();
@@ -109,7 +115,16 @@ export class Voz {
       this.filtroModNovo = true;
     }
     this.nota = nota;
-    this.frequencia = notaParaFrequencia(nota);
+    if (glide && glide.tempo > 0 && glide.de !== nota) {
+      // Escorrega da altura de partida até a nota nova, no tempo escolhido.
+      this.altura = glide.de;
+      this.passoGlide = Math.abs(nota - glide.de) / (glide.tempo * this.taxa);
+    } else {
+      this.altura = nota;
+      this.passoGlide = 0;
+    }
+    this.alturaAlvo = nota;
+    this.frequencia = notaParaFrequencia(this.altura);
     this.segurada = true;
     this.idade = idade;
     this.pendente = null;
@@ -131,9 +146,9 @@ export class Voz {
   }
 
   // Voz roubada: some em ~4 ms e depois toca a nota nova.
-  roubar(nota, idade) {
+  roubar(nota, idade, glide = null) {
     this.segurada = false;
-    this.pendente = { nota, idade };
+    this.pendente = { nota, idade, glide };
     this.envelope.silenciarRapido();
   }
 
@@ -187,7 +202,8 @@ export class Voz {
   processar(saidaE, saidaD, tamanhoBloco, comum) {
     // Terminou de sumir e tem nota esperando? Começa ela agora.
     if (this.pendente && !this.envelope.ativo) {
-      this.iniciar(this.pendente.nota, this.pendente.idade, true, comum.ajustesLfo);
+      const { nota, idade, glide } = this.pendente;
+      this.iniciar(nota, idade, true, comum.ajustesLfo, glide);
     }
     if (!this.envelope.ativo) return;
 
@@ -219,6 +235,14 @@ export class Voz {
     for (let inicio = 0, pedaco = 0; inicio < tamanhoBloco; inicio += PEDACO, pedaco++) {
       const fim = Math.min(inicio + PEDACO, tamanhoBloco);
       const qtd = fim - inicio;
+
+      // 0) Glide: anda a altura um pedaço em direção à nota de chegada
+      if (this.altura !== this.alturaAlvo) {
+        const passo = this.passoGlide * qtd;
+        const falta = this.alturaAlvo - this.altura;
+        this.altura = Math.abs(falta) <= passo ? this.alturaAlvo : this.altura + Math.sign(falta) * passo;
+        this.frequencia = notaParaFrequencia(this.altura);
+      }
 
       // 1) Fontes e soma das ligações neste pedaço
       this.lerFontes(qtd, comum, pedaco);

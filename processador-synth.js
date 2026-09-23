@@ -9,6 +9,8 @@
 //   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
 // - Mono: uma nota por vez (sempre a voz 1), com Legato opcional:
 //   deslizar entre teclas não reinicia o envelope.
+// - Glide: a nota escorrega até a nova altura (tempo igual para qualquer
+//   intervalo). Por padrão só quando as notas estão emendadas; "Sempre" = toda vez.
 // - Modulação: LFO 1 e 2, ENV 2 e 3 ligados a controles (ver dsp/modulacao.js).
 //   LFO em modo Retrig vive dentro de cada voz; em modo Livre, fica aqui
 //   (um só para todas as notas, rodando sem parar).
@@ -57,6 +59,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     this.notasPresas = []; // (modo Mono) notas seguradas, na ordem em que foram tocadas
     this.contador = 0; // numera as notas, para saber qual é a mais antiga
+
+    // Glide: tempo do escorregão (0 = desligado), "sempre" (mesmo sem emendar
+    // as notas) e a última nota tocada (de onde a próxima escorrega no Poly).
+    this.glideTempo = 0;
+    this.glideSempre = false;
+    this.ultimaNota = null;
     this.comum = {}; // dados do bloco, compartilhados por todas as vozes
 
     // Modulação
@@ -130,6 +138,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'unison':
         this.unison = Math.min(16, Math.max(1, valor));
         break;
+      case 'glide':
+        this.glideTempo = Math.max(0, valor);
+        break;
+      case 'glideSempre':
+        this.glideSempre = valor;
+        break;
       case 'filtroTipo':
       case 'filtroLigado':
         for (const voz of this.vozes) voz.definirFiltro(nome, valor);
@@ -145,19 +159,31 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
   }
 
+  // Decide se a nota nova escorrega, e de onde.
+  // "emendada" = alguma tecla ainda estava segurada quando esta foi tocada.
+  glidePara(emendada, origem) {
+    if (this.glideTempo <= 0 || origem === null) return null;
+    if (!emendada && !this.glideSempre) return null;
+    return { de: origem, tempo: this.glideTempo };
+  }
+
   // ---------- Modo Poly ----------
 
   notaOnPoly(nota) {
     const idade = ++this.contador;
+    // No Poly, a nota nova escorrega a partir da última nota tocada.
+    const emendada = this.vozes.some((v) => v.segurada);
+    const glide = this.glidePara(emendada, this.ultimaNota);
+    this.ultimaNota = nota;
 
     // A mesma nota ainda está soando? Reaproveita a voz dela.
     let voz = this.vozes.find((v) => v.ativa && !v.pendente && v.nota === nota);
-    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo);
+    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo, glide);
 
     // Uma voz livre (dentro do limite de vozes escolhido)?
     const disponiveis = this.vozes.slice(0, this.maxVozes);
     voz = disponiveis.find((v) => !v.ativa);
-    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo);
+    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo, glide);
 
     // Sem voz livre: rouba. Prefere uma já solta (sumindo) e mais baixa;
     // se todas estão seguradas, rouba a mais antiga.
@@ -170,12 +196,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
     if (!escolhida) {
       // Todas já estão trocando de nota: troca a nota que estava esperando.
-      disponiveis[0].pendente = { nota, idade };
+      disponiveis[0].pendente = { nota, idade, glide };
       return;
     }
     // Já quase muda? Começa direto. Senão, some rápido e depois toca.
-    if (escolhida.nivel < 0.001) escolhida.iniciar(nota, idade, true, this.ajustesLfo);
-    else escolhida.roubar(nota, idade);
+    if (escolhida.nivel < 0.001) escolhida.iniciar(nota, idade, true, this.ajustesLfo, glide);
+    else escolhida.roubar(nota, idade, glide);
   }
 
   notaOffPoly(nota) {
@@ -188,12 +214,17 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   // ---------- Modo Mono (sempre a voz 1) ----------
 
   notaOnMono(nota) {
+    const voz = this.vozes[0];
     const ninguemSegurando = this.notasPresas.length === 0;
     // Se a nota já estava na lista, tira e coloca no fim (vira a mais recente).
     this.notasPresas = this.notasPresas.filter((n) => n !== nota);
     this.notasPresas.push(nota);
+    // Escorrega a partir de onde o som está agora (mesmo no meio de outro escorregão).
+    const origem = voz.envelope.ativo ? voz.altura : this.ultimaNota;
+    const glide = this.glidePara(!ninguemSegurando, origem);
+    this.ultimaNota = nota;
     // Com legato, só recomeça o envelope se nenhuma tecla estava segurada.
-    this.vozes[0].iniciar(nota, ++this.contador, ninguemSegurando || !this.legato, this.ajustesLfo);
+    voz.iniciar(nota, ++this.contador, ninguemSegurando || !this.legato, this.ajustesLfo, glide);
   }
 
   notaOffMono(nota) {
@@ -203,8 +234,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       voz.soltar(); // soltou tudo: entra a soltura (R)
     } else if (nota === voz.nota) {
       // Soltou a nota que soava, mas ainda tem outra segurada: volta para ela.
+      // Com glide, escorrega de volta (as notas estão emendadas).
       const ultima = this.notasPresas[this.notasPresas.length - 1];
-      voz.iniciar(ultima, ++this.contador, !this.legato, this.ajustesLfo);
+      const glide = this.glidePara(true, voz.altura);
+      this.ultimaNota = ultima;
+      voz.iniciar(ultima, ++this.contador, !this.legato, this.ajustesLfo, glide);
     }
   }
 

@@ -67,6 +67,8 @@ const estado = {
     vozes: 8, // quantas notas ao mesmo tempo (Poly)
     legato: true, // só vale no Mono
     unison: 1, // cópias do oscilador por nota
+    glide: 0, // segundos do escorregão entre notas (0 = desligado)
+    glideSempre: false, // escorregar mesmo sem emendar as notas
   },
   // Fontes de modulação (mesmos valores iniciais do motor de som).
   fontes: {
@@ -465,6 +467,25 @@ function atualizarOpcoesVoz() {
 }
 
 atualizarOpcoesVoz();
+
+// ---------- Glide (aba Global) ----------
+
+const botaoGlideSempre = document.getElementById('glide-sempre');
+
+document.getElementById('knobs-glide').append(
+  criarKnob({
+    rotulo: 'Tempo',
+    escala: escalaPotencia(2, 3), // 0 a 2 s, com mais precisão nos tempos curtos
+    padrao: estado.opcoes.glide,
+    formatar: (v) => (v < 0.0005 ? 'Desligado' : formatarTempo(v)),
+    aoMudar: (v) => definirOpcao('glide', v < 0.0005 ? 0 : v),
+  })
+);
+
+botaoGlideSempre.addEventListener('click', () => {
+  definirOpcao('glideSempre', !estado.opcoes.glideSempre);
+  botaoGlideSempre.setAttribute('aria-pressed', estado.opcoes.glideSempre);
+});
 
 // ---------- Aba Filtro ----------
 

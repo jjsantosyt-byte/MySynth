@@ -70,8 +70,6 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais
   (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
   (o Cutoff acompanhar a nota tocada).
-- Glide (portamento): a nota "escorrega" até a próxima; ótimo para reese/baixos no modo Mono.
-  Lugar reservado: aba Global.
 - Qualidade (aba Global): escolher a taxa de amostragem (44,1/48 kHz — exige religar o
   motor de som por um instante) e/ou um modo "qualidade alta" (mais limpo, mais pesado).
 - Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).
@@ -191,6 +189,15 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Aba Global (ajustes do synth todo): cartão Voz (Mono/Poly, Vozes, Legato) +
   espaços reservados para Glide e Qualidade (taxa de amostragem / qualidade do som).
   O botão "Mod" foi removido (as fichas cabem sempre).
+
+**Glide (portamento) — feito, aguardando aprovação:**
+- Aba Global, cartão Glide: knob Tempo (0 = desligado, até 2 s) + chave "Sempre".
+- Tempo igual para qualquer intervalo; escorrega em semitons (linear na escala musical).
+- Por padrão só com notas emendadas (alguma tecla ainda segurada); "Sempre" = toda vez.
+- Mono: escorrega de onde o som está (inclusive no meio de outro glide) e volta ao
+  soltar a nota de cima. Poly: a nota nova escorrega a partir da última nota tocada.
+- Cada voz guarda a altura em semitons (`altura`, `alturaAlvo`, `passoGlide`) e anda
+  por pedaço de 32 amostras. Medido: glide de 200 ms passa por ~311 Hz na metade (A3→A4).
 - Medido: 852×340 (Safari) e 852×393 (instalado) sem rolagem e sem cortes.
 - Margens da ilha/câmera: `viewport-fit=cover` + `env(safe-area-inset-*)`.
 - PWA básico: `manifest.json`, ícones em `icones/`, metas da Apple → "Adicionar à
