@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>MySynth</title>
+    <link rel="stylesheet" href="estilo.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>MySynth</h1>
+        <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
+      </header>
+
+      <p id="aviso" class="aviso" hidden></p>
+
+      <section class="controles">
+        <div class="grupo-oitava">
+          <button id="oitava-menos" class="botao">Oitava –</button>
+          <span id="rotulo-oitava" class="rotulo">C3</span>
+          <button id="oitava-mais" class="botao">Oitava +</button>
+        </div>
+        <label class="grupo-volume">
+          Volume
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.5" />
+        </label>
+      </section>
+
+      <!-- As teclas são criadas pelo principal.js, conforme o tamanho da tela -->
+      <div id="teclado" class="teclado desligado"></div>
+    </main>
+
+    <script type="module" src="principal.js"></script>
+  </body>
+</html>

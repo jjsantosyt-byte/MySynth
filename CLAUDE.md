@@ -1,0 +1,84 @@
+# Projeto: [nome provisório do app]
+
+## Sobre mim
+Sou músico/produtor e não sei programar. Você é o desenvolvedor,
+eu sou o diretor do produto e o "ouvido" do projeto.
+- Explique tudo em português simples, sem jargão desnecessário.
+- Antes de mudanças grandes, me diga o plano e espere minha aprovação.
+- Sempre me diga COMO testar o que você fez (o que abrir, o que tocar, o que ouvir).
+
+## O que é o app
+Um sintetizador wavetable que roda no navegador do celular,
+com o objetivo de virar, no futuro, um app de música focado em synth
+(estilo DAW simplificado: gravar, sequenciar e exportar).
+
+## Para quem
+Produtores e sound designers que querem um synth wavetable poderoso
+no celular/tablet, sem precisar de computador. Não é focado em um gênero.
+
+## Conceito
+Um synth wavetable no estilo Serum e Vital, pensado para toque:
+- Mesma lógica de som: osciladores wavetable, filtros, envelopes, LFOs,
+  matriz de modulação e efeitos.
+- Interface diferente: feita para dedos, não para mouse
+  (controles grandes, gestos, arrastar para modular).
+
+## Como imagino usar o app
+[Escreva o passo a passo, do jeito que você faria:
+"Abro o app, escolho um som, ajusto..., toco..., gravo..."]
+
+## Como deve soar
+- Limpo e de alta qualidade, sem aliasing (chiado agudo) nem estalos.
+- Wavetables com morphing suave entre os frames.
+- Graves fortes e agudos brilhantes sem ficar áspero.
+- Deve conseguir fazer: pads, leads, baixos, plucks, sons evolutivos.
+
+## O que NÃO quero
+- Som "de brinquedo" ou de baixa qualidade.
+- Interface minúscula que só funciona com mouse.
+- Copiar código, presets ou wavetables do Serum ou do Vital.
+  Use-os só como inspiração de conceito e de fluxo.
+
+## Regras técnicas (mantenha sempre)
+- Plataforma inicial: app web (HTML/JavaScript) usando Web Audio / AudioWorklet.
+- Foco em toque de tela: botões grandes, funciona bem no celular e no tablet.
+- O som vem primeiro; a aparência fica para depois.
+- Sem cliques ou estalos ao começar/soltar notas.
+- Sem aliasing (chiado agudo) nas notas altas.
+- Código simples e organizado, com comentários em português.
+
+## Fluxo de trabalho
+- Uma coisa de cada vez, em etapas pequenas.
+- Use Git: faça um commit a cada etapa que funcionar,
+  com mensagem clara em português.
+- Se algo quebrar, volte para a última versão que funcionava.
+
+## Recursos em ordem de prioridade
+0. Base: teclado na tela tocando uma wavetable simples
+1. Oscilador wavetable com posição (WT Pos) e morphing
+2. Filtro + envelope de amplitude
+3. Unison, polifonia e detune
+4. LFOs e envelopes de modulação com arrastar-e-soltar
+5. Efeitos (reverb, delay, chorus, distorção)
+6. Presets e wavetables próprias
+7. Depois: gravação, sequenciador, exportação (o "DAW")
+
+## Estado atual
+**Item 0 (base) — feito, aguardando aprovação do ouvido:**
+- Teclado na tela (1 a 4 oitavas conforme a largura da tela), deslizar entre teclas,
+  botões de oitava e volume.
+- Onda dente de serra criada do zero, com níveis por meia oitava e mistura suave
+  entre níveis (sem aliasing — medido: ruído fora dos harmônicos < -77 dB).
+- Monofônico (última nota tem prioridade), com rampa anti-estalo de volume.
+
+**Arquivos:**
+- `index.html`, `estilo.css` — a página e a aparência
+- `principal.js` — liga o som, teclado, toques
+- `processador-synth.js` — motor de som (AudioWorklet)
+- `wavetable.js` — monta as wavetables (estrutura já prevê vários frames para o WT Pos)
+- `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
+
+**Pendências:**
+- Instalar o Git e fazer o primeiro commit.
+- Teste no celular exige endereço https (ex.: GitHub Pages).
+- Próximo: item 1 (WT Pos e morphing).
