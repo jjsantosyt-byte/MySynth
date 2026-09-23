@@ -178,7 +178,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
-**Visual para celular deitado (iPhone 15 Pro) — em teste no aparelho:**
+**Visual para celular deitado (iPhone 15 Pro) — feito e aprovado no aparelho:**
 - Prioridade: celular DEITADO, sem rolagem em nenhuma aba. Celular em pé continua
   funcionando (com rolagem permitida).
 - Regras do layout deitado (`@media (orientation: landscape) and (max-height: 500px)`):
