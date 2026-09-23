@@ -79,7 +79,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
 
 ## Distribuição (caminho combinado)
-1. Colocar online (https, ex.: GitHub Pages) e testar no celular.
+1. Colocar online (https, ex.: GitHub Pages) e testar no celular. ✔ online (falta o teste no celular)
 2. PWA: ícone na tela inicial, tela cheia, funciona sem internet.
 3. APK/AAB para a Play Store via TWA (PWABuilder/Bubblewrap). Conta Google: US$ 25 uma vez.
 4. Só se a latência no celular incomodar: motor de som em C++ (Oboe no Android),
@@ -178,7 +178,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
+**Online (GitHub Pages) — no ar desde 23/09/2026:**
+- Endereço: https://jjsantosyt-byte.github.io/MySynth/
+- Repositório público: https://github.com/jjsantosyt-byte/MySynth (branch `main`, pasta raiz).
+- Publicar = commit + `git push`; o Pages atualiza sozinho em ~1 minuto.
+- Commits usam o e-mail "fantasma" do GitHub (333051203+jjsantosyt-byte@users.noreply.github.com);
+  o histórico foi reescrito para tirar o e-mail pessoal. Nunca usar o e-mail pessoal no Git.
+
 **Pendências:**
-- Teste no celular exige endereço https (ex.: GitHub Pages).
+- Testar no celular: som, peso (acordes + unison) e latência.
 - Visualização em perspectiva (frames empilhados) fica para a fase de aparência.
 - Próximo: item 4 (LFOs e envelopes de modulação com arrastar-e-soltar).
