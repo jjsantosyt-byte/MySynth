@@ -190,7 +190,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   espaços reservados para Glide e Qualidade (taxa de amostragem / qualidade do som).
   O botão "Mod" foi removido (as fichas cabem sempre).
 
-**Glide (portamento) — feito, aguardando aprovação:**
+**Glide (portamento) — feito e aprovado no iPhone (Mono e Poly):**
 - Aba Global, cartão Glide: knob Tempo (0 = desligado, até 2 s) + chave "Sempre".
 - Tempo igual para qualquer intervalo; escorrega em semitons (linear na escala musical).
 - Por padrão só com notas emendadas (alguma tecla ainda segurada); "Sempre" = toda vez.
