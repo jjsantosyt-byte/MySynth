@@ -231,7 +231,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   defasadas 1/4 de ciclo (esq. = seno, dir. = cosseno). Rate 0,05–5 Hz. Custo ~1%.
 - 8 vozes × 8 cópias com os 4 efeitos: ~33% do tempo real (sem efeitos: ~24%).
 
-**Item 6a (Presets) — feito, em teste no iPhone:**
+**Item 6a (Presets) — feito e aprovado:**
 - Barra de cima: [‹] Nome * [›] [Salvar] no lugar do título. "*" = som mexido e não salvo.
   Tocar no nome abre a lista por categoria (Início, Baixo, Lead, Pad, Pluck, Keys, FX, Outros).
 - Preset = o "som": parametros, opcoes, fontes, ligacoes, efeitos (sem volume geral e oitava).
@@ -244,6 +244,19 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Importar renomeia nomes repetidos ("Nome (2)").
 - Tela acompanha ao carregar: knobs/seletores têm `ler` + `sincronizar()`; botões ficam na
   lista `sincronizadores`. Novo controle = dar `ler` ao knob ou registrar o sincronizador.
+
+**Item 6b (mais wavetables + seletor) — feito, em teste no iPhone:**
+- `wavetable.js` reescrito: frames descritos por harmônicos (a = cosseno, b = seno) e
+  montados com FFT (rápido: < 50 ms por tabela). `harmonicosDeAmostras()` faz o caminho
+  inverso (onda → harmônicos): base para importar .wav na 6c.
+- Catálogo `WAVETABLES` (montadas na 1ª vez que são pedidas): Básica (4), PWM (8, pulso
+  50%→5%), Harmônicos (8, 1→256 harmônicos), Formante (5, vogais A E I O U, formantes
+  calculados para ~110 Hz), Sync (8, razão 1×→6×). Todas do zero, por fórmula.
+- Cada tabela tem `atalhos` próprios e, se tiver, `nomesFrames`.
+- A wavetable é `opcoes.wavetable` (entra nos presets). Seletor ‹ Nome › no cabeçalho do OSC A.
+- Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
+- Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
+- Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
 **Teclado do computador — feito:**
 - Padrão FL Studio, pela posição da tecla (`evento.code`, funciona em ABNT e americano):

@@ -1,7 +1,7 @@
 // principal.js
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
-import { criarWavetableBasica } from './wavetable.js';
+import { WAVETABLES, obterWavetable } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
@@ -46,9 +46,8 @@ const unisonOsc = document.getElementById('unison-osc');
 const modoVoz = document.getElementById('modo-voz');
 const lugarSeletorVozes = document.getElementById('seletor-vozes');
 
-// A wavetable é montada uma vez, ao abrir a página.
-// A página guarda uma cópia para desenhar; o motor de som recebe outra.
-const wavetable = criarWavetableBasica();
+// A wavetable em uso. A página guarda uma cópia para desenhar; o motor de som recebe outra.
+let wavetable = obterWavetable('basica');
 
 const estado = {
   // Valores dos controles de som (os nomes são os mesmos do motor de som).
@@ -65,6 +64,7 @@ const estado = {
   },
   // Opções liga/desliga e escolhas.
   opcoes: {
+    wavetable: 'basica', // qual wavetable o OSC A usa
     filtroLigado: false,
     filtroTipo: 'lp24',
     modo: 'poly', // 'mono' ou 'poly'
@@ -151,6 +151,7 @@ function aplicarSom(som) {
   for (const id of Object.keys(estado.fontes)) Object.assign(estado.fontes[id], novo.fontes[id]);
   for (const id of Object.keys(estado.efeitos)) Object.assign(estado.efeitos[id], novo.efeitos[id]);
   estado.ligacoes.splice(0, estado.ligacoes.length, ...novo.ligacoes);
+  if (estado.opcoes.wavetable !== wavetable.id) trocarWavetable(estado.opcoes.wavetable);
 
   // Motor de som (os parâmetros chegam suavemente, sem estalo)
   for (const [nome, valor] of Object.entries(estado.parametros)) definirParametro(nome, valor);
@@ -296,7 +297,8 @@ function definirParametro(nome, valor) {
 function definirOpcao(nome, valor) {
   estado.opcoes[nome] = valor;
   modificou();
-  enviarOpcao(nome);
+  if (nome === 'wavetable') trocarWavetable(valor);
+  else enviarOpcao(nome);
   pedirDesenho();
 }
 
@@ -380,10 +382,31 @@ const telasEnv = document.querySelectorAll('[data-tela-env]');
 const observarTamanho = new ResizeObserver(pedirDesenho);
 [telaOnda, telaEnvelope, telaFiltro, ...telasLfo, ...telasEnv].forEach((tela) => observarTamanho.observe(tela));
 
+// ---------- Escolha da wavetable (‹ Básica ›) ----------
+
+const nomeWavetable = document.getElementById('wt-nome');
+
+// Troca a wavetable do oscilador: monta (se preciso), manda para o motor e ajusta a tela.
+function trocarWavetable(id) {
+  wavetable = obterWavetable(id);
+  estado.opcoes.wavetable = wavetable.id;
+  estado.synth?.port.postMessage({ tipo: 'wavetable', wavetable });
+  nomeWavetable.textContent = wavetable.nome;
+  montarAtalhos();
+  pedirDesenho();
+}
+
+function andarWavetable(passo) {
+  const i = WAVETABLES.findIndex((w) => w.id === wavetable.id);
+  const proxima = WAVETABLES[(i + passo + WAVETABLES.length) % WAVETABLES.length];
+  definirOpcao('wavetable', proxima.id);
+}
+
+document.getElementById('wt-anterior').addEventListener('click', () => andarWavetable(-1));
+document.getElementById('wt-proxima').addEventListener('click', () => andarWavetable(1));
+
 // ---------- WT Pos e desenho da onda ----------
 
-const nomesFrames = wavetable.nomesFrames;
-const ultimoFrame = wavetable.frames.length - 1;
 const ondaDesenhada = new Float32Array(wavetable.tamanho);
 
 // Muda o WT Pos (0 a 1): atualiza o som, a barra e o desenho.
@@ -429,7 +452,9 @@ function desenharModulacaoWTPos() {
 function desenharPainelOnda() {
   // Mesma mistura que o motor de som faz, usando a versão mais cheia da onda.
   // Com modulação no WT Pos, mostra a onda na posição modulada, ao vivo.
-  const wt = modulado(estado.parametros.wtPos, 'wtPos') * ultimoFrame;
+  const ultimoFrame = wavetable.frames.length - 1;
+  const posicao = modulado(estado.parametros.wtPos, 'wtPos');
+  const wt = posicao * ultimoFrame;
   const f0 = Math.min(Math.floor(wt), ultimoFrame);
   const f1 = Math.min(f0 + 1, ultimoFrame);
   const t = wt - f0;
@@ -440,26 +465,33 @@ function desenharPainelOnda() {
   }
   desenharOnda(telaOnda, ondaDesenhada, marcasUnison());
 
-  // Nome: a forma exata, ou "de → para" com a porcentagem do caminho.
+  // Nome: se os frames têm nome (ex.: Seno, Tri...), a forma exata ou "de → para";
+  // senão, o nome da wavetable com a posição em %.
+  const nomes = wavetable.nomesFrames;
   const maisProximo = Math.round(wt);
-  if (Math.abs(wt - maisProximo) < 0.02) {
-    nomeOnda.textContent = nomesFrames[maisProximo];
+  if (!nomes) {
+    nomeOnda.textContent = `${wavetable.nome} ${Math.round(posicao * 100)}%`;
+  } else if (Math.abs(wt - maisProximo) < 0.02) {
+    nomeOnda.textContent = nomes[maisProximo];
   } else {
-    nomeOnda.textContent = `${nomesFrames[f0]} → ${nomesFrames[f1]}  ${Math.round(t * 100)}%`;
+    nomeOnda.textContent = `${nomes[f0]} → ${nomes[f1]}  ${Math.round(t * 100)}%`;
   }
 }
 
 controleWTPos.addEventListener('input', () => definirWTPos(Number(controleWTPos.value)));
 
-// Botões de atalho, um para cada forma de onda.
-nomesFrames.forEach((nome, indice) => {
-  const botao = document.createElement('button');
-  botao.className = 'botao';
-  botao.textContent = wavetable.nomesCurtos[indice];
-  botao.title = nome;
-  botao.addEventListener('click', () => definirWTPos(indice / ultimoFrame));
-  atalhosWT.appendChild(botao);
-});
+// Botões de atalho da wavetable atual (ex.: Seno, Tri, Serra, Quad).
+function montarAtalhos() {
+  atalhosWT.innerHTML = '';
+  for (const { nome, posicao } of wavetable.atalhos) {
+    const botao = document.createElement('button');
+    botao.className = 'botao';
+    botao.textContent = nome;
+    botao.addEventListener('click', () => definirWTPos(posicao));
+    atalhosWT.appendChild(botao);
+  }
+}
+montarAtalhos();
 
 // Arrastar no desenho da onda muda o WT Pos.
 // Para a direita ou para cima aumenta; atravessar a largura toda = de ponta a ponta.

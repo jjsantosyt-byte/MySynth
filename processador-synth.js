@@ -52,6 +52,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   constructor() {
     super();
     this.tabela = null; // wavetable recebida da página
+    this.tabelaNova = null; // wavetable esperando para entrar (troca sem estalo)
+    this.volumeTroca = 1; // abaixa até 0 na troca de wavetable e volta a 1
+    this.suavizarTroca = 1 - Math.exp(-1 / (0.0015 * sampleRate)); // ~1,5 ms
     this.vozes = Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
     this.coef = new CoeficientesFiltro(sampleRate);
 
@@ -101,7 +104,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   receberMensagem(msg) {
     switch (msg.tipo) {
       case 'wavetable':
-        this.tabela = msg.wavetable;
+        // Primeira tabela: entra direto. Trocas depois: passam por um "abaixa e sobe"
+        // rápido (sem estalo), feito no process().
+        if (!this.tabela) this.tabela = msg.wavetable;
+        else this.tabelaNova = msg.wavetable;
         break;
       case 'notaOn':
         if (this.modo === 'mono') this.notaOnMono(msg.nota);
@@ -278,7 +284,27 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Notas (só se alguma estiver soando)
     let algumaAtiva = false;
     for (const voz of this.vozes) if (voz.ativa) algumaAtiva = true;
-    if (this.tabela && algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
+
+    // Troca de wavetable: sem notas, troca direto; com notas, abaixa o volume
+    // das notas (~3 ms), troca quando chega no silêncio e sobe de novo.
+    if (this.tabelaNova && (!algumaAtiva || this.volumeTroca < 0.001)) {
+      this.tabela = this.tabelaNova;
+      this.tabelaNova = null;
+    }
+    if (this.tabela && algumaAtiva) {
+      this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
+      const alvo = this.tabelaNova ? 0 : 1;
+      if (alvo !== 1 || this.volumeTroca < 1) {
+        for (let i = 0; i < tamanhoBloco; i++) {
+          this.volumeTroca += (alvo - this.volumeTroca) * this.suavizarTroca;
+          saidaE[i] *= this.volumeTroca;
+          saidaD[i] *= this.volumeTroca;
+        }
+        if (alvo === 1 && this.volumeTroca > 0.9999) this.volumeTroca = 1;
+      }
+    } else {
+      this.volumeTroca = 1;
+    }
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).

@@ -59,7 +59,15 @@
       <section class="conteudo-aba" data-painel="osc">
         <div class="modulos">
           <article class="cartao cartao-osc">
-            <h2 class="titulo-cartao">OSC A</h2>
+            <div class="cabecalho-cartao cabecalho-osc">
+              <h2 class="titulo-cartao"><span class="nome-longo">OSC </span>A</h2>
+              <!-- Qual wavetable o oscilador usa: ‹ Básica › -->
+              <div class="seletor-wt">
+                <button id="wt-anterior" class="seletor-botao" aria-label="Wavetable anterior">‹</button>
+                <span id="wt-nome" class="seletor-wt-nome">Básica</span>
+                <button id="wt-proxima" class="seletor-botao" aria-label="Próxima wavetable">›</button>
+              </div>
+            </div>
             <div class="tela-grafico tela-onda">
               <!-- Arrastar no desenho (para os lados ou para cima/baixo) também muda o WT Pos -->
               <canvas id="tela-onda"></canvas>

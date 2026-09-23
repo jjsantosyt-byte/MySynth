@@ -941,6 +941,27 @@ h1 {
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
+/* Seletor de wavetable: ‹ Básica › */
+.seletor-wt {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+}
+
+.seletor-wt .seletor-botao {
+  height: 34px;
+}
+
+.seletor-wt-nome {
+  min-width: 84px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .atalhos-wt {
   display: flex;
   gap: 6px;
@@ -1322,39 +1343,42 @@ h1 {
     padding: 0;
   }
 
-  /* OSC A: título e WT Pos dividem a primeira linha */
+  /* OSC A: [A ‹ wavetable ›] / desenho / WT Pos / unison.
+     Os atalhos somem aqui (dá para usar a barra ou arrastar no desenho). */
   .cartao-osc {
     display: grid;
-    grid-template-columns: auto 1fr;
+    grid-template-columns: 1fr;
     grid-template-rows: auto minmax(26px, 1fr) auto auto;
-    column-gap: 8px;
   }
 
-  .cartao-osc .titulo-cartao {
+  .cartao-osc .cabecalho-osc {
     grid-row: 1;
-    grid-column: 1;
-    align-self: center;
-  }
-
-  .cartao-osc .grupo-wtpos {
-    grid-row: 1;
-    grid-column: 2;
   }
 
   .cartao-osc .tela-onda {
     grid-row: 2;
-    grid-column: 1 / -1;
     height: auto;
   }
 
-  .cartao-osc .atalhos-wt {
+  .cartao-osc .grupo-wtpos {
     grid-row: 3;
-    grid-column: 1 / -1;
+  }
+
+  .cartao-osc .atalhos-wt {
+    display: none;
   }
 
   .cartao-osc #unison-osc {
     grid-row: 4;
-    grid-column: 1 / -1;
+  }
+
+  .seletor-wt .seletor-botao {
+    height: 26px;
+  }
+
+  .seletor-wt-nome {
+    min-width: 76px;
+    font-size: 12px;
   }
 
   /* LFO: formas numa linha só, com nomes curtos */
