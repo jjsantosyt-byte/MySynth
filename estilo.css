@@ -116,10 +116,6 @@ h1 {
   -webkit-touch-callout: none;
 }
 
-.teclado.desligado {
-  opacity: 0.4;
-}
-
 .tecla {
   box-sizing: border-box;
 }

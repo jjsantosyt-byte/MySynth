@@ -60,11 +60,15 @@ async function ligarSom() {
 
     estado.synth = synth;
     estado.ganho = ganho;
-    await contexto.resume();
 
+    // Notas que já estavam sendo seguradas enquanto o som ligava começam a tocar agora.
+    for (const nota of estado.contagemNotas.keys()) {
+      synth.port.postMessage({ tipo: 'notaOn', nota });
+    }
+
+    await contexto.resume();
     botaoLigar.textContent = 'Som ligado';
     botaoLigar.classList.add('ligado');
-    teclado.classList.remove('desligado');
   } catch (erro) {
     console.error(erro);
     mostrarAviso('Não consegui ligar o som: ' + erro.message);
@@ -203,7 +207,8 @@ function soltarDedo(evento) {
 }
 
 teclado.addEventListener('pointerdown', (evento) => {
-  if (!estado.synth) return;
+  // Primeiro toque no teclado já liga o som (não precisa do botão).
+  if (!estado.contexto) ligarSom();
   evento.preventDefault();
   teclado.setPointerCapture(evento.pointerId);
   estado.dedos.set(evento.pointerId, null);
@@ -215,7 +220,11 @@ teclado.addEventListener('pointermove', (evento) => {
   if (estado.dedos.has(evento.pointerId)) atualizarDedo(evento);
 });
 
-teclado.addEventListener('pointerup', soltarDedo);
+teclado.addEventListener('pointerup', (evento) => {
+  // Alguns celulares só liberam o som quando o dedo sai da tela.
+  if (estado.contexto?.state === 'suspended') estado.contexto.resume();
+  soltarDedo(evento);
+});
 teclado.addEventListener('pointercancel', soltarDedo);
 teclado.addEventListener('lostpointercapture', soltarDedo);
 teclado.addEventListener('contextmenu', (evento) => evento.preventDefault());
