@@ -7,9 +7,10 @@
 
 const PIXELS_POR_PASSO = 16;
 
-// opcoes: { rotulo, min, max, padrao, aoMudar, rotuloAoLado }
+// opcoes: { rotulo, min, max, padrao, aoMudar, rotuloAoLado, ler }
 // Devolve o elemento; elemento.habilitar(sim/não) liga ou desliga o controle.
-export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado = false }) {
+// Com "ler" (função que devolve o valor atual do som), ganha elemento.sincronizar().
+export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado = false, ler }) {
   const elemento = document.createElement('div');
   elemento.className = 'seletor' + (rotuloAoLado ? ' seletor-linha' : '');
   elemento.innerHTML = `
@@ -75,6 +76,13 @@ export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado =
       mudar(valor + passos[evento.key]);
     }
   });
+
+  // Põe o número no valor atual do som, sem avisar (ex.: ao carregar um preset).
+  elemento.sincronizar = () => {
+    if (!ler) return;
+    valor = Math.min(max, Math.max(min, Math.round(ler())));
+    mostrar();
+  };
 
   elemento.habilitar = (sim) => {
     habilitado = sim;

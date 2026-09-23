@@ -21,6 +21,8 @@ import { criarModulacao } from './interface/modulacao.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
+import { criarPresets } from './interface/presets.js';
+import { PRESETS_FABRICA, CATEGORIAS } from './presets-fabrica.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -100,6 +102,70 @@ const estado = {
   teclasPc: new Map(), // cada tecla do computador apertada -> nota que ela está tocando
   contagemNotas: new Map(), // quantos dedos seguram cada nota
 };
+
+// ---------- O "som" (o que um preset guarda) ----------
+// Tudo que define o timbre. Não entram volume geral e oitava (são de quem toca).
+
+const clonar = (dados) => JSON.parse(JSON.stringify(dados));
+
+function obterSom() {
+  const { parametros, opcoes, fontes, ligacoes, efeitos } = estado;
+  return clonar({ parametros, opcoes, fontes, ligacoes, efeitos });
+}
+
+// O som inicial ("Init"): base para todos os presets.
+const SOM_PADRAO = obterSom();
+
+// Junta "extra" em cima de "base" (objetos dentro de objetos; listas são trocadas inteiras).
+function mesclar(base, extra) {
+  for (const [chave, valor] of Object.entries(extra || {})) {
+    if (valor && typeof valor === 'object' && !Array.isArray(valor) && base[chave] && typeof base[chave] === 'object') {
+      mesclar(base[chave], valor);
+    } else if (chave in base) {
+      base[chave] = clonar(valor);
+    }
+  }
+  return base;
+}
+
+// Enquanto um preset é carregado, as mudanças não contam como "som modificado".
+let carregandoPreset = false;
+let avisarModificado = () => {};
+function modificou() {
+  if (!carregandoPreset) avisarModificado();
+}
+
+// Coisas da tela que precisam ser atualizadas quando o som muda de uma vez
+// (botões, marcações...). Knobs e seletores se atualizam sozinhos (sincronizar).
+const sincronizadores = [];
+
+// Carrega um som (de um preset): valores → motor de som → tela.
+function aplicarSom(som) {
+  carregandoPreset = true;
+  const novo = mesclar(clonar(SOM_PADRAO), som);
+  soltarTudo();
+
+  // Estado (as ligações são trocadas no lugar: a tela de modulação usa a mesma lista)
+  Object.assign(estado.parametros, novo.parametros);
+  Object.assign(estado.opcoes, novo.opcoes);
+  for (const id of Object.keys(estado.fontes)) Object.assign(estado.fontes[id], novo.fontes[id]);
+  for (const id of Object.keys(estado.efeitos)) Object.assign(estado.efeitos[id], novo.efeitos[id]);
+  estado.ligacoes.splice(0, estado.ligacoes.length, ...novo.ligacoes);
+
+  // Motor de som (os parâmetros chegam suavemente, sem estalo)
+  for (const [nome, valor] of Object.entries(estado.parametros)) definirParametro(nome, valor);
+  for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
+  for (const id of Object.keys(estado.fontes)) enviarFonte(id);
+  for (const id of Object.keys(estado.efeitos)) enviarEfeito(id);
+  enviarLigacoes();
+
+  // Tela
+  document.querySelectorAll('.knob, .seletor').forEach((el) => el.sincronizar?.());
+  for (const sincronizar of sincronizadores) sincronizar();
+  telaModulacao.atualizar();
+  pedirDesenho();
+  carregandoPreset = false;
+}
 
 // ---------- Ligar o som ----------
 
@@ -217,6 +283,7 @@ controleVolume.addEventListener('input', () => {
 // Muda um controle de som: guarda o valor e manda para o motor.
 function definirParametro(nome, valor) {
   estado.parametros[nome] = valor;
+  modificou();
   if (estado.synth) {
     // Vai até o novo valor em poucos milissegundos, sem "degraus" no som.
     const parametro = estado.synth.parameters.get(nome);
@@ -228,6 +295,7 @@ function definirParametro(nome, valor) {
 // Muda uma opção (liga/desliga, tipo de filtro...).
 function definirOpcao(nome, valor) {
   estado.opcoes[nome] = valor;
+  modificou();
   enviarOpcao(nome);
   pedirDesenho();
 }
@@ -239,6 +307,7 @@ function enviarOpcao(nome) {
 // Muda um ajuste de uma fonte de modulação (ex.: rate do LFO 1).
 function definirFonte(id, nome, valor) {
   estado.fontes[id][nome] = valor;
+  modificou();
   enviarFonte(id);
   pedirDesenho();
 }
@@ -250,6 +319,7 @@ function enviarFonte(id) {
 // Muda um ajuste de um efeito (ex.: mix do reverb).
 function definirEfeito(id, nome, valor) {
   estado.efeitos[id][nome] = valor;
+  modificou();
   enviarEfeito(id);
 }
 
@@ -430,6 +500,7 @@ unisonOsc.append(
     max: 16,
     padrao: estado.opcoes.unison,
     aoMudar: (v) => definirOpcao('unison', v),
+    ler: () => estado.opcoes.unison,
   }),
   criarKnob({
     rotulo: 'Detune',
@@ -438,6 +509,7 @@ unisonOsc.append(
     padrao: estado.parametros.detune,
     formatar: formatarPorcentagem,
     aoMudar: (v) => definirParametro('detune', v),
+    ler: () => estado.parametros.detune,
   }),
   criarKnob({
     rotulo: 'Width',
@@ -446,6 +518,7 @@ unisonOsc.append(
     padrao: estado.parametros.width,
     formatar: formatarPorcentagem,
     aoMudar: (v) => definirParametro('width', v),
+    ler: () => estado.parametros.width,
   })
 );
 
@@ -458,6 +531,7 @@ const seletorVozes = criarSeletor({
   padrao: estado.opcoes.vozes,
   aoMudar: (v) => definirOpcao('vozes', v),
   rotuloAoLado: true,
+  ler: () => estado.opcoes.vozes,
 });
 lugarSeletorVozes.replaceWith(seletorVozes);
 
@@ -488,6 +562,7 @@ function atualizarOpcoesVoz() {
 }
 
 atualizarOpcoesVoz();
+sincronizadores.push(atualizarOpcoesVoz);
 
 // ---------- Glide (aba Global) ----------
 
@@ -500,13 +575,16 @@ document.getElementById('knobs-glide').append(
     padrao: estado.opcoes.glide,
     formatar: (v) => (v < 0.0005 ? 'Desligado' : formatarTempo(v)),
     aoMudar: (v) => definirOpcao('glide', v < 0.0005 ? 0 : v),
+    ler: () => estado.opcoes.glide,
   })
 );
 
+const mostrarGlideSempre = () => botaoGlideSempre.setAttribute('aria-pressed', estado.opcoes.glideSempre);
 botaoGlideSempre.addEventListener('click', () => {
   definirOpcao('glideSempre', !estado.opcoes.glideSempre);
-  botaoGlideSempre.setAttribute('aria-pressed', estado.opcoes.glideSempre);
+  mostrarGlideSempre();
 });
+sincronizadores.push(mostrarGlideSempre);
 
 // ---------- Aba FX (efeitos) ----------
 
@@ -523,6 +601,7 @@ document.querySelectorAll('[data-ligar-efeito]').forEach((botao) => {
     mostrar();
   });
   mostrar();
+  sincronizadores.push(mostrar);
 });
 
 // Knob de um efeito
@@ -533,6 +612,7 @@ const knobEfeito = (id, rotulo, nome, escala, formatar) =>
     padrao: estado.efeitos[id][nome],
     formatar,
     aoMudar: (v) => definirEfeito(id, nome, v),
+    ler: () => estado.efeitos[id][nome],
   });
 
 // Distorção: tipo (botões) + Drive e Mix
@@ -552,6 +632,7 @@ TIPOS_DISTORCAO.forEach((tipo) => {
   tiposDistorcao.appendChild(botao);
 });
 marcarTipoDistorcao();
+sincronizadores.push(marcarTipoDistorcao);
 
 document.querySelector('[data-knobs-efeito="distorcao"]').append(
   knobEfeito('distorcao', 'Drive', 'drive', escalaLinear(0, 1), formatarPorcentagem),
@@ -578,10 +659,12 @@ document.querySelector('[data-knobs-efeito="reverb"]').append(
 );
 
 const botaoPingPong = document.getElementById('delay-pingpong');
+const mostrarPingPong = () => botaoPingPong.setAttribute('aria-pressed', estado.efeitos.delay.pingpong);
 botaoPingPong.addEventListener('click', () => {
   definirEfeito('delay', 'pingpong', !estado.efeitos.delay.pingpong);
-  botaoPingPong.setAttribute('aria-pressed', estado.efeitos.delay.pingpong);
+  mostrarPingPong();
 });
+sincronizadores.push(mostrarPingPong);
 
 // ---------- Aba Filtro ----------
 
@@ -625,6 +708,7 @@ knobsFiltro.append(
     padrao: estado.parametros.cutoff,
     formatar: formatarFrequencia,
     aoMudar: (v) => definirParametro('cutoff', v),
+    ler: () => estado.parametros.cutoff,
   }),
   criarKnob({
     rotulo: 'Reso',
@@ -633,55 +717,50 @@ knobsFiltro.append(
     padrao: estado.parametros.resonancia,
     formatar: formatarPorcentagem,
     aoMudar: (v) => definirParametro('resonancia', v),
+    ler: () => estado.parametros.resonancia,
   })
 );
 
 atualizarBotaoFiltro();
 marcarTipoFiltro();
+sincronizadores.push(atualizarBotaoFiltro, marcarTipoFiltro);
 
 // ---------- Aba ENV (envelope de volume) ----------
 
 // Tempos: de 0 a 10 s, com mais precisão nos tempos curtos.
 const escalaTempo = escalaPotencia(10, 3);
 
+// Knob ligado a um parâmetro do motor de som
+const knobParametro = (rotulo, nome, escala, formatar) =>
+  criarKnob({
+    rotulo,
+    escala,
+    padrao: estado.parametros[nome],
+    formatar,
+    aoMudar: (v) => definirParametro(nome, v),
+    ler: () => estado.parametros[nome],
+  });
+
 knobsEnvelope.append(
-  criarKnob({
-    rotulo: 'A',
-    escala: escalaTempo,
-    padrao: estado.parametros.ataque,
-    formatar: formatarTempo,
-    aoMudar: (v) => definirParametro('ataque', v),
-  }),
-  criarKnob({
-    rotulo: 'D',
-    escala: escalaTempo,
-    padrao: estado.parametros.decaimento,
-    formatar: formatarTempo,
-    aoMudar: (v) => definirParametro('decaimento', v),
-  }),
-  criarKnob({
-    rotulo: 'S',
-    escala: escalaLinear(0, 1),
-    padrao: estado.parametros.sustentacao,
-    formatar: formatarPorcentagem,
-    aoMudar: (v) => definirParametro('sustentacao', v),
-  }),
-  criarKnob({
-    rotulo: 'R',
-    escala: escalaTempo,
-    padrao: estado.parametros.soltura,
-    formatar: formatarTempo,
-    aoMudar: (v) => definirParametro('soltura', v),
-  })
+  knobParametro('A', 'ataque', escalaTempo, formatarTempo),
+  knobParametro('D', 'decaimento', escalaTempo, formatarTempo),
+  knobParametro('S', 'sustentacao', escalaLinear(0, 1), formatarPorcentagem),
+  knobParametro('R', 'soltura', escalaTempo, formatarTempo)
 );
 
 // ---------- ENV 2 e ENV 3 (envelopes de modulação) ----------
 
 document.querySelectorAll('[data-knobs-env]').forEach((lugar) => {
   const id = lugar.dataset.knobsEnv;
-  const ajustes = estado.fontes[id];
   const knob = (rotulo, nome, escala, formatar) =>
-    criarKnob({ rotulo, escala, padrao: ajustes[nome], formatar, aoMudar: (v) => definirFonte(id, nome, v) });
+    criarKnob({
+      rotulo,
+      escala,
+      padrao: estado.fontes[id][nome],
+      formatar,
+      aoMudar: (v) => definirFonte(id, nome, v),
+      ler: () => estado.fontes[id][nome],
+    });
   lugar.append(
     knob('A', 'ataque', escalaTempo, formatarTempo),
     knob('D', 'decaimento', escalaTempo, formatarTempo),
@@ -721,6 +800,7 @@ document.querySelectorAll('[data-formas-lfo]').forEach((lugar) => {
     lugar.appendChild(botao);
   });
   marcar();
+  sincronizadores.push(marcar);
 });
 
 // Rate (velocidade): de 0,02 Hz (bem lento) a 40 Hz (vibrato rápido).
@@ -733,6 +813,7 @@ document.querySelectorAll('[data-knobs-lfo]').forEach((lugar) => {
       padrao: estado.fontes[id].rate,
       formatar: formatarRate,
       aoMudar: (v) => definirFonte(id, 'rate', v),
+      ler: () => estado.fontes[id].rate,
     })
   );
 });
@@ -751,6 +832,7 @@ document.querySelectorAll('[data-modo-lfo]').forEach((botao) => {
     mostrar();
   });
   mostrar();
+  sincronizadores.push(mostrar);
 });
 
 // ---------- Ligações de modulação (fichas, arrastar, listas) ----------
@@ -764,7 +846,10 @@ const telaModulacao = criarModulacao({
   dica: document.getElementById('dica-modulacao'),
   listas: listasMod,
   ligacoes: estado.ligacoes,
-  aoMudar: enviarLigacoes,
+  aoMudar: () => {
+    modificou();
+    enviarLigacoes();
+  },
 });
 
 // ---------- Abas ----------
@@ -865,7 +950,7 @@ function teclaPcIgnorada(evento) {
   // Com Ctrl/Cmd/Alt é atalho (copiar, recarregar...); em campo de texto, é digitação.
   if (evento.ctrlKey || evento.metaKey || evento.altKey) return true;
   const alvo = evento.target;
-  return alvo instanceof HTMLInputElement && alvo.type !== 'range';
+  return (alvo instanceof HTMLInputElement && alvo.type !== 'range') || alvo instanceof HTMLSelectElement;
 }
 
 document.addEventListener('keydown', (evento) => {
@@ -1014,3 +1099,20 @@ document.addEventListener('visibilitychange', () => {
 
 montarTeclado();
 definirWTPos(Number(controleWTPos.value));
+
+// WT Pos (é uma barra, não um knob): acompanha quando um preset é carregado
+sincronizadores.push(() => {
+  controleWTPos.value = estado.parametros.wtPos;
+  desenharModulacaoWTPos();
+});
+
+// ---------- Presets (barra de cima) ----------
+// Criado por último: tudo que foi feito até aqui (montar a tela) não conta como "mexeu no som".
+const presets = criarPresets({
+  lugar: document.getElementById('lugar-presets'),
+  fabrica: PRESETS_FABRICA,
+  categorias: CATEGORIAS,
+  obterSom,
+  aplicarSom,
+});
+avisarModificado = () => presets.marcarModificado();

@@ -94,9 +94,11 @@ export function faixaModulacao(base, quantidade, bipolar) {
 
 // ---------- O knob ----------
 
-// opcoes: { rotulo, escala, padrao, formatar, aoMudar, destino }
+// opcoes: { rotulo, escala, padrao, formatar, aoMudar, destino, ler }
 // "destino" (opcional): nome do controle de som, para receber ligações de modulação.
-export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }) {
+// "ler" (opcional): função que devolve o valor atual do som; com ela o knob ganha
+//   elemento.sincronizar(), que o põe na posição certa (ex.: ao carregar um preset).
+export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino, ler }) {
   const elemento = document.createElement('div');
   elemento.className = 'knob';
   if (destino) elemento.dataset.destino = destino;
@@ -163,7 +165,8 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }
     desenharModulacao();
   };
 
-  function atualizar() {
+  // Só a aparência (sem avisar ninguém)
+  function mostrar() {
     const valor = escala.paraValor(posicao);
     const angulo = INICIO + posicao * GIRO_TOTAL;
     caminhoValor.setAttribute('d', posicao > 0.001 ? arco(INICIO, angulo, 19) : '');
@@ -171,8 +174,20 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }
     numero.textContent = formatar(valor);
     elemento.setAttribute('aria-valuetext', numero.textContent);
     desenharModulacao(); // as faixas acompanham o knob
-    aoMudar(valor);
+    return valor;
   }
+
+  // Aparência + avisa que o valor mudou
+  function atualizar() {
+    aoMudar(mostrar());
+  }
+
+  // Põe o knob no valor atual do som, sem avisar (ex.: ao carregar um preset).
+  elemento.sincronizar = () => {
+    if (!ler) return;
+    posicao = Math.min(1, Math.max(0, escala.paraPosicao(ler())));
+    mostrar();
+  };
 
   function mudarPosicao(nova) {
     posicao = Math.min(1, Math.max(0, nova));

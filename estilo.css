@@ -123,6 +123,205 @@ h1 {
   height: 44px;
 }
 
+/* ---------- Presets (barra de cima) ---------- */
+
+.presets {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.presets-seta {
+  min-width: 40px;
+  padding: 0;
+  font-size: 20px;
+}
+
+.presets-nome {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 120px;
+  max-width: 220px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 12px;
+  background: var(--tela-onda);
+  color: var(--texto);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: manipulation;
+}
+
+.presets-texto {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.presets-mudou {
+  color: var(--destaque);
+  font-weight: 700;
+}
+
+.presets-salvar {
+  margin-left: 4px;
+}
+
+/* ---------- Janelas (lista de presets, salvar) ---------- */
+
+.janela-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.janela-fundo[hidden] {
+  display: none;
+}
+
+.janela {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: 100%;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 14px;
+  background: var(--cartao);
+  overflow: hidden;
+}
+
+.janela-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--cartao-borda);
+}
+
+.janela-titulo {
+  margin: 0;
+  font-size: 16px;
+}
+
+.janela-fechar {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 18px;
+}
+
+.janela-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px;
+  overflow-y: auto;
+}
+
+.janela-aviso {
+  margin: 0 16px 8px;
+  font-size: 13px;
+  color: var(--destaque);
+}
+
+.janela-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--cartao-borda);
+}
+
+.janela-rodape .botao {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+/* Lista de presets */
+.presets-categoria {
+  margin: 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.presets-linha {
+  display: flex;
+  gap: 4px;
+}
+
+.presets-item {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--texto);
+  font-size: 15px;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.presets-item:active {
+  background: var(--botao-apertado);
+}
+
+.presets-item.atual {
+  background: var(--botao-apertado);
+  box-shadow: inset 3px 0 0 var(--destaque);
+}
+
+.presets-meu {
+  font-size: 11px;
+  color: var(--texto-suave);
+}
+
+.presets-apagar {
+  width: 40px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 16px;
+}
+
+/* Campos (nome, categoria) */
+.campo-rotulo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.campo {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+  color: var(--texto);
+  font-size: 16px; /* 16 px: o iPhone não dá zoom ao tocar no campo */
+}
+
 /* ---------- Linha das abas + fichas de modulação ---------- */
 
 .linha-abas {
@@ -758,9 +957,14 @@ h1 {
 /* ---------- Tela estreita (celular em pé) ---------- */
 
 @media (max-width: 640px) {
-  /* Barra em 2 linhas: [título, Ligar som] e [oitava, volume] */
-  .barra-topo h1 {
+  /* Barra em 2 linhas: [presets, Ligar som] e [oitava, volume] */
+  .presets {
     flex: 1;
+  }
+
+  .presets-nome {
+    flex: 1;
+    min-width: 0;
   }
 
   .grupo-oitava {
@@ -922,8 +1126,17 @@ h1 {
     gap: 12px;
   }
 
-  h1 {
-    font-size: 15px;
+  .presets-nome {
+    min-width: 96px;
+    max-width: 170px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .presets-seta {
+    min-width: 32px;
   }
 
   .botao {

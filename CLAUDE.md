@@ -175,6 +175,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
 - `interface/seletor.js` — seletor de número inteiro ‹ N ›
 - `interface/modulacao.js` — fichas, arrastar/tocar para ligar, listas de ligações
+- `interface/presets.js` — barra de presets, lista, salvar, apagar, exportar/importar
+- `presets-fabrica.js` — presets de fábrica e categorias
+- `dsp/efeitos/` — distorcao.js, chorus.js, delay.js, reverb.js
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
@@ -227,6 +230,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Chorus (`dsp/efeitos/chorus.js`): 2 cópias por lado, atraso base 12 ms ± até 6 ms,
   defasadas 1/4 de ciclo (esq. = seno, dir. = cosseno). Rate 0,05–5 Hz. Custo ~1%.
 - 8 vozes × 8 cópias com os 4 efeitos: ~33% do tempo real (sem efeitos: ~24%).
+
+**Item 6a (Presets) — feito, em teste no iPhone:**
+- Barra de cima: [‹] Nome * [›] [Salvar] no lugar do título. "*" = som mexido e não salvo.
+  Tocar no nome abre a lista por categoria (Início, Baixo, Lead, Pad, Pluck, Keys, FX, Outros).
+- Preset = o "som": parametros, opcoes, fontes, ligacoes, efeitos (sem volume geral e oitava).
+  Carregar mescla o preset em cima do som inicial (SOM_PADRAO): presets antigos continuam
+  funcionando quando surgirem controles novos.
+- 10 de fábrica em `presets-fabrica.js` (só descrevem o que muda em relação ao Init);
+  não podem ser apagados nem substituídos.
+- Os do usuário ficam no aparelho (localStorage `mysynth.presets.v1`); iPhone: app instalado
+  e Safari guardam separado; limpar dados do Safari apaga. Exportar/Importar (.json).
+  Importar renomeia nomes repetidos ("Nome (2)").
+- Tela acompanha ao carregar: knobs/seletores têm `ler` + `sincronizar()`; botões ficam na
+  lista `sincronizadores`. Novo controle = dar `ler` ao knob ou registrar o sincronizador.
 
 **Teclado do computador — feito:**
 - Padrão FL Studio, pela posição da tecla (`evento.code`, funciona em ABNT e americano):
