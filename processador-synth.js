@@ -3,6 +3,9 @@
 // para o som não falhar mesmo se a tela ficar lenta.
 //
 // Nesta etapa: 1 voz (monofônico), tocando a wavetable recebida.
+// - WT Pos: escolhe a posição na wavetable, misturando os 2 frames vizinhos
+//   (morphing). É um "parâmetro de áudio", então muda suave, sem degraus,
+//   e no futuro poderá ser movido por LFOs e envelopes.
 // - Sem aliasing: escolhe o nível da tabela certo para cada nota e mistura
 //   suavemente entre dois níveis vizinhos.
 // - Sem estalos: o volume sobe e desce em poucos milissegundos.
@@ -12,7 +15,20 @@ function notaParaFrequencia(nota) {
   return 440 * Math.pow(2, (nota - 69) / 12);
 }
 
+// Lê um ponto da onda com interpolação (liga os pontos da tabela por retas).
+function lerOnda(onda, i0, i1, frac) {
+  return onda[i0] + frac * (onda[i1] - onda[i0]);
+}
+
 class ProcessadorSynth extends AudioWorkletProcessor {
+  // Controles que a página pode mexer de forma suave.
+  static get parameterDescriptors() {
+    return [
+      // 0 = primeiro frame, 1 = último frame
+      { name: 'wtPos', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+    ];
+  }
+
   constructor() {
     super();
     this.tabela = null; // wavetable recebida da página
@@ -83,7 +99,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     return { nivel, mistura };
   }
 
-  process(entradas, saidas) {
+  process(entradas, saidas, parametros) {
     const saida = saidas[0][0];
     const tamanhoBloco = saida.length;
 
@@ -94,24 +110,39 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       return true;
     }
 
-    const frame = this.tabela.frames[0];
+    const frames = this.tabela.frames;
+    const ultimoFrame = frames.length - 1;
     const tamanho = this.tabela.tamanho;
     const mascara = tamanho - 1;
     const { nivel, mistura } = this.escolherNiveis(this.frequencia);
-    const ondaA = frame[nivel];
-    const ondaB = frame[Math.min(nivel + 1, frame.length - 1)];
+    const nivelB = Math.min(nivel + 1, frames[0].length - 1);
     const passo = this.frequencia / sampleRate;
     const suavizar = this.alvo > this.volume ? this.suavizarSubida : this.suavizarDescida;
+    const posicoesWT = parametros.wtPos; // 1 valor (parado) ou 128 (mudando)
 
     for (let i = 0; i < tamanhoBloco; i++) {
-      // Leitura da tabela com interpolação (liga os pontos por retas).
+      // Onde estamos na wavetable: entre o frame f0 e o f1, "t" mede o quanto.
+      const wt = (posicoesWT.length > 1 ? posicoesWT[i] : posicoesWT[0]) * ultimoFrame;
+      const f0 = Math.min(wt | 0, ultimoFrame);
+      const f1 = Math.min(f0 + 1, ultimoFrame);
+      const t = wt - f0;
+
+      // Posição dentro do ciclo da onda.
       const posicao = this.fase * tamanho;
       const i0 = posicao | 0;
       const i1 = (i0 + 1) & mascara;
       const frac = posicao - i0;
-      const a = ondaA[i0] + frac * (ondaA[i1] - ondaA[i0]);
-      const b = ondaB[i0] + frac * (ondaB[i1] - ondaB[i0]);
-      const amostra = a + mistura * (b - a);
+
+      // Para cada um dos 2 frames: mistura os 2 níveis anti-aliasing.
+      const a0 = lerOnda(frames[f0][nivel], i0, i1, frac);
+      const b0 = lerOnda(frames[f0][nivelB], i0, i1, frac);
+      const a1 = lerOnda(frames[f1][nivel], i0, i1, frac);
+      const b1 = lerOnda(frames[f1][nivelB], i0, i1, frac);
+      const som0 = a0 + mistura * (b0 - a0);
+      const som1 = a1 + mistura * (b1 - a1);
+
+      // Morphing: mistura os 2 frames conforme o WT Pos.
+      const amostra = som0 + t * (som1 - som0);
 
       this.volume += (this.alvo - this.volume) * suavizar;
       saida[i] = amostra * this.volume;

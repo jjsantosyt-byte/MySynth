@@ -7,8 +7,8 @@
 // harmônicos; notas agudas usam versões com menos harmônicos, para que
 // nenhum harmônico passe do limite que o áudio digital consegue reproduzir.
 //
-// A estrutura já prevê vários "frames" por wavetable (para o WT Pos e o
-// morphing da próxima etapa). Por enquanto usamos só 1 frame.
+// Uma wavetable tem vários "frames" (formas de onda em sequência).
+// O WT Pos escolhe onde estamos nessa sequência, misturando frames vizinhos.
 
 // Quantos pontos cada ciclo da onda tem.
 export const TAMANHO_TABELA = 2048;
@@ -67,16 +67,52 @@ function montarFrame(amplitudes) {
   return niveis;
 }
 
-// Onda dente de serra, criada do zero pela fórmula clássica:
-// cada harmônico n tem volume 1/n.
-export function criarWavetableSerra() {
-  const amplitudes = new Float32Array(MAX_HARMONICOS + 1);
-  for (let n = 1; n <= MAX_HARMONICOS; n++) {
-    amplitudes[n] = (n % 2 === 1 ? 1 : -1) / n;
+// ---------- Receitas das formas básicas ----------
+// Todas criadas do zero, pelas fórmulas clássicas de harmônicos.
+// Todas começam no mesmo ponto do ciclo (subindo a partir do zero), para que
+// a mistura entre elas não cancele o som.
+
+// Seno: só a fundamental.
+function receitaSeno() {
+  const a = new Float32Array(MAX_HARMONICOS + 1);
+  a[1] = 1;
+  return a;
+}
+
+// Triângulo: só harmônicos ímpares, volume 1/n², sinais alternados.
+function receitaTriangulo() {
+  const a = new Float32Array(MAX_HARMONICOS + 1);
+  for (let n = 1; n <= MAX_HARMONICOS; n += 2) {
+    a[n] = (((n - 1) / 2) % 2 === 0 ? 1 : -1) / (n * n);
   }
+  return a;
+}
+
+// Serra (dente de serra): todos os harmônicos, volume 1/n.
+function receitaSerra() {
+  const a = new Float32Array(MAX_HARMONICOS + 1);
+  for (let n = 1; n <= MAX_HARMONICOS; n++) {
+    a[n] = (n % 2 === 1 ? 1 : -1) / n;
+  }
+  return a;
+}
+
+// Quadrada: só harmônicos ímpares, volume 1/n.
+function receitaQuadrada() {
+  const a = new Float32Array(MAX_HARMONICOS + 1);
+  for (let n = 1; n <= MAX_HARMONICOS; n += 2) {
+    a[n] = 1 / n;
+  }
+  return a;
+}
+
+// Wavetable "Básica": Seno → Triângulo → Serra → Quadrada.
+export function criarWavetableBasica() {
   return {
+    nome: 'Básica',
+    nomesFrames: ['Seno', 'Triângulo', 'Serra', 'Quadrada'],
     tamanho: TAMANHO_TABELA,
     harmonicos: HARMONICOS_POR_NIVEL,
-    frames: [montarFrame(amplitudes)],
+    frames: [receitaSeno(), receitaTriangulo(), receitaSerra(), receitaQuadrada()].map(montarFrame),
   };
 }

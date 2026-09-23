@@ -101,6 +101,66 @@ h1 {
   height: 44px;
 }
 
+/* ---------- Painel da onda (oscilador) ---------- */
+
+.painel-onda {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tela-onda {
+  position: relative;
+  height: 130px;
+  border-radius: 12px;
+  background: #1c1d22;
+  overflow: hidden;
+  touch-action: none; /* arrastar aqui mexe no WT Pos, não rola a página */
+  cursor: ew-resize;
+}
+
+.tela-onda canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.nome-onda {
+  position: absolute;
+  top: 8px;
+  left: 12px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(28, 29, 34, 0.85);
+  font-size: 14px;
+  color: #a9abb5;
+  pointer-events: none;
+}
+
+.grupo-wtpos {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 17px;
+}
+
+.grupo-wtpos input {
+  flex: 1;
+  height: 44px;
+}
+
+.atalhos-wt {
+  display: flex;
+  gap: 8px;
+}
+
+.atalhos-wt .botao {
+  flex: 1;
+  min-height: 40px;
+  padding: 0 6px;
+  font-size: 14px;
+}
+
 /* ---------- Teclado ---------- */
 
 .teclado {

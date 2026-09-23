@@ -72,13 +72,23 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Monofônico (última nota tem prioridade), com rampa anti-estalo de volume.
 - O primeiro toque no teclado já liga o som (o botão "Ligar som" é opcional).
 
+**Item 1 (WT Pos e morphing) — feito, aguardando aprovação do ouvido:**
+- Wavetable "Básica" com 4 frames: Seno → Triângulo → Serra → Quadrada
+  (criados do zero, alinhados no início do ciclo).
+- WT Pos como parâmetro de áudio suavizado (pronto para ser modulado no item 4).
+- Morphing contínuo: mistura os 2 frames vizinhos.
+- Visualização 2D da onda atual; arrastar no desenho muda o WT Pos;
+  botões de atalho para cada forma.
+
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques
 - `processador-synth.js` — motor de som (AudioWorklet)
-- `wavetable.js` — monta as wavetables (estrutura já prevê vários frames para o WT Pos)
+- `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
+- `visualizacao.js` — desenha a onda atual
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
 **Pendências:**
 - Teste no celular exige endereço https (ex.: GitHub Pages).
-- Próximo: item 1 (WT Pos e morphing).
+- Visualização em perspectiva (frames empilhados) fica para a fase de aparência.
+- Próximo: item 2 (filtro + envelope de amplitude).
