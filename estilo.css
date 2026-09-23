@@ -37,7 +37,10 @@ main {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 10px 16px 16px;
+  height: 100dvh; /* altura real visível (no celular, desconta as barras do navegador) */
+  /* "max(…, env(…))": no iPhone, desvia da ilha da câmera e da barrinha de baixo */
+  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
   box-sizing: border-box;
   gap: 10px;
 }
@@ -120,6 +123,28 @@ h1 {
   height: 44px;
 }
 
+/* ---------- Linha das abas + voz + Mod ---------- */
+
+.linha-abas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.linha-abas .abas {
+  flex: 1 1 300px;
+}
+
+.botao-mod {
+  flex: 0 0 auto;
+}
+
+.botao-mod[aria-expanded='true'] {
+  border-color: var(--destaque);
+  color: var(--destaque);
+}
+
 /* ---------- Abas ---------- */
 
 .abas {
@@ -178,7 +203,13 @@ h1 {
 
 .barra-fontes {
   display: flex;
+  flex: 1 1 100%; /* linha própria, abaixo das abas */
+  order: 10;
   gap: 8px;
+}
+
+.barra-fontes[hidden] {
+  display: none;
 }
 
 .ficha {
@@ -346,6 +377,27 @@ h1 {
 
 .grupo-botoes.formas-lfo .botao {
   min-height: 34px;
+}
+
+/* Nomes curtos só aparecem no celular deitado */
+.nome-curto {
+  display: none;
+}
+
+/* LFO: desenho e knob Rate lado a lado */
+.lfo-corpo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lfo-corpo .tela-grafico {
+  flex: 1;
+  min-width: 0;
+}
+
+.lfo-corpo .linha-knobs {
+  flex: 0 0 auto;
 }
 
 /* ---------- Seletor de número (‹ 4 ›) ---------- */
@@ -729,6 +781,25 @@ h1 {
     display: none;
   }
 
+  /* Abas e botão Mod na mesma linha; opções de voz na linha de baixo */
+  .linha-abas .abas {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .botao-mod {
+    order: 1;
+  }
+
+  .linha-abas .barra-voz {
+    order: 2;
+    flex-basis: 100%;
+  }
+
+  .barra-fontes {
+    order: 3;
+  }
+
   /* Fileira de voz numa linha só: botões e seletor mais justos */
   .barra-voz {
     gap: 8px 10px;
@@ -828,4 +899,329 @@ h1 {
 
 .tecla.preta.ativa {
   background: var(--destaque-escuro);
+}
+
+/* =====================================================================
+   Celular deitado (tela baixa): tudo compacto e SEM ROLAGEM.
+   Os desenhos (onda, filtro, envelope, LFO) ocupam o espaço que sobra:
+   se a tela for menor, eles encolhem — o resto do cartão fica sempre visível.
+   ===================================================================== */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  main {
+    padding: max(5px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+      max(5px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    gap: 5px;
+  }
+
+  /* --- Barra de cima: uma linha só --- */
+  .barra-topo {
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+
+  h1 {
+    font-size: 15px;
+  }
+
+  .botao {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .texto-longo {
+    display: none; /* "Oitava –" vira "–" */
+  }
+
+  .rotulo {
+    min-width: 28px;
+    font-size: 14px;
+  }
+
+  .grupo-volume {
+    gap: 8px;
+    min-width: 120px;
+    font-size: 13px;
+  }
+
+  .grupo-volume input {
+    height: 30px;
+  }
+
+  /* --- Abas + voz + Mod: uma linha só --- */
+  .linha-abas {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .linha-abas .abas {
+    flex: 1 1 auto;
+    padding: 3px;
+  }
+
+  .aba {
+    min-height: 28px;
+    font-size: 13px;
+  }
+
+  .barra-voz {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .grupo-botoes.modo-voz .botao {
+    min-width: 46px;
+    min-height: 30px;
+    padding: 0 8px;
+  }
+
+  .seletor-botao {
+    width: 24px;
+    height: 30px;
+    font-size: 16px;
+  }
+
+  .seletor-numero {
+    font-size: 14px;
+  }
+
+  .seletor-linha .seletor-rotulo {
+    font-size: 11px;
+  }
+
+  .chave {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  /* Mod aberto: as fichas ocupam o lugar das opções de voz (mesma linha) */
+  .barra-fontes {
+    flex: 1 1 auto;
+    order: 0;
+  }
+
+  .linha-abas.mod-aberto .barra-voz {
+    display: none;
+  }
+
+  .ficha {
+    min-height: 30px;
+    font-size: 12px;
+  }
+
+  /* A dica do "tocar para ligar" flutua por cima (não empurra nada) */
+  .dica-modulacao {
+    position: fixed;
+    top: max(6px, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 50;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    border: 1px solid var(--cor-ligando);
+    border-radius: 8px;
+    background: rgba(11, 12, 15, 0.94);
+    white-space: nowrap;
+  }
+
+  /* --- Conteúdo da aba: ocupa o espaço entre as linhas de cima e o teclado --- */
+  .conteudo-aba {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .modulos {
+    height: 100%;
+    gap: 8px;
+  }
+
+  .cartao {
+    min-height: 0;
+    padding: 6px 8px;
+    gap: 4px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .cartao.reservado {
+    min-height: 0;
+  }
+
+  .titulo-cartao {
+    font-size: 11px;
+  }
+
+  .cabecalho-cartao .chave {
+    min-height: 24px;
+  }
+
+  /* Desenhos: ficam com a altura que sobrar */
+  .tela-grafico {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 26px;
+    border-radius: 8px;
+  }
+
+  .nome-onda {
+    top: 3px;
+    left: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+  }
+
+  .grupo-botoes .botao,
+  .atalhos-wt .botao {
+    min-height: 26px;
+    border-radius: 7px;
+    font-size: 12px;
+  }
+
+  .grupo-wtpos {
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .grupo-wtpos input {
+    height: 26px;
+  }
+
+  /* Knobs menores */
+  .knob {
+    flex-basis: 52px;
+    gap: 0;
+    padding: 0;
+  }
+
+  .knob-desenho {
+    width: 30px;
+    height: 30px;
+  }
+
+  .knob-numero {
+    font-size: 10px;
+  }
+
+  .knob-rotulo {
+    font-size: 9px;
+  }
+
+  .seletor {
+    padding: 0;
+  }
+
+  /* OSC A: título e WT Pos dividem a primeira linha */
+  .cartao-osc {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto minmax(26px, 1fr) auto auto;
+    column-gap: 8px;
+  }
+
+  .cartao-osc .titulo-cartao {
+    grid-row: 1;
+    grid-column: 1;
+    align-self: center;
+  }
+
+  .cartao-osc .grupo-wtpos {
+    grid-row: 1;
+    grid-column: 2;
+  }
+
+  .cartao-osc .tela-onda {
+    grid-row: 2;
+    grid-column: 1 / -1;
+    height: auto;
+  }
+
+  .cartao-osc .atalhos-wt {
+    grid-row: 3;
+    grid-column: 1 / -1;
+  }
+
+  .cartao-osc #unison-osc {
+    grid-row: 4;
+    grid-column: 1 / -1;
+  }
+
+  /* LFO: formas numa linha só, com nomes curtos */
+  .grupo-botoes.formas-lfo {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .nome-longo {
+    display: none;
+  }
+
+  .nome-curto {
+    display: inline;
+  }
+
+  .lfo-corpo {
+    flex: 1 1 0;
+    min-height: 30px;
+    align-items: stretch;
+  }
+
+  .lfo-corpo .tela-grafico {
+    height: auto;
+  }
+
+  .lfo-corpo .linha-knobs {
+    align-items: center;
+  }
+
+  /* Listas de ligações: se crescerem, só elas rolam */
+  .lista-mod {
+    flex: 0 1 auto;
+    min-height: 28px;
+    overflow-y: auto;
+  }
+
+  .lista-mod-vazia {
+    font-size: 10px;
+  }
+
+  .linha-mod {
+    min-height: 28px;
+    gap: 6px;
+  }
+
+  .linha-mod input {
+    height: 24px;
+  }
+
+  .linha-mod-nome {
+    width: 44px;
+    font-size: 11px;
+  }
+
+  .linha-mod-valor {
+    width: 40px;
+    font-size: 11px;
+  }
+
+  .linha-mod-remover {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* --- Teclado mais baixo --- */
+  .teclado {
+    flex: 0 0 auto;
+    height: clamp(68px, 22vh, 110px);
+    max-height: none;
+    margin-top: 0;
+  }
+
+  .tecla.branca {
+    padding-bottom: 4px;
+    border-radius: 0 0 6px 6px;
+    font-size: 10px;
+  }
 }

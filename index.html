@@ -2,8 +2,18 @@
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <!-- viewport-fit=cover: usa a tela toda no iPhone (as margens da "ilha" são tratadas no estilo) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>MySynth</title>
+    <!-- Para instalar como app ("Adicionar à Tela de Início"): abre em tela cheia, sem as barras do navegador -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0b0c0f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MySynth" />
+    <link rel="apple-touch-icon" href="icones/icone-180.png" />
+    <link rel="icon" type="image/png" href="icones/icone-192.png" />
     <link rel="stylesheet" href="estilo.css" />
   </head>
   <body>
@@ -26,34 +36,39 @@
 
       <p id="aviso" class="aviso" hidden></p>
 
-      <!-- Abas: cada uma com uma função só -->
-      <nav class="abas" role="tablist">
-        <button class="aba ativa" role="tab" aria-selected="true" data-aba="osc">OSC</button>
-        <button class="aba" role="tab" aria-selected="false" data-aba="filtro">Filtro</button>
-        <button class="aba" role="tab" aria-selected="false" data-aba="env">ENV</button>
-        <button class="aba" role="tab" aria-selected="false" data-aba="lfo">LFO</button>
-        <button class="aba" role="tab" aria-selected="false" data-aba="fx">FX</button>
-      </nav>
+      <!-- Linha das abas + opções de voz + botão Mod (tudo junto, para economizar altura) -->
+      <div id="linha-abas" class="linha-abas">
+        <!-- Abas: cada uma com uma função só -->
+        <nav class="abas" role="tablist">
+          <button class="aba ativa" role="tab" aria-selected="true" data-aba="osc">OSC</button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="filtro">Filtro</button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="env">ENV</button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="lfo">LFO</button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="fx">FX</button>
+        </nav>
 
-      <!-- Opções de voz (valem para o synth todo, visíveis em todas as abas) -->
-      <div class="barra-voz">
-        <div id="modo-voz" class="grupo-botoes modo-voz">
-          <button class="botao" data-modo="mono">Mono</button>
-          <button class="botao" data-modo="poly">Poly</button>
+        <!-- Opções de voz (valem para o synth todo, visíveis em todas as abas) -->
+        <div class="barra-voz">
+          <div id="modo-voz" class="grupo-botoes modo-voz">
+            <button class="botao" data-modo="mono">Mono</button>
+            <button class="botao" data-modo="poly">Poly</button>
+          </div>
+          <div id="seletor-vozes"></div>
+          <!-- Legato (só no Mono): deslizar entre teclas não reinicia o envelope -->
+          <button id="legato" class="chave" aria-pressed="true">Legato</button>
         </div>
-        <div id="seletor-vozes"></div>
-        <!-- Legato (só no Mono): deslizar entre teclas não reinicia o envelope -->
-        <button id="legato" class="chave" aria-pressed="true">Legato</button>
-      </div>
 
-      <!-- Fontes de modulação: arraste uma ficha até um controle, ou toque nela e depois no controle -->
-      <div id="barra-fontes" class="barra-fontes"></div>
+        <!-- Fontes de modulação: arraste uma ficha até um controle, ou toque nela e depois no controle.
+             Aparecem só com o botão Mod aberto (no celular deitado, ocupam o lugar das opções de voz). -->
+        <div id="barra-fontes" class="barra-fontes" hidden></div>
+        <button id="botao-mod" class="chave botao-mod" aria-expanded="false" aria-controls="barra-fontes">Mod ▾</button>
+      </div>
       <p id="dica-modulacao" class="dica-modulacao" hidden></p>
 
       <!-- Aba OSC: 3 espaços de oscilador (só o A funciona por enquanto) -->
       <section class="conteudo-aba" data-painel="osc">
         <div class="modulos">
-          <article class="cartao">
+          <article class="cartao cartao-osc">
             <h2 class="titulo-cartao">OSC A</h2>
             <div class="tela-grafico tela-onda">
               <!-- Arrastar no desenho (para os lados ou para cima/baixo) também muda o WT Pos -->
@@ -135,9 +150,12 @@
               <!-- Retrig: recomeça a cada nota. Livre: roda sem parar. -->
               <button class="chave" data-modo-lfo="lfo1" aria-pressed="true">Retrig</button>
             </div>
-            <div class="tela-grafico"><canvas data-tela-lfo="lfo1"></canvas></div>
+            <!-- Desenho e knob Rate lado a lado (economiza altura) -->
+            <div class="lfo-corpo">
+              <div class="tela-grafico"><canvas data-tela-lfo="lfo1"></canvas></div>
+              <div class="linha-knobs" data-knobs-lfo="lfo1"></div>
+            </div>
             <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo1"></div>
-            <div class="linha-knobs" data-knobs-lfo="lfo1"></div>
             <div class="lista-mod" data-lista="lfo1"></div>
           </article>
 
@@ -146,9 +164,11 @@
               <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-lfo2)"></span>LFO 2</h2>
               <button class="chave" data-modo-lfo="lfo2" aria-pressed="true">Retrig</button>
             </div>
-            <div class="tela-grafico"><canvas data-tela-lfo="lfo2"></canvas></div>
+            <div class="lfo-corpo">
+              <div class="tela-grafico"><canvas data-tela-lfo="lfo2"></canvas></div>
+              <div class="linha-knobs" data-knobs-lfo="lfo2"></div>
+            </div>
             <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo2"></div>
-            <div class="linha-knobs" data-knobs-lfo="lfo2"></div>
             <div class="lista-mod" data-lista="lfo2"></div>
           </article>
         </div>

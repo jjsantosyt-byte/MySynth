@@ -178,6 +178,18 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
+**Visual para celular deitado (iPhone 15 Pro) — em teste no aparelho:**
+- Prioridade: celular DEITADO, sem rolagem em nenhuma aba. Celular em pé continua
+  funcionando (com rolagem permitida).
+- Regras do layout deitado (`@media (orientation: landscape) and (max-height: 500px)`):
+  barra de cima numa linha; abas + voz + botão Mod numa linha; Mod ▾ troca as opções
+  de voz pelas fichas na MESMA linha; teclado ~22% da altura; os desenhos (onda,
+  filtro, envelopes, LFO) encolhem para o resto caber; só as listas de ligações rolam.
+- Medido: 852×340 (Safari) e 852×393 (instalado) sem rolagem e sem cortes.
+- Margens da ilha/câmera: `viewport-fit=cover` + `env(safe-area-inset-*)`.
+- PWA básico: `manifest.json`, ícones em `icones/`, metas da Apple → "Adicionar à
+  Tela de Início" abre em tela cheia (ganha ~50 px de altura).
+
 **Online (GitHub Pages) — no ar desde 23/09/2026:**
 - Endereço: https://jjsantosyt-byte.github.io/MySynth/
 - Repositório público: https://github.com/jjsantosyt-byte/MySynth (branch `main`, pasta raiz).

@@ -575,13 +575,14 @@ document.querySelectorAll('[data-knobs-env]').forEach((lugar) => {
 
 // ---------- Aba LFO ----------
 
+// [nome normal, nome curto (celular deitado)]
 const NOMES_FORMAS_LFO = {
-  seno: 'Seno',
-  triangulo: 'Tri',
-  serraSobe: 'Serra ↑',
-  serraDesce: 'Serra ↓',
-  quadrada: 'Quad',
-  aleatorio: 'S&H',
+  seno: ['Seno', 'Sen'],
+  triangulo: ['Tri', 'Tri'],
+  serraSobe: ['Serra ↑', 'S↑'],
+  serraDesce: ['Serra ↓', 'S↓'],
+  quadrada: ['Quad', 'Qd'],
+  aleatorio: ['S&H', 'S&H'],
 };
 
 // Formas: um botão para cada.
@@ -592,7 +593,9 @@ document.querySelectorAll('[data-formas-lfo]').forEach((lugar) => {
   FORMAS_LFO.forEach((forma) => {
     const botao = document.createElement('button');
     botao.className = 'botao';
-    botao.textContent = NOMES_FORMAS_LFO[forma];
+    const [nomeLongo, nomeCurto] = NOMES_FORMAS_LFO[forma];
+    botao.innerHTML = `<span class="nome-longo">${nomeLongo}</span><span class="nome-curto">${nomeCurto}</span>`;
+    botao.title = nomeLongo;
     botao.dataset.forma = forma;
     botao.addEventListener('click', () => {
       definirFonte(id, 'forma', forma);
@@ -638,12 +641,26 @@ document.querySelectorAll('[data-modo-lfo]').forEach((botao) => {
 const listasMod = {};
 document.querySelectorAll('[data-lista]').forEach((lista) => (listasMod[lista.dataset.lista] = lista));
 
+const barraFontes = document.getElementById('barra-fontes');
 const telaModulacao = criarModulacao({
-  barra: document.getElementById('barra-fontes'),
+  barra: barraFontes,
   dica: document.getElementById('dica-modulacao'),
   listas: listasMod,
   ligacoes: estado.ligacoes,
   aoMudar: enviarLigacoes,
+});
+
+// Botão "Mod": mostra/esconde as fichas. No celular deitado, elas ocupam o
+// lugar das opções de voz na mesma linha (o estilo cuida disso).
+const botaoMod = document.getElementById('botao-mod');
+const linhaAbas = document.getElementById('linha-abas');
+botaoMod.addEventListener('click', () => {
+  const abrir = barraFontes.hidden;
+  barraFontes.hidden = !abrir;
+  linhaAbas.classList.toggle('mod-aberto', abrir);
+  botaoMod.setAttribute('aria-expanded', abrir);
+  botaoMod.textContent = abrir ? 'Mod ▴' : 'Mod ▾';
+  if (!abrir) telaModulacao.desarmar();
 });
 
 // ---------- Abas ----------

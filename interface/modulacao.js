@@ -267,6 +267,11 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
     return linha;
   }
 
+  // Sai do modo "tocar para ligar" (ex.: ao esconder as fichas).
+  function desarmar() {
+    if (armada) armar(armada);
+  }
+
   atualizar();
-  return { atualizar, atualizarAoVivo };
+  return { atualizar, atualizarAoVivo, desarmar };
 }
