@@ -216,7 +216,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Medido: ecos caem 8 dB por repetição com Feedback 40%; ligar/desligar sem estalo;
   8 vozes × 8 cópias: 24% → 26% com delay + reverb.
 
-**Item 5b (Distorção + Chorus) — feito, em teste no iPhone:**
+**Item 5b (Distorção + Chorus) — feito e aprovado no iPhone. Item 5 (Efeitos) completo.**
 - Cadeia completa: Distorção → Chorus → Delay → Reverb.
 - Distorção (`dsp/efeitos/distorcao.js`): Suave (tanh), Dura (corte), Válvula
   (assimétrica + filtro que tira o desvio DC). Anti-aliasing: 2x oversampling (filtro
@@ -246,4 +246,4 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 **Pendências:**
 - Testar no celular: som, peso (acordes + unison) e latência.
 - Visualização em perspectiva (frames empilhados) fica para a fase de aparência.
-- Próximo: item 4 (LFOs e envelopes de modulação com arrastar-e-soltar).
+- Próximo: item 6 (presets e wavetables próprias).
