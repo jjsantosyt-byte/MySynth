@@ -46,6 +46,10 @@
         <button id="legato" class="chave" aria-pressed="true">Legato</button>
       </div>
 
+      <!-- Fontes de modulação: arraste uma ficha até um controle, ou toque nela e depois no controle -->
+      <div id="barra-fontes" class="barra-fontes"></div>
+      <p id="dica-modulacao" class="dica-modulacao" hidden></p>
+
       <!-- Aba OSC: 3 espaços de oscilador (só o A funciona por enquanto) -->
       <section class="conteudo-aba" data-painel="osc">
         <div class="modulos">
@@ -56,7 +60,7 @@
               <canvas id="tela-onda"></canvas>
               <span id="nome-onda" class="nome-onda">Seno</span>
             </div>
-            <label class="grupo-wtpos">
+            <label class="grupo-wtpos" data-destino="wtPos">
               <span>WT Pos</span>
               <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
             </label>
@@ -93,7 +97,7 @@
         </div>
       </section>
 
-      <!-- Aba ENV: ENV 1 controla o volume; ENV 2 e 3 virão com a modulação -->
+      <!-- Aba ENV: ENV 1 controla o volume; ENV 2 e 3 servem para modular -->
       <section class="conteudo-aba" data-painel="env" hidden>
         <div class="modulos">
           <article class="cartao">
@@ -102,19 +106,48 @@
             <div id="knobs-envelope" class="linha-knobs"></div>
           </article>
 
-          <article class="cartao reservado">
-            <h2 class="titulo-cartao">ENV 2</h2>
-            <p class="em-breve">em breve</p>
+          <article class="cartao">
+            <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-env2)"></span>ENV 2</h2>
+            <div class="tela-grafico"><canvas data-tela-env="env2"></canvas></div>
+            <div class="linha-knobs" data-knobs-env="env2"></div>
+            <div class="lista-mod" data-lista="env2"></div>
           </article>
 
-          <article class="cartao reservado">
-            <h2 class="titulo-cartao">ENV 3</h2>
-            <p class="em-breve">em breve</p>
+          <article class="cartao">
+            <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-env3)"></span>ENV 3</h2>
+            <div class="tela-grafico"><canvas data-tela-env="env3"></canvas></div>
+            <div class="linha-knobs" data-knobs-env="env3"></div>
+            <div class="lista-mod" data-lista="env3"></div>
           </article>
         </div>
       </section>
+
+      <!-- Aba LFO: 2 LFOs -->
       <section class="conteudo-aba" data-painel="lfo" hidden>
-        <div class="cartao reservado"><h2 class="titulo-cartao">LFOs</h2><p class="em-breve">em breve</p></div>
+        <div class="modulos">
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-lfo1)"></span>LFO 1</h2>
+              <!-- Retrig: recomeça a cada nota. Livre: roda sem parar. -->
+              <button class="chave" data-modo-lfo="lfo1" aria-pressed="true">Retrig</button>
+            </div>
+            <div class="tela-grafico"><canvas data-tela-lfo="lfo1"></canvas></div>
+            <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo1"></div>
+            <div class="linha-knobs" data-knobs-lfo="lfo1"></div>
+            <div class="lista-mod" data-lista="lfo1"></div>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-lfo2)"></span>LFO 2</h2>
+              <button class="chave" data-modo-lfo="lfo2" aria-pressed="true">Retrig</button>
+            </div>
+            <div class="tela-grafico"><canvas data-tela-lfo="lfo2"></canvas></div>
+            <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo2"></div>
+            <div class="linha-knobs" data-knobs-lfo="lfo2"></div>
+            <div class="lista-mod" data-lista="lfo2"></div>
+          </article>
+        </div>
       </section>
       <section class="conteudo-aba" data-painel="fx" hidden>
         <div class="cartao reservado"><h2 class="titulo-cartao">Efeitos</h2><p class="em-breve">em breve</p></div>

@@ -55,6 +55,13 @@ export function formatarPorcentagem(valor) {
   return Math.round(valor * 100) + ' %';
 }
 
+// Velocidade de LFO: casas decimais quando é lento (ex.: 0,25 Hz).
+export function formatarRate(hz) {
+  if (hz < 1) return virgula(hz.toFixed(2)) + ' Hz';
+  if (hz < 10) return virgula(hz.toFixed(1)) + ' Hz';
+  return Math.round(hz) + ' Hz';
+}
+
 export function formatarFrequencia(hz) {
   if (hz < 1000) return Math.round(hz) + ' Hz';
   return virgula((hz / 1000).toFixed(hz < 10000 ? 2 : 1)) + ' kHz';
@@ -76,10 +83,12 @@ function arco(anguloInicio, anguloFim, raio) {
 
 // ---------- O knob ----------
 
-// opcoes: { rotulo, escala, padrao, formatar, aoMudar }
-export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar }) {
+// opcoes: { rotulo, escala, padrao, formatar, aoMudar, destino }
+// "destino" (opcional): nome do controle de som, para receber ligações de modulação.
+export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino }) {
   const elemento = document.createElement('div');
   elemento.className = 'knob';
+  if (destino) elemento.dataset.destino = destino;
   elemento.tabIndex = 0;
   elemento.setAttribute('role', 'slider');
   elemento.setAttribute('aria-label', rotulo);

@@ -139,6 +139,22 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   níveis anti-aliasing só no último 1/4 da faixa. Peso medido no PC (render offline):
   8 vozes × 8 cópias ≈ 18% do tempo real; 16 × 16 ≈ 47%.
 
+**Item 4a (modulação: som e ligações) — feito, aguardando aprovação do ouvido:**
+- Fontes: LFO 1 e 2 (Seno, Tri, Serra ↑, Serra ↓, Quad, S&H; Rate 0,02–40 Hz;
+  modo Retrig = por nota, Livre = um só para todas, rodando sempre) e ENV 2 e 3 (ADSR).
+- Destinos: WT Pos, Detune, Width, Cutoff, Reso. A modulação soma na posição do knob
+  (0 a 1); Cutoff na escala exponencial do knob. Quantidade de -100% a +100%.
+- Cada voz calcula a modulação em pedaços de 32 amostras, com rampa entre pedaços
+  e suavização de ~2 ms (LFO quadrado/S&H sem tique). Filtro modulado: coeficientes
+  próprios da voz, interpolados. Quantidades mudam suavemente (~10 ms).
+- Tela: fichas coloridas sempre visíveis (abaixo da fileira de voz). Ligar arrastando
+  a ficha até o controle, ou tocando na ficha (arma) e depois nos controles.
+  Lista de ligações em cada cartão de fonte (barra de quantidade + ✕).
+  Bolinhas coloridas no canto dos controles ligados.
+- Peso: 8 vozes × 8 cópias com 4 ligações ≈ 33% do tempo real (sem ligações ≈ 23%).
+- Próximo (4b): arcos coloridos nos knobs, ponto "ao vivo" do valor modulado e
+  pontinho andando no desenho do LFO.
+
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques, abas e controles
@@ -146,8 +162,10 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `dsp/voz.js` — uma voz completa (unison → filtro estéreo → envelope)
 - `dsp/oscilador.js` — leitura da wavetable sem aliasing
 - `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelas vozes)
+- `dsp/lfo.js`, `dsp/modulacao.js` — LFO e ligações de modulação (dentro do motor)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
 - `interface/seletor.js` — seletor de número inteiro ‹ N ›
+- `interface/modulacao.js` — fichas, arrastar/tocar para ligar, listas de ligações
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)

@@ -9,11 +9,17 @@
 //   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
 // - Mono: uma nota por vez (sempre a voz 1), com Legato opcional:
 //   deslizar entre teclas não reinicia o envelope.
+// - Modulação: LFO 1 e 2, ENV 2 e 3 ligados a controles (ver dsp/modulacao.js).
+//   LFO em modo Retrig vive dentro de cada voz; em modo Livre, fica aqui
+//   (um só para todas as notas, rodando sem parar).
 
 import { Voz } from './dsp/voz.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
+import { MatrizModulacao } from './dsp/modulacao.js';
+import { EstadoLFO } from './dsp/lfo.js';
 
 const MAX_VOZES = 16;
+const PEDACO = 32; // amostras por pedaço de modulação (igual ao da voz)
 
 class ProcessadorSynth extends AudioWorkletProcessor {
   // Controles que a página pode mexer de forma suave.
@@ -51,6 +57,19 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.contador = 0; // numera as notas, para saber qual é a mais antiga
     this.comum = {}; // dados do bloco, compartilhados por todas as vozes
 
+    // Modulação
+    this.matriz = new MatrizModulacao(sampleRate);
+    this.ajustesLfo = [
+      { forma: 'seno', rate: 2, modo: 'retrig' },
+      { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
+    ];
+    this.ajustesEnv = [
+      { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
+      { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
+    ];
+    this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
+    this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
+
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
   }
 
@@ -73,7 +92,21 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'opcao':
         this.definirOpcao(msg.nome, msg.valor);
         break;
+      case 'modulacoes':
+        this.matriz.definir(msg.lista);
+        break;
+      case 'fonte':
+        this.definirFonte(msg.id, msg.ajustes);
+        break;
     }
+  }
+
+  // Ajustes de uma fonte de modulação (LFO: forma, rate, modo; ENV: A, D, S, R).
+  definirFonte(id, ajustes) {
+    const lfo = { lfo1: 0, lfo2: 1 }[id];
+    if (lfo !== undefined) Object.assign(this.ajustesLfo[lfo], ajustes);
+    const env = { env2: 0, env3: 1 }[id];
+    if (env !== undefined) Object.assign(this.ajustesEnv[env], ajustes);
   }
 
   definirOpcao(nome, valor) {
@@ -113,12 +146,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     // A mesma nota ainda está soando? Reaproveita a voz dela.
     let voz = this.vozes.find((v) => v.ativa && !v.pendente && v.nota === nota);
-    if (voz) return voz.iniciar(nota, idade);
+    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo);
 
     // Uma voz livre (dentro do limite de vozes escolhido)?
     const disponiveis = this.vozes.slice(0, this.maxVozes);
     voz = disponiveis.find((v) => !v.ativa);
-    if (voz) return voz.iniciar(nota, idade);
+    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo);
 
     // Sem voz livre: rouba. Prefere uma já solta (sumindo) e mais baixa;
     // se todas estão seguradas, rouba a mais antiga.
@@ -135,7 +168,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       return;
     }
     // Já quase muda? Começa direto. Senão, some rápido e depois toca.
-    if (escolhida.nivel < 0.001) escolhida.iniciar(nota, idade);
+    if (escolhida.nivel < 0.001) escolhida.iniciar(nota, idade, true, this.ajustesLfo);
     else escolhida.roubar(nota, idade);
   }
 
@@ -154,7 +187,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.notasPresas = this.notasPresas.filter((n) => n !== nota);
     this.notasPresas.push(nota);
     // Com legato, só recomeça o envelope se nenhuma tecla estava segurada.
-    this.vozes[0].iniciar(nota, ++this.contador, ninguemSegurando || !this.legato);
+    this.vozes[0].iniciar(nota, ++this.contador, ninguemSegurando || !this.legato, this.ajustesLfo);
   }
 
   notaOffMono(nota) {
@@ -165,7 +198,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     } else if (nota === voz.nota) {
       // Soltou a nota que soava, mas ainda tem outra segurada: volta para ela.
       const ultima = this.notasPresas[this.notasPresas.length - 1];
-      voz.iniciar(ultima, ++this.contador, !this.legato);
+      voz.iniciar(ultima, ++this.contador, !this.legato, this.ajustesLfo);
     }
   }
 
@@ -177,8 +210,18 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const tamanhoBloco = saidaE.length;
     saidaE.fill(0);
     saidaD.fill(0);
-    if (!this.tabela) return true;
 
+    // LFOs livres rodam sempre, mesmo em silêncio (as notas pegam eles andando).
+    for (let l = 0; l < 2; l++) {
+      const ajustes = this.ajustesLfo[l];
+      for (let pedaco = 0; pedaco * PEDACO < tamanhoBloco; pedaco++) {
+        this.lfosLivres[l].avancar((ajustes.rate * PEDACO) / sampleRate);
+        this.valoresLivres[l][pedaco] = this.lfosLivres[l].valor(ajustes.forma);
+      }
+    }
+    this.matriz.avancarBloco();
+
+    if (!this.tabela) return true;
     let algumaAtiva = false;
     for (const voz of this.vozes) if (voz.ativa) algumaAtiva = true;
     if (!algumaAtiva) return true; // silêncio: não calcula nada
@@ -188,11 +231,17 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const comum = this.comum;
     comum.tabela = this.tabela;
     comum.posicoesWT = parametros.wtPos;
+    comum.cortes = parametros.cutoff;
+    comum.resonancias = parametros.resonancia;
     comum.coef = this.coef;
     comum.unison = this.unison;
     comum.detune = parametros.detune[0];
     comum.width = parametros.width[0];
+    comum.matriz = this.matriz;
+    comum.ajustesLfo = this.ajustesLfo;
+    comum.lfosLivres = this.valoresLivres;
 
+    const [env2, env3] = this.ajustesEnv;
     for (const voz of this.vozes) {
       if (!voz.ativa) continue;
       voz.envelope.definir(
@@ -201,6 +250,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         parametros.sustentacao[0],
         parametros.soltura[0]
       );
+      voz.envsMod[0].definir(env2.ataque, env2.decaimento, env2.sustentacao, env2.soltura);
+      voz.envsMod[1].definir(env3.ataque, env3.decaimento, env3.sustentacao, env3.soltura);
       voz.processar(saidaE, saidaD, tamanhoBloco, comum);
     }
     return true;

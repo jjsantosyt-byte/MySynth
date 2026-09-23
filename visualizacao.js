@@ -121,6 +121,51 @@ export function desenharOnda(canvas, amostras, marcasUnison = []) {
   linhaComBrilho(g, pontos, meio, altura);
 }
 
+// ---------- Forma do LFO ----------
+
+// Degraus de exemplo para desenhar o "Aleatório" (o de verdade é sorteado).
+const DEGRAUS_EXEMPLO = [0.55, -0.35, 0.9, -0.75, 0.15, -0.5, 0.7, -0.1];
+
+function valorLFODesenho(forma, fase) {
+  switch (forma) {
+    case 'seno':
+      return Math.sin(2 * Math.PI * fase);
+    case 'triangulo':
+      if (fase < 0.25) return 4 * fase;
+      if (fase < 0.75) return 2 - 4 * fase;
+      return 4 * fase - 4;
+    case 'serraSobe':
+      return 2 * fase - 1;
+    case 'serraDesce':
+      return 1 - 2 * fase;
+    case 'quadrada':
+      return fase < 0.5 ? 1 : -1;
+    case 'aleatorio':
+      return DEGRAUS_EXEMPLO[Math.min(DEGRAUS_EXEMPLO.length - 1, Math.floor(fase * DEGRAUS_EXEMPLO.length))];
+  }
+  return 0;
+}
+
+// Desenha um ciclo da forma do LFO.
+export function desenharLFO(canvas, forma) {
+  const tela = prepararCanvas(canvas);
+  if (!tela) return;
+  const { g, largura, altura } = tela;
+
+  const meio = altura / 2;
+  const amplitude = meio * 0.75;
+  linhaGuia(g, 0, meio, largura, meio);
+
+  const margem = 6;
+  const qtd = Math.max(2, Math.floor(largura * 2));
+  const pontos = [];
+  for (let k = 0; k <= qtd; k++) {
+    const fase = Math.min(k / qtd, 0.9999);
+    pontos.push([margem + (k / qtd) * (largura - 2 * margem), meio - valorLFODesenho(forma, fase) * amplitude]);
+  }
+  linhaComBrilho(g, pontos, meio, altura);
+}
+
 // ---------- Envelope (ADSR) ----------
 
 // Largura de cada trecho no desenho. Raiz quadrada: tempos curtos ainda

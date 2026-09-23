@@ -2,8 +2,9 @@
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
 import { criarWavetableBasica } from './wavetable.js';
-import { desenharOnda, desenharEnvelope, desenharFiltro } from './visualizacao.js';
+import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
+import { FORMAS_LFO } from './dsp/lfo.js';
 import {
   criarKnob,
   escalaLinear,
@@ -12,8 +13,10 @@ import {
   formatarTempo,
   formatarPorcentagem,
   formatarFrequencia,
+  formatarRate,
 } from './interface/knob.js';
 import { criarSeletor } from './interface/seletor.js';
+import { criarModulacao } from './interface/modulacao.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -63,6 +66,15 @@ const estado = {
     legato: true, // só vale no Mono
     unison: 1, // cópias do oscilador por nota
   },
+  // Fontes de modulação (mesmos valores iniciais do motor de som).
+  fontes: {
+    lfo1: { forma: 'seno', rate: 2, modo: 'retrig' },
+    lfo2: { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
+    env2: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
+    env3: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
+  },
+  // Ligações de modulação: [{ fonte: 'lfo1', destino: 'cutoff', quantidade: 0.5 }]
+  ligacoes: [],
   contexto: null, // o "motor" de áudio do navegador
   synth: null, // nosso processador de som
   ganho: null, // volume geral
@@ -132,8 +144,10 @@ async function ligarSom() {
     estado.synth = synth;
     estado.ganho = ganho;
 
-    // Envia as opções atuais (tipo de filtro, legato...).
+    // Envia as opções atuais (tipo de filtro, legato...), as fontes e as ligações.
     for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
+    for (const id of Object.keys(estado.fontes)) enviarFonte(id);
+    enviarLigacoes();
 
     // Notas que já estavam sendo seguradas enquanto o som ligava começam a tocar agora.
     for (const nota of estado.contagemNotas.keys()) {
@@ -196,6 +210,21 @@ function enviarOpcao(nome) {
   estado.synth?.port.postMessage({ tipo: 'opcao', nome, valor: estado.opcoes[nome] });
 }
 
+// Muda um ajuste de uma fonte de modulação (ex.: rate do LFO 1).
+function definirFonte(id, nome, valor) {
+  estado.fontes[id][nome] = valor;
+  enviarFonte(id);
+  pedirDesenho();
+}
+
+function enviarFonte(id) {
+  estado.synth?.port.postMessage({ tipo: 'fonte', id, ajustes: { ...estado.fontes[id] } });
+}
+
+function enviarLigacoes() {
+  estado.synth?.port.postMessage({ tipo: 'modulacoes', lista: estado.ligacoes.map((l) => ({ ...l })) });
+}
+
 // ---------- Desenhos ----------
 
 let desenhoPendente = false;
@@ -216,12 +245,16 @@ function pedirDesenho() {
       resonancia: estado.parametros.resonancia,
       taxa: estado.contexto?.sampleRate || 48000,
     });
+    telasLfo.forEach((tela) => desenharLFO(tela, estado.fontes[tela.dataset.telaLfo].forma));
+    telasEnv.forEach((tela) => desenharEnvelope(tela, estado.fontes[tela.dataset.telaEnv]));
   });
 }
 
 // Redesenha sempre que um painel mudar de tamanho (girar a tela, trocar de aba...).
+const telasLfo = document.querySelectorAll('[data-tela-lfo]');
+const telasEnv = document.querySelectorAll('[data-tela-env]');
 const observarTamanho = new ResizeObserver(pedirDesenho);
-[telaOnda, telaEnvelope, telaFiltro].forEach((tela) => observarTamanho.observe(tela));
+[telaOnda, telaEnvelope, telaFiltro, ...telasLfo, ...telasEnv].forEach((tela) => observarTamanho.observe(tela));
 
 // ---------- WT Pos e desenho da onda ----------
 
@@ -311,6 +344,7 @@ unisonOsc.append(
   }),
   criarKnob({
     rotulo: 'Detune',
+    destino: 'detune',
     escala: escalaLinear(0, 1),
     padrao: estado.parametros.detune,
     formatar: formatarPorcentagem,
@@ -318,6 +352,7 @@ unisonOsc.append(
   }),
   criarKnob({
     rotulo: 'Width',
+    destino: 'width',
     escala: escalaLinear(0, 1),
     padrao: estado.parametros.width,
     formatar: formatarPorcentagem,
@@ -402,6 +437,7 @@ function marcarTipoFiltro() {
 knobsFiltro.append(
   criarKnob({
     rotulo: 'Cutoff',
+    destino: 'cutoff',
     escala: escalaExponencial(20, 20000),
     padrao: estado.parametros.cutoff,
     formatar: formatarFrequencia,
@@ -409,6 +445,7 @@ knobsFiltro.append(
   }),
   criarKnob({
     rotulo: 'Reso',
+    destino: 'resonancia',
     escala: escalaLinear(0, 1),
     padrao: estado.parametros.resonancia,
     formatar: formatarPorcentagem,
@@ -454,6 +491,94 @@ knobsEnvelope.append(
     aoMudar: (v) => definirParametro('soltura', v),
   })
 );
+
+// ---------- ENV 2 e ENV 3 (envelopes de modulação) ----------
+
+document.querySelectorAll('[data-knobs-env]').forEach((lugar) => {
+  const id = lugar.dataset.knobsEnv;
+  const ajustes = estado.fontes[id];
+  const knob = (rotulo, nome, escala, formatar) =>
+    criarKnob({ rotulo, escala, padrao: ajustes[nome], formatar, aoMudar: (v) => definirFonte(id, nome, v) });
+  lugar.append(
+    knob('A', 'ataque', escalaTempo, formatarTempo),
+    knob('D', 'decaimento', escalaTempo, formatarTempo),
+    knob('S', 'sustentacao', escalaLinear(0, 1), formatarPorcentagem),
+    knob('R', 'soltura', escalaTempo, formatarTempo)
+  );
+});
+
+// ---------- Aba LFO ----------
+
+const NOMES_FORMAS_LFO = {
+  seno: 'Seno',
+  triangulo: 'Tri',
+  serraSobe: 'Serra ↑',
+  serraDesce: 'Serra ↓',
+  quadrada: 'Quad',
+  aleatorio: 'S&H',
+};
+
+// Formas: um botão para cada.
+document.querySelectorAll('[data-formas-lfo]').forEach((lugar) => {
+  const id = lugar.dataset.formasLfo;
+  const marcar = () =>
+    lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.forma === estado.fontes[id].forma));
+  FORMAS_LFO.forEach((forma) => {
+    const botao = document.createElement('button');
+    botao.className = 'botao';
+    botao.textContent = NOMES_FORMAS_LFO[forma];
+    botao.dataset.forma = forma;
+    botao.addEventListener('click', () => {
+      definirFonte(id, 'forma', forma);
+      marcar();
+    });
+    lugar.appendChild(botao);
+  });
+  marcar();
+});
+
+// Rate (velocidade): de 0,02 Hz (bem lento) a 40 Hz (vibrato rápido).
+document.querySelectorAll('[data-knobs-lfo]').forEach((lugar) => {
+  const id = lugar.dataset.knobsLfo;
+  lugar.append(
+    criarKnob({
+      rotulo: 'Rate',
+      escala: escalaExponencial(0.02, 40),
+      padrao: estado.fontes[id].rate,
+      formatar: formatarRate,
+      aoMudar: (v) => definirFonte(id, 'rate', v),
+    })
+  );
+});
+
+// Modo: Retrig (recomeça a cada nota) ou Livre (roda sem parar).
+document.querySelectorAll('[data-modo-lfo]').forEach((botao) => {
+  const id = botao.dataset.modoLfo;
+  const mostrar = () => {
+    const retrig = estado.fontes[id].modo === 'retrig';
+    botao.textContent = retrig ? 'Retrig' : 'Livre';
+    botao.setAttribute('aria-pressed', retrig);
+    botao.title = retrig ? 'Recomeça a cada nota' : 'Roda sem parar (as notas pegam ele andando)';
+  };
+  botao.addEventListener('click', () => {
+    definirFonte(id, 'modo', estado.fontes[id].modo === 'retrig' ? 'livre' : 'retrig');
+    mostrar();
+  });
+  mostrar();
+});
+
+// ---------- Ligações de modulação (fichas, arrastar, listas) ----------
+
+const listasMod = {};
+document.querySelectorAll('[data-lista]').forEach((lista) => (listasMod[lista.dataset.lista] = lista));
+
+criarModulacao({
+  barra: document.getElementById('barra-fontes'),
+  dica: document.getElementById('dica-modulacao'),
+  listas: listasMod,
+  ligacoes: estado.ligacoes,
+  aoMudar: enviarLigacoes,
+});
 
 // ---------- Abas ----------
 

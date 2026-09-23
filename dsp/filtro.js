@@ -31,6 +31,7 @@ export function compensacaoResonancia(resonancia) {
 }
 
 const TAMANHO_BLOCO = 128;
+const CAMPOS = ['k', 'compensacao', 'a1', 'a2', 'a3', 'b1', 'b2', 'b3'];
 
 // Coeficientes do filtro para um bloco de áudio: 1 valor (Cutoff/Reso parados)
 // ou 1 por amostra (Cutoff/Reso mudando).
@@ -39,9 +40,7 @@ export class CoeficientesFiltro {
     this.taxa = taxaAmostragem;
     this.freqMaxima = Math.min(20000, 0.45 * taxaAmostragem);
     this.variavel = false; // true = um valor por amostra
-    for (const nome of ['k', 'compensacao', 'a1', 'a2', 'a3', 'b1', 'b2', 'b3']) {
-      this[nome] = new Float64Array(TAMANHO_BLOCO);
-    }
+    for (const nome of CAMPOS) this[nome] = new Float64Array(TAMANHO_BLOCO);
   }
 
   // cortes/resonancias: listas do motor de som (1 valor ou 1 por amostra).
@@ -49,24 +48,48 @@ export class CoeficientesFiltro {
     this.variavel = cortes.length > 1 || resonancias.length > 1;
     const qtd = this.variavel ? tamanhoBloco : 1;
     for (let j = 0; j < qtd; j++) {
-      const corte = cortes.length > 1 ? cortes[j] : cortes[0];
-      const resonancia = resonancias.length > 1 ? resonancias[j] : resonancias[0];
-      const f = Math.min(Math.max(corte, 20), this.freqMaxima);
-      const g = Math.tan((Math.PI * f) / this.taxa);
-
-      // Estágio 1: com a ressonância escolhida.
-      const k = amortecimento(resonancia);
-      this.k[j] = k;
-      this.compensacao[j] = compensacaoResonancia(resonancia);
-      this.a1[j] = 1 / (1 + g * (g + k));
-      this.a2[j] = g * this.a1[j];
-      this.a3[j] = g * this.a2[j];
-
-      // Estágio 2 (só para o LP 24): sem ressonância extra, só aumenta o corte.
-      this.b1[j] = 1 / (1 + g * (g + Math.SQRT2));
-      this.b2[j] = g * this.b1[j];
-      this.b3[j] = g * this.b2[j];
+      this.calcularEm(
+        j,
+        cortes.length > 1 ? cortes[j] : cortes[0],
+        resonancias.length > 1 ? resonancias[j] : resonancias[0]
+      );
     }
+  }
+
+  // Calcula os coeficientes de um Cutoff/Reso e guarda na posição j.
+  calcularEm(j, corte, resonancia) {
+    const f = Math.min(Math.max(corte, 20), this.freqMaxima);
+    const g = Math.tan((Math.PI * f) / this.taxa);
+
+    // Estágio 1: com a ressonância escolhida.
+    const k = amortecimento(resonancia);
+    this.k[j] = k;
+    this.compensacao[j] = compensacaoResonancia(resonancia);
+    this.a1[j] = 1 / (1 + g * (g + k));
+    this.a2[j] = g * this.a1[j];
+    this.a3[j] = g * this.a2[j];
+
+    // Estágio 2 (só para o LP 24): sem ressonância extra, só aumenta o corte.
+    this.b1[j] = 1 / (1 + g * (g + Math.SQRT2));
+    this.b2[j] = g * this.b1[j];
+    this.b3[j] = g * this.b2[j];
+  }
+
+  // Preenche as posições de "inicio" até "fim" indo em linha reta dos
+  // coeficientes de "pontas" posição 0 até os da posição 1 (transição suave).
+  interpolar(pontas, inicio, fim) {
+    const qtd = fim - inicio;
+    for (const nome of CAMPOS) {
+      const destino = this[nome];
+      const de = pontas[nome][0];
+      const ate = pontas[nome][1];
+      for (let i = inicio; i < fim; i++) destino[i] = de + ((i - inicio + 1) / qtd) * (ate - de);
+    }
+  }
+
+  // Copia a posição 1 para a 0 (a "ponta final" vira a inicial do próximo trecho).
+  avancarPontas() {
+    for (const nome of CAMPOS) this[nome][0] = this[nome][1];
   }
 }
 

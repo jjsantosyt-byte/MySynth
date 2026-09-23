@@ -14,6 +14,12 @@
   --texto-suave: #9096a8;
   --destaque: #3fb8ff; /* azul vivo: onda, aba ativa, teclas tocando */
   --destaque-escuro: #1f7fc0;
+
+  /* Cores das fontes de modulação */
+  --cor-lfo1: #5de08a; /* verde */
+  --cor-lfo2: #b48cff; /* roxo */
+  --cor-env2: #ffa94d; /* laranja */
+  --cor-env3: #ff6fae; /* rosa */
 }
 
 html,
@@ -166,6 +172,180 @@ h1 {
 
 .chave:disabled {
   opacity: 0.35;
+}
+
+/* ---------- Modulação: fichas, destaques, listas ---------- */
+
+.barra-fontes {
+  display: flex;
+  gap: 8px;
+}
+
+.ficha {
+  flex: 1;
+  min-height: 36px;
+  border: 1px solid var(--cor);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--cor);
+  font-size: 13px;
+  font-weight: 700;
+  touch-action: none; /* arrastar a ficha não rola a página */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+/* Ficha armada (modo "tocar para ligar") */
+.ficha[aria-pressed='true'] {
+  background: var(--cor);
+  color: var(--fundo);
+}
+
+/* Cópia da ficha que segue o dedo durante o arraste */
+.ficha-fantasma {
+  position: fixed;
+  z-index: 100;
+  width: auto;
+  padding: 0 14px;
+  transform: translate(-50%, -130%); /* fica acima do dedo, para não ficar escondida */
+  background: var(--cor);
+  color: var(--fundo);
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.dica-modulacao {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cor-ligando);
+}
+
+/* Destinos possíveis ficam marcados enquanto se liga/arrasta */
+[data-destino] {
+  position: relative;
+  border-radius: 10px;
+}
+
+.ligando-mod [data-destino],
+.arrastando-mod [data-destino] {
+  outline: 2px dashed var(--cor-ligando);
+  outline-offset: 2px;
+}
+
+.mod-alvo {
+  background: rgba(255, 255, 255, 0.08);
+  outline-style: solid !important;
+}
+
+/* Brilho rápido ao ligar */
+.mod-ligou {
+  animation: ligou 0.5s ease-out;
+}
+
+@keyframes ligou {
+  from {
+    box-shadow: 0 0 0 6px var(--cor-ligando, var(--destaque));
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Bolinhas coloridas no canto dos controles ligados */
+.bolinhas-mod {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.bolinhas-mod i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* Bolinha de cor no título dos cartões de LFO/ENV */
+.bolinha-fonte {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+/* Lista de ligações dentro do cartão da fonte */
+.lista-mod {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lista-mod-vazia {
+  margin: 0;
+  font-size: 12px;
+  color: var(--texto-suave);
+  opacity: 0.8;
+}
+
+.linha-mod {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 4px 0 8px;
+  border-left: 3px solid var(--cor);
+  border-radius: 8px;
+  background: var(--tela-onda);
+}
+
+.linha-mod-nome {
+  width: 52px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.linha-mod input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  accent-color: var(--cor);
+}
+
+.linha-mod-valor {
+  width: 46px;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-mod-remover {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 16px;
+  touch-action: manipulation;
+}
+
+.linha-mod-remover:active {
+  background: var(--botao-apertado);
+}
+
+/* Formas do LFO: 3 por linha */
+.grupo-botoes.formas-lfo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grupo-botoes.formas-lfo .botao {
+  min-height: 34px;
 }
 
 /* ---------- Seletor de número (‹ 4 ›) ---------- */
