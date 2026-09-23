@@ -64,12 +64,13 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 7. Depois: gravação, sequenciador, exportação (o "DAW")
 
 ## Estado atual
-**Item 0 (base) — feito, aguardando aprovação do ouvido:**
+**Item 0 (base) — feito e aprovado (testado no computador):**
 - Teclado na tela (1 a 4 oitavas conforme a largura da tela), deslizar entre teclas,
   botões de oitava e volume.
 - Onda dente de serra criada do zero, com níveis por meia oitava e mistura suave
   entre níveis (sem aliasing — medido: ruído fora dos harmônicos < -77 dB).
 - Monofônico (última nota tem prioridade), com rampa anti-estalo de volume.
+- O primeiro toque no teclado já liga o som (o botão "Ligar som" é opcional).
 
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
@@ -79,6 +80,5 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
 **Pendências:**
-- Instalar o Git e fazer o primeiro commit.
 - Teste no celular exige endereço https (ex.: GitHub Pages).
 - Próximo: item 1 (WT Pos e morphing).
