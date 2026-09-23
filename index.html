@@ -19,7 +19,7 @@
         </div>
         <label class="grupo-volume">
           Volume
-          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.5" />
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" />
         </label>
         <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
       </header>
@@ -37,10 +37,10 @@
 
       <!-- Aba OSC: 3 espaços de oscilador (só o A funciona por enquanto) -->
       <section class="conteudo-aba" data-painel="osc">
-        <div class="osciladores">
-          <article class="cartao oscilador">
+        <div class="modulos">
+          <article class="cartao">
             <h2 class="titulo-cartao">OSC A</h2>
-            <div class="tela-onda">
+            <div class="tela-grafico tela-onda">
               <!-- Arrastar no desenho (para os lados ou para cima/baixo) também muda o WT Pos -->
               <canvas id="tela-onda"></canvas>
               <span id="nome-onda" class="nome-onda">Seno</span>
@@ -53,24 +53,56 @@
             <div id="atalhos-wt" class="atalhos-wt"></div>
           </article>
 
-          <article class="cartao oscilador reservado">
+          <article class="cartao reservado">
             <h2 class="titulo-cartao">OSC B</h2>
             <p class="em-breve">em breve</p>
           </article>
 
-          <article class="cartao oscilador reservado">
+          <article class="cartao reservado">
             <h2 class="titulo-cartao">OSC C</h2>
             <p class="em-breve">em breve</p>
           </article>
         </div>
       </section>
 
-      <!-- Abas que ainda vão ganhar conteúdo -->
+      <!-- Aba Filtro -->
       <section class="conteudo-aba" data-painel="filtro" hidden>
-        <div class="cartao reservado"><h2 class="titulo-cartao">Filtro</h2><p class="em-breve">em breve</p></div>
+        <div class="modulos">
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Filtro</h2>
+              <button id="filtro-ligado" class="chave" aria-pressed="false">Desligado</button>
+            </div>
+            <div class="tela-grafico"><canvas id="tela-filtro"></canvas></div>
+            <div id="tipos-filtro" class="grupo-botoes"></div>
+            <div id="knobs-filtro" class="linha-knobs"></div>
+          </article>
+        </div>
       </section>
+
+      <!-- Aba ENV: ENV 1 controla o volume; ENV 2 e 3 virão com a modulação -->
       <section class="conteudo-aba" data-painel="env" hidden>
-        <div class="cartao reservado"><h2 class="titulo-cartao">Envelopes</h2><p class="em-breve">em breve</p></div>
+        <div class="modulos">
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">ENV 1 · Volume</h2>
+              <!-- Legato: deslizar entre teclas não reinicia o envelope -->
+              <button id="legato" class="chave" aria-pressed="true">Legato</button>
+            </div>
+            <div class="tela-grafico"><canvas id="tela-envelope"></canvas></div>
+            <div id="knobs-envelope" class="linha-knobs"></div>
+          </article>
+
+          <article class="cartao reservado">
+            <h2 class="titulo-cartao">ENV 2</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+
+          <article class="cartao reservado">
+            <h2 class="titulo-cartao">ENV 3</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+        </div>
       </section>
       <section class="conteudo-aba" data-painel="lfo" hidden>
         <div class="cartao reservado"><h2 class="titulo-cartao">LFOs</h2><p class="em-breve">em breve</p></div>

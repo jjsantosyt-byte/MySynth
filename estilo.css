@@ -174,7 +174,56 @@ h1 {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--texto-suave);
+}
+
+/* Título do cartão com um botão liga/desliga do lado */
+.cabecalho-cartao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Chave liga/desliga (ex.: Filtro ligado, Legato) */
+.chave {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 13px;
+  font-weight: 600;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.chave[aria-pressed='true'] {
+  border-color: var(--destaque);
+  background: rgba(63, 184, 255, 0.15);
+  color: var(--destaque);
+}
+
+/* Fileira de botões de escolha (ex.: tipo de filtro) */
+.grupo-botoes {
+  display: flex;
+  gap: 6px;
+}
+
+.grupo-botoes .botao {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.grupo-botoes .botao.escolhido {
+  background: var(--botao-apertado);
+  box-shadow: inset 0 -3px 0 var(--destaque);
 }
 
 .em-breve {
@@ -190,30 +239,107 @@ h1 {
   min-height: 120px;
 }
 
-/* Osciladores: 3 lado a lado */
-.osciladores {
+/* Módulos de cada aba: 3 cartões lado a lado */
+.modulos {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
 }
 
-/* ---------- Desenho da onda ---------- */
+/* ---------- Painéis de desenho (onda, envelope, filtro) ---------- */
 
-.tela-onda {
+.tela-grafico {
   position: relative;
   height: 110px;
   border: 1px solid var(--tela-onda-borda);
   border-radius: 10px;
   background: var(--tela-onda);
   overflow: hidden;
-  touch-action: none; /* arrastar aqui mexe no WT Pos, não rola a página */
-  cursor: ew-resize;
 }
 
-.tela-onda canvas {
+.tela-grafico canvas {
   display: block;
   width: 100%;
   height: 100%;
+}
+
+/* No desenho da onda, arrastar mexe no WT Pos (não rola a página) */
+.tela-onda {
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+/* ---------- Knobs ---------- */
+
+.linha-knobs {
+  display: flex;
+  justify-content: space-around;
+  gap: 4px;
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 1 64px;
+  padding: 4px 0;
+  border-radius: 10px;
+  touch-action: none; /* arrastar aqui gira o knob, não rola a página */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: ns-resize;
+  outline: none;
+}
+
+.knob:focus-visible {
+  box-shadow: 0 0 0 2px var(--destaque);
+}
+
+.knob-desenho {
+  width: 46px;
+  height: 46px;
+}
+
+.knob-trilho,
+.knob-valor {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.knob-trilho {
+  stroke: var(--botao);
+}
+
+.knob-valor {
+  stroke: var(--destaque);
+}
+
+.knob-ponteiro {
+  stroke: var(--texto);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+.knob.girando .knob-valor {
+  filter: drop-shadow(0 0 3px var(--destaque));
+}
+
+.knob-numero {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--texto);
+}
+
+.knob-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
 }
 
 .nome-onda {
@@ -276,13 +402,13 @@ h1 {
     display: none;
   }
 
-  /* Osciladores um embaixo do outro; os reservados viram faixas finas */
-  .osciladores {
+  /* Módulos um embaixo do outro; os reservados viram faixas finas */
+  .modulos {
     grid-template-columns: 1fr;
     gap: 6px;
   }
 
-  .oscilador.reservado {
+  .modulos .reservado {
     flex-direction: row;
     align-items: center;
     justify-content: space-between;
@@ -290,7 +416,7 @@ h1 {
     padding: 8px 12px;
   }
 
-  .oscilador.reservado .em-breve {
+  .modulos .reservado .em-breve {
     margin: 0;
   }
 }

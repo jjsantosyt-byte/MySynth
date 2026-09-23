@@ -2,13 +2,19 @@
 // O "motor" de som. Roda num processo de áudio separado (AudioWorklet),
 // para o som não falhar mesmo se a tela ficar lenta.
 //
-// Nesta etapa: 1 voz (monofônico), tocando a wavetable recebida.
+// Caminho do som (1 voz, monofônico):
+//   oscilador wavetable → filtro → envelope de volume (ENV 1) → saída
+//
 // - WT Pos: escolhe a posição na wavetable, misturando os 2 frames vizinhos
 //   (morphing). É um "parâmetro de áudio", então muda suave, sem degraus,
 //   e no futuro poderá ser movido por LFOs e envelopes.
 // - Sem aliasing: escolhe o nível da tabela certo para cada nota e mistura
 //   suavemente entre dois níveis vizinhos.
-// - Sem estalos: o volume sobe e desce em poucos milissegundos.
+// - Sem estalos: o envelope sempre tem uma rampinha mínima de 1,5 ms.
+// - Legato (opcional): deslizar entre teclas não reinicia o envelope.
+
+import { Envelope } from './dsp/envelope.js';
+import { Filtro } from './dsp/filtro.js';
 
 // Converte número de nota MIDI em frequência (Hz). Nota 69 = Lá 440 Hz.
 function notaParaFrequencia(nota) {
@@ -24,8 +30,16 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   // Controles que a página pode mexer de forma suave.
   static get parameterDescriptors() {
     return [
-      // 0 = primeiro frame, 1 = último frame
+      // Oscilador: 0 = primeiro frame, 1 = último frame
       { name: 'wtPos', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+      // Filtro
+      { name: 'cutoff', defaultValue: 2000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
+      { name: 'resonancia', defaultValue: 0.1, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+      // Envelope de volume (tempos em segundos)
+      { name: 'ataque', defaultValue: 0.005, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
+      { name: 'decaimento', defaultValue: 0.5, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
+      { name: 'sustentacao', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'soltura', defaultValue: 0.08, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
     ];
   }
 
@@ -35,14 +49,24 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.fase = 0; // posição dentro do ciclo da onda (0 a 1)
     this.frequencia = 440;
     this.notasPresas = []; // notas seguradas, na ordem em que foram tocadas
+    this.notaAtual = null; // a nota que está soando
+    this.legato = true;
 
-    // Volume "anti-estalo": vai suavemente até o alvo (0 = mudo, 1 = soando).
-    this.volume = 0;
-    this.alvo = 0;
-    this.suavizarSubida = 1 - Math.exp(-1 / (0.002 * sampleRate)); // ~2 ms
-    this.suavizarDescida = 1 - Math.exp(-1 / (0.01 * sampleRate)); // ~10 ms
+    this.envelope = new Envelope(sampleRate);
+    this.filtro = new Filtro(sampleRate);
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
+  }
+
+  // Toca uma nota: muda a altura e decide se o envelope recomeça.
+  tocar(nota, recomecar) {
+    this.notaAtual = nota;
+    this.frequencia = notaParaFrequencia(nota);
+    if (recomecar) {
+      // Vindo do silêncio, o filtro começa "limpo".
+      if (!this.envelope.ativo) this.filtro.reiniciar();
+      this.envelope.disparar();
+    }
   }
 
   receberMensagem(msg) {
@@ -51,28 +75,37 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.tabela = msg.wavetable;
         break;
 
-      case 'notaOn':
+      case 'notaOn': {
+        const ninguemSegurando = this.notasPresas.length === 0;
         // Se a nota já estava na lista, tira e coloca no fim (vira a mais recente).
         this.notasPresas = this.notasPresas.filter((n) => n !== msg.nota);
         this.notasPresas.push(msg.nota);
-        this.frequencia = notaParaFrequencia(msg.nota);
-        this.alvo = 1;
+        // Com legato, só recomeça o envelope se nenhuma tecla estava segurada.
+        this.tocar(msg.nota, ninguemSegurando || !this.legato);
         break;
+      }
 
       case 'notaOff':
         this.notasPresas = this.notasPresas.filter((n) => n !== msg.nota);
         if (this.notasPresas.length === 0) {
-          this.alvo = 0; // soltou tudo: silencia suavemente
-        } else {
-          // Ainda tem nota segurada: volta para a última delas.
+          this.envelope.soltar(); // soltou tudo: entra a soltura (R)
+        } else if (msg.nota === this.notaAtual) {
+          // Soltou a nota que soava, mas ainda tem outra segurada: volta para ela.
           const ultima = this.notasPresas[this.notasPresas.length - 1];
-          this.frequencia = notaParaFrequencia(ultima);
+          this.tocar(ultima, !this.legato);
         }
         break;
 
       case 'tudoOff':
         this.notasPresas = [];
-        this.alvo = 0;
+        this.envelope.soltar();
+        break;
+
+      // Opções que não são "knobs": tipo de filtro, liga/desliga, legato.
+      case 'opcao':
+        if (msg.nome === 'filtroTipo') this.filtro.definirTipo(msg.valor);
+        if (msg.nome === 'filtroLigado') this.filtro.definirLigado(msg.valor);
+        if (msg.nome === 'legato') this.legato = msg.valor;
         break;
     }
   }
@@ -103,12 +136,26 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const saida = saidas[0][0];
     const tamanhoBloco = saida.length;
 
-    // Sem tabela, ou em silêncio total: não calcula nada.
-    if (!this.tabela || (this.alvo === 0 && this.volume < 1e-5)) {
-      this.volume = 0;
+    // Sem tabela, ou envelope parado (silêncio): não calcula nada.
+    if (!this.tabela || !this.envelope.ativo) {
       saida.fill(0);
       return true;
     }
+
+    // Envelope: lê os knobs A, D, S, R uma vez por bloco.
+    this.envelope.definir(
+      parametros.ataque[0],
+      parametros.decaimento[0],
+      parametros.sustentacao[0],
+      parametros.soltura[0]
+    );
+
+    // Filtro: se Cutoff/ressonância estão parados, calcula uma vez por bloco;
+    // se estão mudando, recalcula a cada amostra (varredura suave).
+    const cortes = parametros.cutoff;
+    const resonancias = parametros.resonancia;
+    const filtroMudando = cortes.length > 1 || resonancias.length > 1;
+    if (!filtroMudando) this.filtro.definirCorte(cortes[0], resonancias[0]);
 
     const frames = this.tabela.frames;
     const ultimoFrame = frames.length - 1;
@@ -117,7 +164,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const { nivel, mistura } = this.escolherNiveis(this.frequencia);
     const nivelB = Math.min(nivel + 1, frames[0].length - 1);
     const passo = this.frequencia / sampleRate;
-    const suavizar = this.alvo > this.volume ? this.suavizarSubida : this.suavizarDescida;
     const posicoesWT = parametros.wtPos; // 1 valor (parado) ou 128 (mudando)
 
     for (let i = 0; i < tamanhoBloco; i++) {
@@ -142,10 +188,16 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       const som1 = a1 + mistura * (b1 - a1);
 
       // Morphing: mistura os 2 frames conforme o WT Pos.
-      const amostra = som0 + t * (som1 - som0);
+      const oscilador = som0 + t * (som1 - som0);
 
-      this.volume += (this.alvo - this.volume) * suavizar;
-      saida[i] = amostra * this.volume;
+      // Filtro e envelope de volume.
+      if (filtroMudando) {
+        this.filtro.definirCorte(
+          cortes.length > 1 ? cortes[i] : cortes[0],
+          resonancias.length > 1 ? resonancias[i] : resonancias[0]
+        );
+      }
+      saida[i] = this.filtro.processar(oscilador) * this.envelope.proximo();
 
       this.fase += passo;
       if (this.fase >= 1) this.fase -= 1;

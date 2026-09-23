@@ -2,7 +2,17 @@
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
 import { criarWavetableBasica } from './wavetable.js';
-import { desenharOnda } from './visualizacao.js';
+import { desenharOnda, desenharEnvelope, desenharFiltro } from './visualizacao.js';
+import { TIPOS_FILTRO } from './dsp/filtro.js';
+import {
+  criarKnob,
+  escalaLinear,
+  escalaExponencial,
+  escalaPotencia,
+  formatarTempo,
+  formatarPorcentagem,
+  formatarFrequencia,
+} from './interface/knob.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -15,13 +25,35 @@ const telaOnda = document.getElementById('tela-onda');
 const nomeOnda = document.getElementById('nome-onda');
 const controleWTPos = document.getElementById('wt-pos');
 const atalhosWT = document.getElementById('atalhos-wt');
+const telaFiltro = document.getElementById('tela-filtro');
+const botaoFiltroLigado = document.getElementById('filtro-ligado');
+const tiposFiltro = document.getElementById('tipos-filtro');
+const knobsFiltro = document.getElementById('knobs-filtro');
+const telaEnvelope = document.getElementById('tela-envelope');
+const botaoLegato = document.getElementById('legato');
+const knobsEnvelope = document.getElementById('knobs-envelope');
 
 // A wavetable é montada uma vez, ao abrir a página.
 // A página guarda uma cópia para desenhar; o motor de som recebe outra.
 const wavetable = criarWavetableBasica();
 
 const estado = {
-  wtPos: 0, // posição na wavetable (0 a 1)
+  // Valores dos controles de som (os nomes são os mesmos do motor de som).
+  parametros: {
+    wtPos: 0, // posição na wavetable (0 a 1)
+    cutoff: 2000, // Hz
+    resonancia: 0.1, // 0 a 1
+    ataque: 0.005, // segundos
+    decaimento: 0.5, // segundos
+    sustentacao: 1, // 0 a 1
+    soltura: 0.08, // segundos
+  },
+  // Opções liga/desliga e escolhas.
+  opcoes: {
+    filtroLigado: false,
+    filtroTipo: 'lp24',
+    legato: true,
+  },
   contexto: null, // o "motor" de áudio do navegador
   synth: null, // nosso processador de som
   ganho: null, // volume geral
@@ -58,17 +90,41 @@ async function ligarSom() {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [1],
-      parameterData: { wtPos: estado.wtPos },
+      parameterData: { ...estado.parametros },
     });
     const ganho = contexto.createGain();
     ganho.gain.value = volumeDoControle();
-    synth.connect(ganho).connect(contexto.destination);
+
+    // Limitador no fim do caminho: no uso normal não faz nada; só segura
+    // picos que iam estourar (ex.: ressonância alta com varredura rápida).
+    const limiar = -3;
+    const razao = 20;
+    const limitador = new DynamicsCompressorNode(contexto, {
+      threshold: limiar,
+      knee: 0,
+      ratio: razao,
+      attack: 0.001,
+      release: 0.1,
+    });
+    // O limitador do navegador aumenta o volume de tudo por conta própria
+    // ("makeup gain"). Este ganho desfaz isso, para ele ficar neutro.
+    const desfazerAumento = contexto.createGain();
+    desfazerAumento.gain.value = Math.pow(10, (limiar * (1 - 1 / razao) * 0.6) / 20);
+
+    synth
+      .connect(ganho)
+      .connect(limitador)
+      .connect(desfazerAumento)
+      .connect(contexto.destination);
 
     // Envia uma cópia da wavetable para o motor de som.
     synth.port.postMessage({ tipo: 'wavetable', wavetable });
 
     estado.synth = synth;
     estado.ganho = ganho;
+
+    // Envia as opções atuais (tipo de filtro, legato...).
+    for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
 
     // Notas que já estavam sendo seguradas enquanto o som ligava começam a tocar agora.
     for (const nota of estado.contagemNotas.keys()) {
@@ -95,9 +151,10 @@ function mostrarAviso(texto) {
 // ---------- Volume ----------
 
 // O controle vai de 0 a 1; elevar ao quadrado deixa a curva mais natural ao ouvido.
+// O "× 0,5" deixa uma folga para picos (ex.: ressonância alta) não estourarem.
 function volumeDoControle() {
   const v = Number(controleVolume.value);
-  return v * v;
+  return v * v * 0.5;
 }
 
 controleVolume.addEventListener('input', () => {
@@ -106,38 +163,73 @@ controleVolume.addEventListener('input', () => {
   estado.ganho.gain.setTargetAtTime(volumeDoControle(), estado.contexto.currentTime, 0.02);
 });
 
-// ---------- WT Pos e desenho da onda ----------
+// ---------- Controles de som (parâmetros e opções) ----------
 
-const nomesFrames = wavetable.nomesFrames;
-const ultimoFrame = wavetable.frames.length - 1;
-const ondaDesenhada = new Float32Array(wavetable.tamanho);
-let desenhoPendente = false;
-
-// Muda o WT Pos (0 a 1): atualiza o som, a barra e o desenho.
-function definirWTPos(valor) {
-  estado.wtPos = Math.min(1, Math.max(0, valor));
-  controleWTPos.value = estado.wtPos;
+// Muda um controle de som: guarda o valor e manda para o motor.
+function definirParametro(nome, valor) {
+  estado.parametros[nome] = valor;
   if (estado.synth) {
     // Vai até o novo valor em poucos milissegundos, sem "degraus" no som.
-    const parametro = estado.synth.parameters.get('wtPos');
-    parametro.setTargetAtTime(estado.wtPos, estado.contexto.currentTime, 0.01);
+    const parametro = estado.synth.parameters.get(nome);
+    parametro.setTargetAtTime(valor, estado.contexto.currentTime, 0.01);
   }
   pedirDesenho();
 }
 
+// Muda uma opção (liga/desliga, tipo de filtro...).
+function definirOpcao(nome, valor) {
+  estado.opcoes[nome] = valor;
+  enviarOpcao(nome);
+  pedirDesenho();
+}
+
+function enviarOpcao(nome) {
+  estado.synth?.port.postMessage({ tipo: 'opcao', nome, valor: estado.opcoes[nome] });
+}
+
+// ---------- Desenhos ----------
+
+let desenhoPendente = false;
+
 // Desenha no máximo uma vez por quadro da tela (economiza bateria).
+// Os painéis de abas escondidas são pulados automaticamente.
 function pedirDesenho() {
   if (desenhoPendente) return;
   desenhoPendente = true;
   requestAnimationFrame(() => {
     desenhoPendente = false;
-    desenharAgora();
+    desenharPainelOnda();
+    desenharEnvelope(telaEnvelope, estado.parametros);
+    desenharFiltro(telaFiltro, {
+      tipo: estado.opcoes.filtroTipo,
+      ligado: estado.opcoes.filtroLigado,
+      corte: estado.parametros.cutoff,
+      resonancia: estado.parametros.resonancia,
+      taxa: estado.contexto?.sampleRate || 48000,
+    });
   });
 }
 
-function desenharAgora() {
+// Redesenha sempre que um painel mudar de tamanho (girar a tela, trocar de aba...).
+const observarTamanho = new ResizeObserver(pedirDesenho);
+[telaOnda, telaEnvelope, telaFiltro].forEach((tela) => observarTamanho.observe(tela));
+
+// ---------- WT Pos e desenho da onda ----------
+
+const nomesFrames = wavetable.nomesFrames;
+const ultimoFrame = wavetable.frames.length - 1;
+const ondaDesenhada = new Float32Array(wavetable.tamanho);
+
+// Muda o WT Pos (0 a 1): atualiza o som, a barra e o desenho.
+function definirWTPos(valor) {
+  const wtPos = Math.min(1, Math.max(0, valor));
+  controleWTPos.value = wtPos;
+  definirParametro('wtPos', wtPos);
+}
+
+function desenharPainelOnda() {
   // Mesma mistura que o motor de som faz, usando a versão mais cheia da onda.
-  const wt = estado.wtPos * ultimoFrame;
+  const wt = estado.parametros.wtPos * ultimoFrame;
   const f0 = Math.min(Math.floor(wt), ultimoFrame);
   const f1 = Math.min(f0 + 1, ultimoFrame);
   const t = wt - f0;
@@ -175,7 +267,7 @@ let arraste = null;
 telaOnda.addEventListener('pointerdown', (evento) => {
   evento.preventDefault();
   telaOnda.setPointerCapture(evento.pointerId);
-  arraste = { id: evento.pointerId, x: evento.clientX, y: evento.clientY, inicio: estado.wtPos };
+  arraste = { id: evento.pointerId, x: evento.clientX, y: evento.clientY, inicio: estado.parametros.wtPos };
 });
 telaOnda.addEventListener('pointermove', (evento) => {
   if (!arraste || evento.pointerId !== arraste.id) return;
@@ -188,8 +280,106 @@ const terminarArraste = (evento) => {
 telaOnda.addEventListener('pointerup', terminarArraste);
 telaOnda.addEventListener('pointercancel', terminarArraste);
 
-// Redesenha sempre que o painel mudar de tamanho (girar a tela, trocar de aba...).
-new ResizeObserver(pedirDesenho).observe(telaOnda);
+// ---------- Aba Filtro ----------
+
+const NOMES_FILTRO = { lp12: 'LP 12', lp24: 'LP 24', hp: 'HP', bp: 'BP' };
+
+function atualizarBotaoFiltro() {
+  const ligado = estado.opcoes.filtroLigado;
+  botaoFiltroLigado.setAttribute('aria-pressed', ligado);
+  botaoFiltroLigado.textContent = ligado ? 'Ligado' : 'Desligado';
+}
+
+botaoFiltroLigado.addEventListener('click', () => {
+  definirOpcao('filtroLigado', !estado.opcoes.filtroLigado);
+  atualizarBotaoFiltro();
+});
+
+// Botões de tipo: LP 12, LP 24, HP, BP.
+TIPOS_FILTRO.forEach((tipo) => {
+  const botao = document.createElement('button');
+  botao.className = 'botao';
+  botao.textContent = NOMES_FILTRO[tipo];
+  botao.dataset.tipo = tipo;
+  botao.addEventListener('click', () => {
+    definirOpcao('filtroTipo', tipo);
+    marcarTipoFiltro();
+  });
+  tiposFiltro.appendChild(botao);
+});
+
+function marcarTipoFiltro() {
+  tiposFiltro.querySelectorAll('.botao').forEach((botao) => {
+    botao.classList.toggle('escolhido', botao.dataset.tipo === estado.opcoes.filtroTipo);
+  });
+}
+
+knobsFiltro.append(
+  criarKnob({
+    rotulo: 'Cutoff',
+    escala: escalaExponencial(20, 20000),
+    padrao: estado.parametros.cutoff,
+    formatar: formatarFrequencia,
+    aoMudar: (v) => definirParametro('cutoff', v),
+  }),
+  criarKnob({
+    rotulo: 'Reso',
+    escala: escalaLinear(0, 1),
+    padrao: estado.parametros.resonancia,
+    formatar: formatarPorcentagem,
+    aoMudar: (v) => definirParametro('resonancia', v),
+  })
+);
+
+atualizarBotaoFiltro();
+marcarTipoFiltro();
+
+// ---------- Aba ENV (envelope de volume) ----------
+
+// Tempos: de 0 a 10 s, com mais precisão nos tempos curtos.
+const escalaTempo = escalaPotencia(10, 3);
+
+knobsEnvelope.append(
+  criarKnob({
+    rotulo: 'A',
+    escala: escalaTempo,
+    padrao: estado.parametros.ataque,
+    formatar: formatarTempo,
+    aoMudar: (v) => definirParametro('ataque', v),
+  }),
+  criarKnob({
+    rotulo: 'D',
+    escala: escalaTempo,
+    padrao: estado.parametros.decaimento,
+    formatar: formatarTempo,
+    aoMudar: (v) => definirParametro('decaimento', v),
+  }),
+  criarKnob({
+    rotulo: 'S',
+    escala: escalaLinear(0, 1),
+    padrao: estado.parametros.sustentacao,
+    formatar: formatarPorcentagem,
+    aoMudar: (v) => definirParametro('sustentacao', v),
+  }),
+  criarKnob({
+    rotulo: 'R',
+    escala: escalaTempo,
+    padrao: estado.parametros.soltura,
+    formatar: formatarTempo,
+    aoMudar: (v) => definirParametro('soltura', v),
+  })
+);
+
+function atualizarBotaoLegato() {
+  botaoLegato.setAttribute('aria-pressed', estado.opcoes.legato);
+}
+
+botaoLegato.addEventListener('click', () => {
+  definirOpcao('legato', !estado.opcoes.legato);
+  atualizarBotaoLegato();
+});
+
+atualizarBotaoLegato();
 
 // ---------- Abas ----------
 

@@ -88,15 +88,31 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Mais contraste: tela quase preta, cartões com borda, onda azul viva com brilho.
 - Cores ficam em variáveis no topo do `estilo.css`.
 
+**Item 2 (filtro + envelope de amplitude) — feito e aprovado pelo ouvido (já deu para fazer um reese bass):**
+- Caminho do som: oscilador → filtro → ENV 1 (volume) → volume geral → limitador.
+- Filtro SVF (TPT) por voz: LP 12, LP 24, HP, BP; Cutoff e Reso; liga/desliga.
+  Troca de tipo e liga/desliga com transição suave (~5 ms).
+  Volume do LP/HP baixa com a ressonância (compensação) para não estourar.
+- ENV 1 (ADSR): ataque linear, D/R em curva (tempo = queda até -60 dB).
+  Mínimos anti-estalo: ataque 1,5 ms, queda 6 ms.
+- Legato opcional (padrão ligado); sem legato, cada nota recomeça o envelope
+  a partir do nível atual.
+- Knobs de toque (arrastar para cima/baixo, toque duplo = valor inicial) com número.
+- Desenhos: curva do filtro (resposta exata do filtro) e forma do ADSR.
+- Volume geral com folga (× 0,5) + limitador neutro (compensa o "makeup gain").
+- Envelope do filtro: decidido esperar o item 4 (ENV 2/3 arrastáveis).
+
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
-- `principal.js` — liga o som, teclado, toques
+- `principal.js` — liga o som, teclado, toques, abas e controles
 - `processador-synth.js` — motor de som (AudioWorklet)
+- `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelo motor)
+- `interface/knob.js` — knob reutilizável (escalas e formatos de número)
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
-- `visualizacao.js` — desenha a onda atual
+- `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
 **Pendências:**
 - Teste no celular exige endereço https (ex.: GitHub Pages).
 - Visualização em perspectiva (frames empilhados) fica para a fase de aparência.
-- Próximo: item 2 (filtro + envelope de amplitude).
+- Próximo: item 3 (unison, polifonia e detune).
