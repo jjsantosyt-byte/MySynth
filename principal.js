@@ -163,7 +163,8 @@ controleWTPos.addEventListener('input', () => definirWTPos(Number(controleWTPos.
 nomesFrames.forEach((nome, indice) => {
   const botao = document.createElement('button');
   botao.className = 'botao';
-  botao.textContent = nome;
+  botao.textContent = wavetable.nomesCurtos[indice];
+  botao.title = nome;
   botao.addEventListener('click', () => definirWTPos(indice / ultimoFrame));
   atalhosWT.appendChild(botao);
 });
@@ -186,6 +187,28 @@ const terminarArraste = (evento) => {
 };
 telaOnda.addEventListener('pointerup', terminarArraste);
 telaOnda.addEventListener('pointercancel', terminarArraste);
+
+// Redesenha sempre que o painel mudar de tamanho (girar a tela, trocar de aba...).
+new ResizeObserver(pedirDesenho).observe(telaOnda);
+
+// ---------- Abas ----------
+
+const abas = document.querySelectorAll('.aba');
+const paineis = document.querySelectorAll('.conteudo-aba');
+
+// Mostra só o conteúdo da aba escolhida. O som não muda ao trocar de aba.
+function mostrarAba(nome) {
+  abas.forEach((aba) => {
+    const ativa = aba.dataset.aba === nome;
+    aba.classList.toggle('ativa', ativa);
+    aba.setAttribute('aria-selected', ativa);
+  });
+  paineis.forEach((painel) => {
+    painel.hidden = painel.dataset.painel !== nome;
+  });
+}
+
+abas.forEach((aba) => aba.addEventListener('click', () => mostrarAba(aba.dataset.aba)));
 
 // ---------- Notas ----------
 
@@ -343,7 +366,6 @@ window.addEventListener('resize', () => {
   clearTimeout(esperaRedimensionar);
   esperaRedimensionar = setTimeout(() => {
     if (oitavasQueCabem() !== estado.qtdOitavas) montarTeclado();
-    pedirDesenho();
   }, 150);
 });
 

@@ -1,11 +1,27 @@
-/* estilo.css — aparência simples, pensada para toque no celular e tablet */
+/* estilo.css — aparência pensada para toque no celular e tablet */
+
+/* Cores do app, num lugar só (fácil de ajustar depois) */
+:root {
+  --fundo: #0b0c0f; /* fundo da tela, quase preto */
+  --barra: #121319; /* barra de cima e abas */
+  --cartao: #181b23; /* cartões dos módulos */
+  --cartao-borda: #2b303e;
+  --tela-onda: #1f2433; /* fundo do desenho da onda, azulado */
+  --tela-onda-borda: #353d55;
+  --botao: #262a35;
+  --botao-apertado: #343a4a;
+  --texto: #e8e9ee;
+  --texto-suave: #9096a8;
+  --destaque: #3fb8ff; /* azul vivo: onda, aba ativa, teclas tocando */
+  --destaque-escuro: #1f7fc0;
+}
 
 html,
 body {
   height: 100%;
   margin: 0;
-  background: #15161a;
-  color: #e8e8ec;
+  background: var(--fundo);
+  color: var(--texto);
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   overscroll-behavior: none; /* evita "puxar para atualizar" sem querer */
   -webkit-tap-highlight-color: transparent;
@@ -15,16 +31,18 @@ main {
   display: flex;
   flex-direction: column;
   height: 100%;
-  padding: 12px 16px 16px;
+  padding: 10px 16px 16px;
   box-sizing: border-box;
-  gap: 12px;
+  gap: 10px;
 }
 
-header {
+/* ---------- Barra de cima ---------- */
+
+.barra-topo {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px 20px;
 }
 
 h1 {
@@ -34,25 +52,25 @@ h1 {
 
 /* Botões grandes, fáceis de acertar com o dedo */
 .botao {
-  min-height: 52px;
-  min-width: 52px;
-  padding: 0 18px;
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 16px;
   border: none;
   border-radius: 12px;
-  background: #2c2e36;
+  background: var(--botao);
   color: inherit;
-  font-size: 17px;
+  font-size: 16px;
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .botao:active {
-  background: #3b3e49;
+  background: var(--botao-apertado);
 }
 
 .botao-destaque {
-  background: #2f8fd0;
+  background: var(--destaque-escuro);
   font-weight: 600;
 }
 
@@ -67,21 +85,14 @@ h1 {
   background: #5a2a2a;
 }
 
-.controles {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 24px;
-}
-
 .grupo-oitava {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .rotulo {
-  min-width: 40px;
+  min-width: 36px;
   text-align: center;
   font-size: 18px;
   font-weight: 600;
@@ -92,28 +103,108 @@ h1 {
   align-items: center;
   gap: 12px;
   flex: 1;
-  min-width: 200px;
-  font-size: 17px;
+  min-width: 180px;
+  font-size: 16px;
 }
 
 .grupo-volume input {
   flex: 1;
+  width: 0; /* deixa a barra encolher para caber em telas pequenas */
+  min-width: 0;
   height: 44px;
 }
 
-/* ---------- Painel da onda (oscilador) ---------- */
+/* ---------- Abas ---------- */
 
-.painel-onda {
+.abas {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--barra);
+}
+
+.aba {
+  flex: 1;
+  min-height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.aba.ativa {
+  background: var(--botao-apertado);
+  color: var(--texto);
+  box-shadow: inset 0 -3px 0 var(--destaque);
+}
+
+/* Conteúdo das abas: se não couber, rola só esta parte (o teclado fica no lugar) */
+.conteudo-aba {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.conteudo-aba[hidden] {
+  display: none;
+}
+
+/* ---------- Cartões (módulos) ---------- */
+
+.cartao {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 14px;
+  background: var(--cartao);
+  box-sizing: border-box;
+  min-width: 0;
 }
+
+.titulo-cartao {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--texto-suave);
+}
+
+.em-breve {
+  margin: auto 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--texto-suave);
+  opacity: 0.6;
+}
+
+.cartao.reservado {
+  border-style: dashed;
+  min-height: 120px;
+}
+
+/* Osciladores: 3 lado a lado */
+.osciladores {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* ---------- Desenho da onda ---------- */
 
 .tela-onda {
   position: relative;
-  height: 130px;
-  border-radius: 12px;
-  background: #1c1d22;
+  height: 110px;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
   overflow: hidden;
   touch-action: none; /* arrastar aqui mexe no WT Pos, não rola a página */
   cursor: ew-resize;
@@ -127,38 +218,81 @@ h1 {
 
 .nome-onda {
   position: absolute;
-  top: 8px;
-  left: 12px;
+  top: 6px;
+  left: 8px;
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgba(28, 29, 34, 0.85);
-  font-size: 14px;
-  color: #a9abb5;
+  background: rgba(15, 17, 24, 0.8);
+  font-size: 13px;
+  color: var(--texto);
   pointer-events: none;
 }
 
 .grupo-wtpos {
   display: flex;
   align-items: center;
-  gap: 12px;
-  font-size: 17px;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--texto-suave);
 }
 
 .grupo-wtpos input {
   flex: 1;
-  height: 44px;
+  min-width: 0;
+  height: 40px;
 }
 
 .atalhos-wt {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .atalhos-wt .botao {
   flex: 1;
+  min-width: 0;
   min-height: 40px;
-  padding: 0 6px;
-  font-size: 14px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+/* ---------- Tela estreita (celular em pé) ---------- */
+
+@media (max-width: 640px) {
+  /* Barra em 2 linhas: [título, Ligar som] e [oitava, volume] */
+  .barra-topo h1 {
+    flex: 1;
+  }
+
+  .grupo-oitava {
+    order: 3;
+  }
+
+  .grupo-volume {
+    order: 4;
+    min-width: 0;
+  }
+
+  .texto-longo {
+    display: none;
+  }
+
+  /* Osciladores um embaixo do outro; os reservados viram faixas finas */
+  .osciladores {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .oscilador.reservado {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 0;
+    padding: 8px 12px;
+  }
+
+  .oscilador.reservado .em-breve {
+    margin: 0;
+  }
 }
 
 /* ---------- Teclado ---------- */
@@ -166,8 +300,7 @@ h1 {
 .teclado {
   position: relative;
   display: flex;
-  flex: 1;
-  min-height: 200px;
+  flex: 1 0 180px; /* nunca fica menor que 180 px */
   max-height: 420px;
   margin-top: auto;
   touch-action: none; /* o app cuida dos toques, o navegador não rola a página */
@@ -187,7 +320,7 @@ h1 {
   justify-content: center;
   padding-bottom: 10px;
   background: #ececef;
-  border: 1px solid #15161a;
+  border: 1px solid var(--fundo);
   border-radius: 0 0 10px 10px;
   color: #666;
   font-size: 13px;
@@ -198,8 +331,8 @@ h1 {
   top: 0;
   height: 60%;
   transform: translateX(-50%);
-  background: #26272d;
-  border: 1px solid #15161a;
+  background: #22252e;
+  border: 1px solid var(--fundo);
   border-radius: 0 0 8px 8px;
   z-index: 2;
 }
@@ -209,5 +342,5 @@ h1 {
 }
 
 .tecla.preta.ativa {
-  background: #2f8fd0;
+  background: var(--destaque-escuro);
 }

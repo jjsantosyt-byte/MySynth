@@ -8,38 +8,75 @@
   </head>
   <body>
     <main>
-      <header>
+      <!-- Barra de cima: controles gerais, sempre visíveis -->
+      <header class="barra-topo">
         <h1>MySynth</h1>
-        <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
-      </header>
-
-      <p id="aviso" class="aviso" hidden></p>
-
-      <section class="controles">
         <div class="grupo-oitava">
-          <button id="oitava-menos" class="botao">Oitava –</button>
+          <!-- No celular em pé, a palavra "Oitava" some e fica só – / + -->
+          <button id="oitava-menos" class="botao" aria-label="Oitava abaixo"><span class="texto-longo">Oitava </span>–</button>
           <span id="rotulo-oitava" class="rotulo">C3</span>
-          <button id="oitava-mais" class="botao">Oitava +</button>
+          <button id="oitava-mais" class="botao" aria-label="Oitava acima"><span class="texto-longo">Oitava </span>+</button>
         </div>
         <label class="grupo-volume">
           Volume
           <input id="volume" type="range" min="0" max="1" step="0.01" value="0.5" />
         </label>
+        <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
+      </header>
+
+      <p id="aviso" class="aviso" hidden></p>
+
+      <!-- Abas: cada uma com uma função só -->
+      <nav class="abas" role="tablist">
+        <button class="aba ativa" role="tab" aria-selected="true" data-aba="osc">OSC</button>
+        <button class="aba" role="tab" aria-selected="false" data-aba="filtro">Filtro</button>
+        <button class="aba" role="tab" aria-selected="false" data-aba="env">ENV</button>
+        <button class="aba" role="tab" aria-selected="false" data-aba="lfo">LFO</button>
+        <button class="aba" role="tab" aria-selected="false" data-aba="fx">FX</button>
+      </nav>
+
+      <!-- Aba OSC: 3 espaços de oscilador (só o A funciona por enquanto) -->
+      <section class="conteudo-aba" data-painel="osc">
+        <div class="osciladores">
+          <article class="cartao oscilador">
+            <h2 class="titulo-cartao">OSC A</h2>
+            <div class="tela-onda">
+              <!-- Arrastar no desenho (para os lados ou para cima/baixo) também muda o WT Pos -->
+              <canvas id="tela-onda"></canvas>
+              <span id="nome-onda" class="nome-onda">Seno</span>
+            </div>
+            <label class="grupo-wtpos">
+              <span>WT Pos</span>
+              <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
+            </label>
+            <!-- Atalhos: tocar no nome pula direto para aquela forma de onda -->
+            <div id="atalhos-wt" class="atalhos-wt"></div>
+          </article>
+
+          <article class="cartao oscilador reservado">
+            <h2 class="titulo-cartao">OSC B</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+
+          <article class="cartao oscilador reservado">
+            <h2 class="titulo-cartao">OSC C</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+        </div>
       </section>
 
-      <!-- Oscilador: desenho da onda + WT Pos -->
-      <section class="painel-onda">
-        <div class="tela-onda">
-          <!-- Arrastar no desenho (para os lados ou para cima/baixo) também muda o WT Pos -->
-          <canvas id="tela-onda"></canvas>
-          <span id="nome-onda" class="nome-onda">Seno</span>
-        </div>
-        <label class="grupo-wtpos">
-          <span>WT Pos</span>
-          <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
-        </label>
-        <!-- Atalhos: tocar no nome pula direto para aquela forma de onda -->
-        <div id="atalhos-wt" class="atalhos-wt"></div>
+      <!-- Abas que ainda vão ganhar conteúdo -->
+      <section class="conteudo-aba" data-painel="filtro" hidden>
+        <div class="cartao reservado"><h2 class="titulo-cartao">Filtro</h2><p class="em-breve">em breve</p></div>
+      </section>
+      <section class="conteudo-aba" data-painel="env" hidden>
+        <div class="cartao reservado"><h2 class="titulo-cartao">Envelopes</h2><p class="em-breve">em breve</p></div>
+      </section>
+      <section class="conteudo-aba" data-painel="lfo" hidden>
+        <div class="cartao reservado"><h2 class="titulo-cartao">LFOs</h2><p class="em-breve">em breve</p></div>
+      </section>
+      <section class="conteudo-aba" data-painel="fx" hidden>
+        <div class="cartao reservado"><h2 class="titulo-cartao">Efeitos</h2><p class="em-breve">em breve</p></div>
       </section>
 
       <!-- As teclas são criadas pelo principal.js, conforme o tamanho da tela -->

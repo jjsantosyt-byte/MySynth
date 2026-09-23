@@ -111,6 +111,7 @@ export function criarWavetableBasica() {
   return {
     nome: 'Básica',
     nomesFrames: ['Seno', 'Triângulo', 'Serra', 'Quadrada'],
+    nomesCurtos: ['Seno', 'Tri', 'Serra', 'Quad'], // para botões pequenos
     tamanho: TAMANHO_TABELA,
     harmonicos: HARMONICOS_POR_NIVEL,
     frames: [receitaSeno(), receitaTriangulo(), receitaSerra(), receitaQuadrada()].map(montarFrame),

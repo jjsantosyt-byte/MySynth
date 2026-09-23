@@ -72,13 +72,21 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Monofônico (última nota tem prioridade), com rampa anti-estalo de volume.
 - O primeiro toque no teclado já liga o som (o botão "Ligar som" é opcional).
 
-**Item 1 (WT Pos e morphing) — feito, aguardando aprovação do ouvido:**
+**Item 1 (WT Pos e morphing) — feito e aprovado pelo ouvido:**
 - Wavetable "Básica" com 4 frames: Seno → Triângulo → Serra → Quadrada
   (criados do zero, alinhados no início do ciclo).
 - WT Pos como parâmetro de áudio suavizado (pronto para ser modulado no item 4).
 - Morphing contínuo: mistura os 2 frames vizinhos.
 - Visualização 2D da onda atual; arrastar no desenho muda o WT Pos;
   botões de atalho para cada forma.
+
+**Visual (organização da tela) — feito e aprovado:**
+- Barra fixa em cima (oitava, volume, ligar som) e teclado fixo embaixo.
+- Abas, uma função por aba: OSC, Filtro, ENV, LFO, FX (só OSC tem conteúdo).
+- Aba OSC com 3 espaços: OSC A funcionando; OSC B e C reservados ("em breve").
+  No celular em pé, B e C viram faixas finas.
+- Mais contraste: tela quase preta, cartões com borda, onda azul viva com brilho.
+- Cores ficam em variáveis no topo do `estilo.css`.
 
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
