@@ -94,6 +94,7 @@ const estado = {
   oitavaBase: 3, // a primeira tecla é o C3
   qtdOitavas: 0,
   dedos: new Map(), // cada dedo/mouse -> nota que ele está tocando
+  teclasPc: new Map(), // cada tecla do computador apertada -> nota que ela está tocando
   contagemNotas: new Map(), // quantos dedos seguram cada nota
 };
 
@@ -777,6 +778,7 @@ function notaOff(nota) {
 
 function soltarTudo() {
   estado.dedos.clear();
+  estado.teclasPc.clear();
   estado.contagemNotas.clear();
   estado.synth?.port.postMessage({ tipo: 'tudoOff' });
   teclado.querySelectorAll('.ativa').forEach((t) => t.classList.remove('ativa'));
@@ -799,6 +801,61 @@ const PRETAS = [
   [5, 8], // G#
   [6, 10], // A#
 ];
+
+// ---------- Teclado do computador ----------
+// Mesmo padrão do FL Studio. Usa a POSIÇÃO da tecla (funciona em teclado
+// brasileiro ABNT ou americano): [código da tecla, semitons a partir do 1º C da tela, letra].
+//   Linha Q W E R T Y U I O P [ ]  = notas brancas (Q = C) · números 2 3 5 6 7 9 0 = = pretas
+//   Linha Z X C V B N M           = uma oitava abaixo · S D G H J = pretas
+const TECLAS_PC = [
+  ['KeyQ', 0, 'Q'], ['Digit2', 1, '2'], ['KeyW', 2, 'W'], ['Digit3', 3, '3'], ['KeyE', 4, 'E'],
+  ['KeyR', 5, 'R'], ['Digit5', 6, '5'], ['KeyT', 7, 'T'], ['Digit6', 8, '6'], ['KeyY', 9, 'Y'],
+  ['Digit7', 10, '7'], ['KeyU', 11, 'U'], ['KeyI', 12, 'I'], ['Digit9', 13, '9'], ['KeyO', 14, 'O'],
+  ['Digit0', 15, '0'], ['KeyP', 16, 'P'], ['BracketLeft', 17, '['], ['Equal', 18, '='], ['BracketRight', 19, ']'],
+  ['KeyZ', -12, 'Z'], ['KeyS', -11, 'S'], ['KeyX', -10, 'X'], ['KeyD', -9, 'D'], ['KeyC', -8, 'C'],
+  ['KeyV', -7, 'V'], ['KeyG', -6, 'G'], ['KeyB', -5, 'B'], ['KeyH', -4, 'H'], ['KeyN', -3, 'N'],
+  ['KeyJ', -2, 'J'], ['KeyM', -1, 'M'],
+];
+const SEMITOM_DA_TECLA_PC = new Map(TECLAS_PC.map(([codigo, semitom]) => [codigo, semitom]));
+const LETRA_DO_SEMITOM = new Map(TECLAS_PC.filter(([, s]) => s >= 0).map(([, semitom, letra]) => [semitom, letra]));
+
+// Mostra a letra do computador em cima da tecla da tela (só em telas com mouse).
+function letraPc(tecla, semitomDesdeInicio) {
+  const letra = LETRA_DO_SEMITOM.get(semitomDesdeInicio);
+  if (!letra) return;
+  const span = document.createElement('span');
+  span.className = 'letra-pc';
+  span.textContent = letra;
+  tecla.prepend(span);
+}
+
+function teclaPcIgnorada(evento) {
+  // Com Ctrl/Cmd/Alt é atalho (copiar, recarregar...); em campo de texto, é digitação.
+  if (evento.ctrlKey || evento.metaKey || evento.altKey) return true;
+  const alvo = evento.target;
+  return alvo instanceof HTMLInputElement && alvo.type !== 'range';
+}
+
+document.addEventListener('keydown', (evento) => {
+  const semitom = SEMITOM_DA_TECLA_PC.get(evento.code);
+  if (semitom === undefined || teclaPcIgnorada(evento)) return;
+  evento.preventDefault();
+  if (evento.repeat || estado.teclasPc.has(evento.code)) return; // segurar a tecla não repete a nota
+  if (!estado.contexto) ligarSom(); // apertar uma tecla também liga o som
+  const nota = notaInicial() + semitom;
+  estado.teclasPc.set(evento.code, nota); // guarda a nota (se a oitava mudar, solta a certa)
+  notaOn(nota);
+});
+
+document.addEventListener('keyup', (evento) => {
+  if (!estado.teclasPc.has(evento.code)) return;
+  const nota = estado.teclasPc.get(evento.code);
+  estado.teclasPc.delete(evento.code);
+  notaOff(nota);
+});
+
+// Janela perdeu o foco (ex.: trocou de programa com a tecla apertada): solta tudo.
+window.addEventListener('blur', () => soltarTudo());
 
 // Quantas oitavas cabem com teclas de pelo menos ~48 px de largura.
 function oitavasQueCabem() {
@@ -825,6 +882,7 @@ function montarTeclado() {
     tecla.className = 'tecla branca';
     tecla.dataset.nota = nota;
     if (i % 7 === 0) tecla.textContent = 'C' + (estado.oitavaBase + oitava);
+    letraPc(tecla, nota - primeira);
     teclado.appendChild(tecla);
   }
 
@@ -835,6 +893,7 @@ function montarTeclado() {
       tecla.dataset.nota = primeira + oitava * 12 + semitom;
       tecla.style.left = ((oitava * 7 + posicao) / totalBrancas) * 100 + '%';
       tecla.style.width = (0.6 / totalBrancas) * 100 + '%';
+      letraPc(tecla, oitava * 12 + semitom);
       teclado.appendChild(tecla);
     }
   }

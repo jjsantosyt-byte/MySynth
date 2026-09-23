@@ -846,8 +846,10 @@ h1 {
 .tecla.branca {
   flex: 1;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
   padding-bottom: 10px;
   background: #ececef;
   border: 1px solid var(--fundo);
@@ -865,6 +867,32 @@ h1 {
   border: 1px solid var(--fundo);
   border-radius: 0 0 8px 8px;
   z-index: 2;
+}
+
+.tecla.preta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+}
+
+/* Letra do teclado do computador em cima de cada tecla (só com mouse) */
+.letra-pc {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a8f9e;
+  pointer-events: none;
+}
+
+.tecla.preta .letra-pc {
+  color: #7d8396;
+}
+
+@media (hover: none) {
+  .letra-pc {
+    display: none;
+  }
 }
 
 .tecla.branca.ativa {

@@ -203,7 +203,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - PWA básico: `manifest.json`, ícones em `icones/`, metas da Apple → "Adicionar à
   Tela de Início" abre em tela cheia (ganha ~50 px de altura).
 
-**Item 5a (Delay + Reverb) — feito, em teste no iPhone:**
+**Item 5a (Delay + Reverb) — feito e aprovado no iPhone:**
 - Efeitos no motor (`dsp/efeitos/`), depois das notas somadas, em estéreo:
   [Distorção → Chorus: 5b] → Delay → Reverb → volume geral → limitador.
 - Os efeitos rodam mesmo sem notas (caudas terminam) e "dormem" quando silenciam.
@@ -215,6 +215,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Brilho = abafamento (1,5 a 16 kHz); tira graves < ~120 Hz da entrada.
 - Medido: ecos caem 8 dB por repetição com Feedback 40%; ligar/desligar sem estalo;
   8 vozes × 8 cópias: 24% → 26% com delay + reverb.
+
+**Teclado do computador — feito:**
+- Padrão FL Studio, pela posição da tecla (`evento.code`, funciona em ABNT e americano):
+  Q W E R T Y U I O P [ ] = brancas a partir do 1º C da tela; 2 3 5 6 7 9 0 = = pretas;
+  Z X C V B N M (+ S D G H J) = uma oitava abaixo. Botões de oitava mudam tudo junto.
+- Segurar não repete; Ctrl/Cmd/Alt e campos de texto são ignorados; perder o foco da
+  janela solta tudo; trocar de oitava com tecla apertada não deixa nota presa.
+- Letras aparecem nas teclas da tela só em telas com mouse (`@media (hover: none)` esconde).
 
 **Online (GitHub Pages) — no ar desde 23/09/2026:**
 - Endereço: https://jjsantosyt-byte.github.io/MySynth/
