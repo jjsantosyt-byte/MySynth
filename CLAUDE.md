@@ -78,6 +78,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   fase sorteada a cada nota.
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
+- Limitador próprio no motor (`dsp/`), no lugar do DynamicsCompressor do navegador: olha ~1,5 ms
+  à frente, solta em ~0,1 s de verdade, não começa "apertado" ao ligar o som. (O do navegador
+  solta em > 1 s: o volume parece mudar sozinho depois de um pico.)
 - Exportar som como .wav:
   - Salvar uma nota do som como "one shot" .wav para usar no FL Studio e em outras DAWs.
     Nota padrão: Dó (C) — o FL usa C5 como nota base do sampler, então a amostra já
@@ -293,6 +296,16 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Aviso do limitador — feito, em teste:**
+- Recado na tela ("Limitador agindo: ... abaixado ~X dB. Abaixe o Nível dos osciladores ou o
+  Volume.") quando o som passa do limiar (-3 dB); no máximo um aviso a cada 6 s; some em 4 s.
+- Como mede: um AnalyserNode logo ANTES do limitador (depois do volume geral), lido a cada
+  50 ms (4096 amostras ≈ 85 ms, nenhum pico escapa). Só escuta, não muda o som.
+- Por que não usar `limitador.reduction`: medido no Chrome, o DynamicsCompressor mostra
+  ~-20 dB de redução em silêncio logo ao ligar e solta bem mais devagar que o "release" de
+  0,1 s (> 1 s). Proposto trocar por um limitador próprio no motor; decidido manter o do
+  navegador por enquanto (ideia guardada).
 
 **Item 6d-3 (afinação por oscilador) — feito, em teste:**
 - Oct (-3 a +3) e Semi (-12 a +12) são opções (`oitavaOsc`, `semiOsc`, + B/C); Fine é parâmetro

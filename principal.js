@@ -264,7 +264,7 @@ async function ligarSom() {
 
     // Limitador no fim do caminho: no uso normal não faz nada; só segura
     // picos que iam estourar (ex.: ressonância alta com varredura rápida).
-    const limiar = -3;
+    const limiar = LIMIAR_LIMITADOR;
     const razao = 20;
     const limitador = new DynamicsCompressorNode(contexto, {
       threshold: limiar,
@@ -297,6 +297,11 @@ async function ligarSom() {
 
     estado.synth = synth;
     estado.ganho = ganho;
+
+    // Medidor logo antes do limitador (só escuta; o som não passa por ele)
+    const medidor = new AnalyserNode(contexto, { fftSize: 4096 });
+    ganho.connect(medidor);
+    vigiarLimitador(medidor);
 
     // Envia as opções atuais (tipo de filtro, legato...), as fontes e as ligações.
     for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
@@ -340,6 +345,40 @@ controleVolume.addEventListener('input', () => {
   // Mudança suave, para não estalar.
   estado.ganho.gain.setTargetAtTime(volumeDoControle(), estado.contexto.currentTime, 0.02);
 });
+
+// ---------- Aviso do limitador (recado na tela) ----------
+// Quando o som passa do limite, o limitador abaixa o volume sozinho, e depois solta
+// devagar: parece que o volume muda "sem motivo". Este aviso conta quando isso acontece.
+// Como sabemos: um "medidor" escuta o som logo ANTES do limitador (só mede, não muda nada).
+// Pico acima do limiar = o limitador está abaixando. (A leitura do próprio limitador do
+// navegador não é confiável: ela mostra redução até em silêncio, logo ao ligar o som.)
+const LIMIAR_LIMITADOR = -3; // dB (o mesmo do limitador em ligarSom)
+const INTERVALO_AVISOS = 6000; // ms: no máximo um aviso a cada 6 s (não fica piscando)
+
+function vigiarLimitador(medidor) {
+  const amostras = new Float32Array(medidor.fftSize);
+  const limiar = Math.pow(10, LIMIAR_LIMITADOR / 20);
+  let ultimoAviso = -Infinity;
+  // Lê a cada 50 ms um trecho de ~85 ms (4096 amostras): nenhum pico escapa.
+  setInterval(() => {
+    medidor.getFloatTimeDomainData(amostras);
+    let pico = 0;
+    for (let i = 0; i < amostras.length; i++) {
+      const v = Math.abs(amostras[i]);
+      if (v > pico) pico = v;
+    }
+    const passou = 20 * Math.log10(pico / limiar); // quantos dB acima do limite
+    const agora = performance.now();
+    if (passou > 0.5 && agora - ultimoAviso > INTERVALO_AVISOS) {
+      ultimoAviso = agora;
+      mostrarRecado(
+        `Limitador agindo: o som passou do máximo e foi abaixado (~${Math.max(1, Math.round(passou))} dB). ` +
+          'Abaixe o Nível dos osciladores ou o Volume.',
+        4
+      );
+    }
+  }, 50);
+}
 
 // ---------- Controles de som (parâmetros e opções) ----------
 
