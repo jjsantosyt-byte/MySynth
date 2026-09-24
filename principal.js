@@ -137,6 +137,11 @@ const estado = {
     glideSempre: false, // escorregar mesmo sem emendar as notas
     ruidoLigado: false, // ruído somado ao oscilador
     ruidoTipo: 'white', // 'white', 'pink' ou 'brown'
+    ruidoModo: 'loop', // 'loop' (contínuo) ou 'oneshot' (rajada no começo da nota)
+    ruidoDuracao: 0.2, // One Shot: segundos até sumir
+    ruidoTrack: false, // a cor do ruído acompanha a nota
+    ruidoPitch: 0, // cor do ruído, em semitons (-24 a +24)
+    ruidoUnico: true, // acordes: só a nota mais recente toca ruído
     oitavaOsc: 0, // afinação do oscilador A: oitavas (-3 a +3)
     semiOsc: 0, // e semitons (-12 a +12)
     faseOsc: 0, // Phase: ponto de início da onda (0 a 1 = 0° a 360°)
@@ -1183,12 +1188,39 @@ const botaoRuido = document.getElementById('ruido-ligado');
 const nomeRuido = document.getElementById('ruido-tipo');
 const NOMES_RUIDO = { white: 'White', pink: 'Pink', brown: 'Brown' };
 
+const modoRuido = document.getElementById('modo-ruido');
+const botaoTrack = document.getElementById('ruido-track');
+const botaoUnico = document.getElementById('ruido-unico');
+
 function mostrarRuido() {
   const ligado = estado.opcoes.ruidoLigado;
   botaoRuido.setAttribute('aria-pressed', ligado);
   botaoRuido.textContent = ligado ? 'Ligado' : 'Desligado';
   nomeRuido.textContent = NOMES_RUIDO[estado.opcoes.ruidoTipo];
+  modoRuido.querySelectorAll('.botao').forEach((botao) => {
+    botao.classList.toggle('escolhido', botao.dataset.modo === estado.opcoes.ruidoModo);
+  });
+  knobDuracao.classList.toggle('desabilitado', estado.opcoes.ruidoModo !== 'oneshot');
+  botaoTrack.setAttribute('aria-pressed', estado.opcoes.ruidoTrack);
+  botaoUnico.setAttribute('aria-pressed', estado.opcoes.ruidoUnico);
 }
+
+// Loop | One Shot
+modoRuido.querySelectorAll('.botao').forEach((botao) => {
+  botao.addEventListener('click', () => {
+    definirOpcao('ruidoModo', botao.dataset.modo);
+    mostrarRuido();
+  });
+});
+// Track (a cor acompanha a nota) e "1 ruído" (acordes com um ruído só)
+botaoTrack.addEventListener('click', () => {
+  definirOpcao('ruidoTrack', !estado.opcoes.ruidoTrack);
+  mostrarRuido();
+});
+botaoUnico.addEventListener('click', () => {
+  definirOpcao('ruidoUnico', !estado.opcoes.ruidoUnico);
+  mostrarRuido();
+});
 
 botaoRuido.addEventListener('click', () => {
   definirOpcao('ruidoLigado', !estado.opcoes.ruidoLigado);
@@ -1203,6 +1235,15 @@ function andarRuido(passo) {
 document.getElementById('ruido-anterior').addEventListener('click', () => andarRuido(-1));
 document.getElementById('ruido-proximo').addEventListener('click', () => andarRuido(1));
 
+// Duração do One Shot: de 5 ms (um "tic") a 2 s, com mais precisão nos tempos curtos
+const knobDuracao = criarKnob({
+  rotulo: 'Duração',
+  escala: escalaExponencial(0.005, 2),
+  padrao: estado.opcoes.ruidoDuracao,
+  formatar: formatarTempo,
+  aoMudar: (v) => definirOpcao('ruidoDuracao', v),
+  ler: () => estado.opcoes.ruidoDuracao,
+});
 document.getElementById('knobs-ruido').append(
   criarKnob({
     rotulo: 'Nível',
@@ -1212,6 +1253,16 @@ document.getElementById('knobs-ruido').append(
     formatar: formatarPorcentagem,
     aoMudar: (v) => definirParametro('ruido', v),
     ler: () => estado.parametros.ruido,
+  }),
+  knobDuracao,
+  // Pitch: a "cor" do ruído (o trecho tocado mais rápido = mais brilhante), em semitons
+  criarKnob({
+    rotulo: 'Pitch',
+    escala: escalaLinear(-24, 24),
+    padrao: estado.opcoes.ruidoPitch,
+    formatar: (v) => (Math.round(v) > 0 ? '+' : '') + Math.round(v) + ' st',
+    aoMudar: (v) => definirOpcao('ruidoPitch', Math.round(v)),
+    ler: () => estado.opcoes.ruidoPitch,
   })
 );
 

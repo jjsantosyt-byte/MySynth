@@ -76,6 +76,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Oscilador: FM entre osciladores (W2, planejado). Talvez modos de Warp Espelho e Quantizar.
 - Warp: compensar o pequeno atraso (7,5 amostras) do oscilador com Warp, para ele somar
   exatamente em fase com um oscilador sem Warp na mesma altura.
+- Ruído: importar samples de ruído (.wav: vinil, fita, ataques/transientes) com One Shot/Loop.
 - Efeitos: mais knobs (Distorção: Tom, Filtro antes; Chorus: Delay, Feedback, Width;
   Delay: Low/High Cut, Width, Sync BPM; Reverb: Pre-delay, Low Cut, Width) — planejado.
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
@@ -303,6 +304,26 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Ruído: One Shot, Track, Pitch e "1 ruído" — feito, em teste:**
+- `dsp/ruido.js`: o ruído virou "sample" (estilo Serum): o motor monta UMA vez um trecho de 4 s
+  por tipo (White/Pink/Brown, mesmo gerador de antes) com emenda suave (fim → começo, mistura
+  de 4096 amostras; medido: salto na volta menor que um salto normal do Brown). A voz toca o
+  trecho com interpolação na velocidade 2^(semitons/12).
+- Opções: `ruidoModo` ('loop' | 'oneshot'), `ruidoDuracao` (One Shot, 5 ms–2 s até -60 dB),
+  `ruidoTrack` (a cor acompanha a nota; base C4 = velocidade normal), `ruidoPitch` (±24 st),
+  `ruidoUnico` (padrão true: acordes com um ruído só — a voz da nota mais recente é a "dona",
+  `ruidoDona` no motor; as outras somem em ~5 ms).
+- One Shot: nota nova (com ataque) recomeça o trecho do início (todo ataque igual); Loop recomeça
+  de um ponto sorteado. Legato não recomeça.
+- Tela (cartão Ruído): [‹ tipo ›][rota] / [Loop | One Shot] / knobs Nível, Duração (apagado em
+  Loop), Pitch / chaves [Track] [1 ruído]. Cabe a 852×340, 852×393 e em pé.
+- Medido: acorde de 4 notas com "1 ruído" = volume de 1 nota (-15,3 × -15,2 dB; sem ele,
+  -9,2 dB); One Shot 100 ms: -24 dB no ataque, -80 dB em 100 ms; Track com Pink: brilho médio
+  741 Hz (C2) → 4582 Hz (C6). Presets antigos com ruído: acordes agora com um ruído só (pedido)
+  e o ruído vem do trecho (mesma cor, não idêntico amostra a amostra).
+- Nos synths reais: Serum (oscilador de ruído com One Shot e keytrack) e Vital (sample com
+  keytrack/loop) fazem parecido; "1 ruído no acorde" é menos comum (lá cada nota tem o seu).
 
 **Warp W1 (Sync, Bend +, Bend −, PWM) — feito e aprovado:**
 - `dsp/warp.js` (só contas, usado pelo motor e pelo desenho): lê a onda na posição

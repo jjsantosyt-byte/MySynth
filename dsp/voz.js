@@ -18,7 +18,7 @@ import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { OsciladorVoz, MAX_UNISON } from './oscilador-voz.js';
 import { EstadoLFO } from './lfo.js';
 import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
-import { Ruido } from './ruido.js';
+import { NOTA_BASE_RUIDO } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
 const PEDACO = 32; // amostras por pedaço de modulação
@@ -34,12 +34,15 @@ function notaParaFrequencia(nota) {
 }
 
 export class Voz {
-  // "numero" = qual voz é (1, 2, 3...): usado para cada voz ter um ruído diferente.
-  constructor(taxaAmostragem, numero = 1) {
+  constructor(taxaAmostragem) {
     this.taxa = taxaAmostragem;
     this.envelope = new Envelope(taxaAmostragem); // ENV 1: volume
-    this.ruido = new Ruido(numero);
+    // Ruído: posição no trecho de ruído (dsp/ruido.js), nível suavizado e o nível do
+    // One Shot (1 no ataque, caindo até sumir)
+    this.ruidoPos = 0;
     this.nivelRuido = 0;
+    this.ruidoOneShot = 1;
+    this.ruidoNovo = false;
     // Osciladores A, B e C (cada um com os seus destinos de modulação)
     this.oscs = DESTINOS_OSC.map((destinos) => new OsciladorVoz(taxaAmostragem, TAMANHO_BLOCO, destinos));
     this.tocou = [false, false, false]; // cada oscilador fez som neste bloco?
@@ -137,6 +140,7 @@ export class Voz {
     this.idade = idade;
     this.pendente = null;
     if (recomecar) {
+      this.ruidoNovo = true; // o ruído recomeça (ver processar)
       this.envelope.disparar();
       for (const env of this.envsMod) env.disparar();
       if (ajustesLfo) {
@@ -236,6 +240,14 @@ export class Voz {
     // Ajustes de cada oscilador neste bloco (ver OsciladorVoz.processarPedaco)
     const ajustesOscs = comum.oscs;
     const oscs = this.oscs;
+    // Nota nova (com ataque): o ruído recomeça. One Shot = do início do trecho (todo ataque
+    // igual); Loop = de um ponto sorteado (cada nota com um ruído diferente).
+    if (this.ruidoNovo) {
+      const tamanhoTrecho = comum.trechosRuido[ruidoTipo].length;
+      this.ruidoPos = comum.ruidoModo === 'oneshot' ? 0 : Math.floor(Math.random() * tamanhoTrecho);
+      this.ruidoOneShot = 1;
+      this.ruidoNovo = false;
+    }
     if (this.fasesPendentes) {
       for (let k = 0; k < oscs.length; k++) oscs[k].reiniciar(this.fasesSorteadas, ajustesOscs[k]);
       this.fasesPendentes = false;
@@ -288,14 +300,38 @@ export class Voz {
       }
 
       // 3) Ruído (mono), guardado separado do oscilador: pode ir para outro filtro.
-      // O nível anda suavemente (ligar, desligar e modular não estalam).
-      const alvoRuido = ruidoLigado ? limitar01(ruidoNivel + this.mod[D_RUIDO]) : 0;
+      // É um trecho de ruído tocado como sample (dsp/ruido.js), na velocidade do Pitch
+      // (+ a nota, com Track). Com "1 ruído", só a nota mais recente (a "dona") toca
+      // ruído: as outras somem em ~5 ms. O nível anda suavemente (sem estalos).
+      // One Shot: cada nota nova recomeça o trecho do início e o ruído cai até sumir
+      // no tempo da Duração.
+      const dona = !comum.ruidoUnico || comum.ruidoDona === this;
+      const oneShot = comum.ruidoModo === 'oneshot';
+      const calouOneShot = oneShot && this.ruidoOneShot < 1e-5;
+      const alvoRuido = ruidoLigado && dona && !calouOneShot ? limitar01(ruidoNivel + this.mod[D_RUIDO]) : 0;
       if (alvoRuido > 0 || this.nivelRuido > 1e-5) {
         temRuido = true;
+        const trecho = comum.trechosRuido[ruidoTipo];
+        const tamanhoTrecho = trecho.length;
+        const semitons = comum.ruidoPitch + (comum.ruidoTrack ? this.altura - NOTA_BASE_RUIDO : 0);
+        const velocidade = semitons === 0 ? 1 : Math.pow(2, semitons / 12);
+        const queda = comum.ruidoQueda;
+        let pos = this.ruidoPos;
         for (let i = inicio; i < fim; i++) {
           this.nivelRuido += (alvoRuido - this.nivelRuido) * s;
-          ruidoBloco[i] = this.ruido.proximo(ruidoTipo) * this.nivelRuido;
+          const i0 = pos | 0;
+          const i1 = i0 + 1 === tamanhoTrecho ? 0 : i0 + 1;
+          const amostra = trecho[i0] + (pos - i0) * (trecho[i1] - trecho[i0]);
+          let nivel = this.nivelRuido;
+          if (oneShot) {
+            nivel *= this.ruidoOneShot;
+            this.ruidoOneShot *= queda;
+          }
+          ruidoBloco[i] = amostra * nivel;
+          pos += velocidade;
+          if (pos >= tamanhoTrecho) pos -= tamanhoTrecho;
         }
+        this.ruidoPos = pos;
       } else {
         this.nivelRuido = 0;
       }

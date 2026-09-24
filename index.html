@@ -179,16 +179,27 @@
               <h2 class="titulo-cartao">Ruído</h2>
               <button id="ruido-ligado" class="chave" aria-pressed="false">Desligado</button>
             </div>
-            <div class="seletor-wt">
-              <button id="ruido-anterior" class="seletor-botao" aria-label="Tipo de ruído anterior">‹</button>
-              <span id="ruido-tipo" class="seletor-wt-nome">White</span>
-              <button id="ruido-proximo" class="seletor-botao" aria-label="Próximo tipo de ruído">›</button>
-            </div>
-            <div class="linha-rota">
-              <span class="dica-rota">Filtro</span>
+            <!-- Tipo (White, Pink, Brown) e rota de filtro, numa linha -->
+            <div class="linha-ruido">
+              <div class="seletor-wt">
+                <button id="ruido-anterior" class="seletor-botao" aria-label="Tipo de ruído anterior">‹</button>
+                <span id="ruido-tipo" class="seletor-wt-nome">White</span>
+                <button id="ruido-proximo" class="seletor-botao" aria-label="Próximo tipo de ruído">›</button>
+              </div>
               <button class="chave rota" data-rota="rotaRuido" title="Para qual filtro o ruído vai">F1</button>
             </div>
+            <!-- Loop = contínuo; One Shot = só uma rajada no começo da nota (knob Duração) -->
+            <div id="modo-ruido" class="grupo-botoes modo-ruido">
+              <button class="botao" data-modo="loop">Loop</button>
+              <button class="botao" data-modo="oneshot">One Shot</button>
+            </div>
+            <!-- Nível, Duração (One Shot) e Pitch (cor do ruído) -->
             <div id="knobs-ruido" class="linha-knobs"></div>
+            <!-- Track: a cor acompanha a nota · 1 ruído: acordes com um ruído só -->
+            <div class="linha-ruido">
+              <button id="ruido-track" class="chave" aria-pressed="false" title="A cor do ruído acompanha a nota">Track</button>
+              <button id="ruido-unico" class="chave" aria-pressed="true" title="Acordes: só a nota mais recente toca ruído">1 ruído</button>
+            </div>
           </article>
         </div>
       </section>

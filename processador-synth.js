@@ -17,6 +17,7 @@
 
 import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
+import { trechosDeRuido } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
 import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
@@ -78,7 +79,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   constructor() {
     super();
-    this.vozes = Array.from({ length: MAX_VOZES }, (_, k) => new Voz(sampleRate, k + 1));
+    this.vozes = Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
     this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
     this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
     // Rota de filtro do ruído: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
@@ -139,6 +140,13 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Ruído (o nível é o parâmetro "ruido")
     this.ruidoLigado = false;
     this.ruidoTipo = 'white';
+    this.ruidoModo = 'loop'; // 'loop' (contínuo) ou 'oneshot' (rajada no ataque)
+    this.ruidoDuracao = 0.2; // One Shot: segundos até sumir
+    this.ruidoTrack = false; // a cor acompanha a nota?
+    this.ruidoPitch = 0; // semitons (-24 a +24): mais rápido = mais brilhante
+    this.ruidoUnico = true; // só a nota mais recente toca ruído (acordes: 1 ruído só)
+    this.ruidoDona = null; // a voz da nota mais recente
+    this.trechosRuido = trechosDeRuido(sampleRate); // os "samples" de ruído (dsp/ruido.js)
 
     // Modulação
     this.matriz = new MatrizModulacao(sampleRate);
@@ -280,6 +288,21 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'ruidoLigado':
         this.ruidoLigado = valor;
         break;
+      case 'ruidoModo':
+        this.ruidoModo = valor === 'oneshot' ? 'oneshot' : 'loop';
+        break;
+      case 'ruidoDuracao':
+        this.ruidoDuracao = Math.min(2, Math.max(0.005, valor));
+        break;
+      case 'ruidoTrack':
+        this.ruidoTrack = !!valor;
+        break;
+      case 'ruidoPitch':
+        this.ruidoPitch = Math.min(24, Math.max(-24, valor));
+        break;
+      case 'ruidoUnico':
+        this.ruidoUnico = !!valor;
+        break;
       case 'ruidoTipo':
         this.ruidoTipo = valor;
         break;
@@ -327,13 +350,20 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.ultimaNota = nota;
 
     // A mesma nota ainda está soando? Reaproveita a voz dela.
+    // (A voz da nota mais recente vira a "dona" do ruído: ver ruidoUnico.)
     let voz = this.vozes.find((v) => v.ativa && !v.pendente && v.nota === nota);
-    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo, glide);
+    if (voz) {
+      this.ruidoDona = voz;
+      return voz.iniciar(nota, idade, true, this.ajustesLfo, glide);
+    }
 
     // Uma voz livre (dentro do limite de vozes escolhido)?
     const disponiveis = this.vozes.slice(0, this.maxVozes);
     voz = disponiveis.find((v) => !v.ativa);
-    if (voz) return voz.iniciar(nota, idade, true, this.ajustesLfo, glide);
+    if (voz) {
+      this.ruidoDona = voz;
+      return voz.iniciar(nota, idade, true, this.ajustesLfo, glide);
+    }
 
     // Sem voz livre: rouba. Prefere uma já solta (sumindo) e mais baixa;
     // se todas estão seguradas, rouba a mais antiga.
@@ -347,8 +377,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     if (!escolhida) {
       // Todas já estão trocando de nota: troca a nota que estava esperando.
       disponiveis[0].pendente = { nota, idade, glide };
+      this.ruidoDona = disponiveis[0];
       return;
     }
+    this.ruidoDona = escolhida;
     // Já quase muda? Começa direto. Senão, some rápido e depois toca.
     if (escolhida.nivel < 0.001) escolhida.iniciar(nota, idade, true, this.ajustesLfo, glide);
     else escolhida.roubar(nota, idade, glide);
@@ -365,6 +397,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   notaOnMono(nota) {
     const voz = this.vozes[0];
+    this.ruidoDona = voz;
     const ninguemSegurando = this.notasPresas.length === 0;
     // Se a nota já estava na lista, tira e coloca no fim (vira a mais recente).
     this.notasPresas = this.notasPresas.filter((n) => n !== nota);
@@ -472,6 +505,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     comum.ruidoLigado = this.ruidoLigado;
     comum.ruidoNivel = parametros.ruido[0];
     comum.ruidoTipo = this.ruidoTipo;
+    comum.trechosRuido = this.trechosRuido;
+    comum.ruidoModo = this.ruidoModo;
+    // One Shot: quanto o nível cai por amostra para chegar a -60 dB no tempo da Duração
+    comum.ruidoQueda = Math.exp(Math.log(0.001) / (this.ruidoDuracao * sampleRate));
+    comum.ruidoTrack = this.ruidoTrack;
+    comum.ruidoPitch = this.ruidoPitch;
+    comum.ruidoUnico = this.ruidoUnico;
+    comum.ruidoDona = this.ruidoDona;
     comum.matriz = this.matriz;
     comum.ajustesLfo = this.ajustesLfo;
     comum.lfosLivres = this.valoresLivres;

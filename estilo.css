@@ -1802,3 +1802,60 @@ h1 {
     min-width: 64px;
   }
 }
+
+/* ---------- Cartão do Ruído ---------- */
+/* Linhas com 2 coisas lado a lado (tipo + rota; Track + 1 ruído) */
+.linha-ruido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.linha-ruido .seletor-wt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linha-ruido .seletor-wt-nome {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linha-ruido .chave {
+  flex: 1 1 0;
+}
+
+/* Loop | One Shot */
+.modo-ruido .botao {
+  flex: 1 1 0;
+  padding: 0 6px;
+}
+
+/* Knob sem efeito agora (ex.: Duração com o ruído em Loop) */
+.knob.desabilitado {
+  opacity: 0.4;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .modo-ruido .botao {
+    min-height: 24px;
+    font-size: 12px;
+  }
+
+  .cartao-ruido .linha-ruido .chave {
+    min-height: 22px;
+    padding: 0 6px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao-ruido .knob-numero,
+  .cartao-ruido .knob-rotulo {
+    line-height: 1.05;
+  }
+
+  .cartao-ruido {
+    row-gap: 3px;
+  }
+}
