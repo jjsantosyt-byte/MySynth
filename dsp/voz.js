@@ -15,7 +15,7 @@
 
 import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
-import { OsciladorVoz } from './oscilador-voz.js';
+import { OsciladorVoz, MAX_UNISON } from './oscilador-voz.js';
 import { EstadoLFO } from './lfo.js';
 import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
 import { Ruido } from './ruido.js';
@@ -43,6 +43,7 @@ export class Voz {
     // Osciladores A, B e C (cada um com os seus destinos de modulação)
     this.oscs = DESTINOS_OSC.map((destinos) => new OsciladorVoz(taxaAmostragem, TAMANHO_BLOCO, destinos));
     this.tocou = [false, false, false]; // cada oscilador fez som neste bloco?
+    this.fasesSorteadas = new Float64Array(MAX_UNISON); // ponto de início de cada cópia (sorteado por nota)
 
     // Rotas de filtro. Cada uma tem a sua cadeia de filtros (cada etapa: qual filtro,
     // 1 ou 2, e um par [esquerdo, direito] com a memória própria daquela etapa) e uma
@@ -113,7 +114,9 @@ export class Voz {
       for (const { cadeia } of this.listaRotas) {
         for (const { par } of cadeia) for (const filtro of par) filtro.reiniciar();
       }
-      for (const osc of this.oscs) osc.reiniciar();
+      // Um sorteio por nota (um ponto de início por cópia de unison), igual para os 3 osciladores
+      for (let c = 0; c < this.fasesSorteadas.length; c++) this.fasesSorteadas[c] = Math.random();
+      for (const osc of this.oscs) osc.reiniciar(this.fasesSorteadas);
       this.modNova = true;
       for (const f of this.filtrosMod) f.novo = true;
     }

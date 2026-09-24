@@ -49,9 +49,11 @@ export class OsciladorVoz {
     this.escolha = { nivel: 0, nivelB: 0, mistura: 0 };
   }
 
-  // Nota começando do silêncio: cada cópia num ponto sorteado da onda.
-  reiniciar() {
-    for (let c = 0; c < MAX_UNISON; c++) this.fases[c] = Math.random();
+  // Nota começando do silêncio: cada cópia começa no ponto da onda sorteado pela voz.
+  // Os 3 osciladores recebem os MESMOS pontos: na mesma altura, eles começam juntos e
+  // somam sempre igual (com sorteios separados, cada nota saía com um volume diferente).
+  reiniciar(fasesSorteadas) {
+    this.fases.set(fasesSorteadas);
     this.volumesDireto = true;
     this.nivelDireto = true;
   }

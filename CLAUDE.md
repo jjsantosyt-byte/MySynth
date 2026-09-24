@@ -315,6 +315,10 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Peso 8 notas × 8 cópias: 1 oscilador ≈ 22%, 3 osciladores ≈ 40%.
   852×340 e 852×393 sem rolagem; cada cartão ~213 px de largura.
 - Achado (já existia antes): celular em pé, a barra de volume passa ~30 px da tela (rolagem lateral).
+- Correção (volume diferente a cada nota com A + B): o ponto de início das cópias era sorteado
+  separado por oscilador; na mesma altura, as ondas somavam ou se cancelavam conforme a sorte
+  (variação medida: 6 dB). Agora a voz faz UM sorteio por nota (`fasesSorteadas`) e os 3
+  osciladores usam os mesmos pontos → variação 0 dB. Presets antigos seguem idênticos.
 
 **Item 6d-1 (arrumação: oscilador separado da voz) — feito e aprovado (presets iguais):**
 - `dsp/oscilador-voz.js` (classe `OsciladorVoz`): cópias de unison, WT Pos, nível e as suas
