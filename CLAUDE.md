@@ -73,7 +73,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    - E2: Compressor — FEITO (ver "Efeitos E2"). Páginas na aba FX ficam para quando passar de
      5 efeitos (hoje: 5 cartões lado a lado cabem).
    - E3: Saturação + páginas "Cor"/"Espaço" na aba FX — FEITO (ver "Efeitos E3").
-   - E4: EQ 3 bandas, Phaser e Flanger.
+   - E4a: EQ 3 bandas — FEITO (ver "Efeitos E4a"). E4b: Phaser e Flanger (página Espaço).
    - Ordem fixa proposta: Saturação → Distorção → EQ → Compressor → Chorus/Phaser → Delay → Reverb
      (reordenar arrastando fica para depois).
 2. **Ajustes visuais e de espaço** — o dono decide cada um, aos poucos.
@@ -331,6 +331,16 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Efeitos E4a (EQ 3 bandas) — feito, em teste:**
+- `dsp/efeitos/eq.js`: 3 biquads (receitas de R. Bristow-Johnson) em série, estéreo: prateleira
+  de graves em 150 Hz, sino no Médio (Freq 200 Hz–8 kHz, Q 0,3–5), prateleira de agudos em 5 kHz;
+  ganhos ±15 dB e Saída ±12 dB. Ajustes suavizados por bloco (~20 ms; Freq/Q na escala
+  multiplicativa) e coeficientes recalculados só quando mudam. Dorme desligado; tudo em 0 = igual.
+- Cadeia: Saturação → Distorção → EQ → Compressor → Chorus → Delay → Reverb.
+- Página "Cor" com 4 cartões (Saturação, Distorção, EQ, Compressor), 188 px cada a 852 px.
+- Medido (impulso): tudo 0 = 0 dB; Grave +12 → +11,5 dB em 40 Hz, +6 em 150 Hz, 0 em 1 kHz;
+  Médio +10 em 1 kHz = +10 dB (Q 5: +1,8 dB a 1/3 de oitava); Agudo -12 → -11,6 dB em 15 kHz.
 
 **Efeitos E3 (Saturação + páginas na aba FX) — feito, em teste:**
 - `dsp/efeitos/saturacao.js`: tipos Fita (x − x³/3, depois plano em ±2/3), Válvula (tanh

@@ -191,6 +191,7 @@ const estado = {
     // Os valores iniciais dos knobs novos reproduzem o som de antes (presets antigos iguais)
     saturacao: { ligado: false, tipo: 'fita', drive: 0.3, tom: 1, mix: 1 },
     distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 },
+    eq: { ligado: false, grave: 0, medio: 0, agudo: 0, freq: 1000, q: 1, saida: 0, mix: 1 },
     compressor: { ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1 },
     chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5, atraso: 0.012, feedback: 0, width: 1 },
     delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false, lowcut: 20, highcut: 6000, width: 1 },
@@ -1116,6 +1117,17 @@ document.querySelector('[data-knobs-efeito="distorcao"]').append(
   knobEfeito('distorcao', 'Tom', 'tom', escalaLinear(0, 1), formatarAberto),
   knobEfeito('distorcao', 'Low Cut', 'lowcut', escalaExponencial(20, 1000), formatarCorte),
   knobEfeito('distorcao', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+
+// EQ: ganhos das 3 bandas (±15 dB), Freq e Q do Médio, Saída
+const formatarDb = (v) => (Math.abs(v) < 0.05 ? '0 dB' : (v > 0 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' dB');
+document.querySelector('[data-knobs-efeito="eq"]').append(
+  knobEfeito('eq', 'Grave', 'grave', escalaLinear(-15, 15), formatarDb),
+  knobEfeito('eq', 'Médio', 'medio', escalaLinear(-15, 15), formatarDb),
+  knobEfeito('eq', 'Agudo', 'agudo', escalaLinear(-15, 15), formatarDb),
+  knobEfeito('eq', 'Freq', 'freq', escalaExponencial(200, 8000), formatarFrequencia),
+  knobEfeito('eq', 'Q', 'q', escalaExponencial(0.3, 5), (v) => v.toFixed(1).replace('.', ',')),
+  knobEfeito('eq', 'Saída', 'saida', escalaLinear(-12, 12), formatarDb)
 );
 
 // Compressor: 6 knobs + medidor de quanto está abaixando

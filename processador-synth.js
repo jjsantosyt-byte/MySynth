@@ -24,6 +24,7 @@ import { EstadoLFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
 import { Saturacao } from './dsp/efeitos/saturacao.js';
+import { Eq } from './dsp/efeitos/eq.js';
 import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
@@ -160,7 +161,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
-    // Efeitos (depois das notas somadas): Saturação → Distorção → Compressor → Chorus → Delay → Reverb
+    // Efeitos (depois das notas somadas): Saturação → Distorção → EQ → Compressor → Chorus → Delay → Reverb
+    this.eq = new Eq(sampleRate);
     this.saturacao = new Saturacao(sampleRate);
     this.distorcao = new Distorcao(sampleRate);
     this.chorus = new Chorus(sampleRate);
@@ -171,6 +173,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.efeitos = {
       saturacao: this.saturacao,
       distorcao: this.distorcao,
+      eq: this.eq,
       compressor: this.compressor,
       chorus: this.chorus,
       delay: this.delay,
@@ -485,6 +488,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
     this.saturacao.processar(saidaE, saidaD, tamanhoBloco);
     this.distorcao.processar(saidaE, saidaD, tamanhoBloco);
+    this.eq.processar(saidaE, saidaD, tamanhoBloco);
     this.compressor.processar(saidaE, saidaD, tamanhoBloco);
     this.chorus.processar(saidaE, saidaD, tamanhoBloco);
     this.delay.processar(saidaE, saidaD, tamanhoBloco);
