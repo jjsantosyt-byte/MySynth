@@ -46,6 +46,26 @@ export const NOMES_DESTINOS = {
 };
 
 const QUANTIDADE_INICIAL = 0.5; // +50% ao criar uma ligação
+
+// Destinos com medida própria: a quantidade aparece na unidade do controle (ex.: "+7 st")
+// e a barra anda de 1 em 1 nessa unidade. "faixa" = quanto vale 100% (a faixa toda do
+// controle); "inicial" = quantidade ao criar a ligação, na unidade.
+// Os outros destinos mostram % (da faixa do knob).
+const MEDIDAS = {};
+for (const letra of ['', 'B', 'C']) {
+  MEDIDAS['oitavaOsc' + letra] = { faixa: 6, unidade: 'oct', inicial: 1 };
+  MEDIDAS['semiOsc' + letra] = { faixa: 24, unidade: 'st', inicial: 12 };
+  MEDIDAS['fineOsc' + letra] = { faixa: 200, unidade: 'ct', inicial: 50 };
+}
+
+const comSinal = (n) => (n > 0 ? '+' : '') + n;
+
+// Texto da quantidade de uma ligação: "+7 st", "-1 oct", "+25 ct" ou "+50 %".
+function textoQuantidade(destino, quantidade) {
+  const medida = MEDIDAS[destino];
+  if (medida) return `${comSinal(Math.round(quantidade * medida.faixa))} ${medida.unidade}`;
+  return `${comSinal(Math.round(quantidade * 100))} %`;
+}
 const DISTANCIA_ARRASTE = 8; // px: menos que isso é um toque, não um arraste
 
 const nomeDaFonte = (id) => FONTES.find((f) => f.id === id).nome;
@@ -83,7 +103,9 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
       piscar(destino);
       return;
     }
-    ligacoes.push({ fonte, destino, quantidade: QUANTIDADE_INICIAL });
+    const medida = MEDIDAS[destino];
+    const quantidade = medida ? medida.inicial / medida.faixa : QUANTIDADE_INICIAL;
+    ligacoes.push({ fonte, destino, quantidade });
     mudou();
     piscar(destino);
   }
@@ -259,15 +281,16 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
     barraQuantidade.type = 'range';
     barraQuantidade.min = -1;
     barraQuantidade.max = 1;
-    barraQuantidade.step = 0.01;
+    // Com medida própria, a barra anda de 1 em 1 unidade (ex.: 1 semitom = 1/24)
+    const medida = MEDIDAS[ligacao.destino];
+    barraQuantidade.step = medida ? 1 / medida.faixa : 0.01;
     barraQuantidade.value = ligacao.quantidade;
     barraQuantidade.setAttribute('aria-label', `Quantidade: ${nomeDaFonte(ligacao.fonte)} → ${nome.textContent}`);
 
     const valor = document.createElement('span');
     valor.className = 'linha-mod-valor';
     const mostrar = () => {
-      const pct = Math.round(ligacao.quantidade * 100);
-      valor.textContent = (pct > 0 ? '+' : '') + pct + ' %';
+      valor.textContent = textoQuantidade(ligacao.destino, ligacao.quantidade);
     };
     mostrar();
 

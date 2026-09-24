@@ -304,6 +304,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Oct e Semi em DEGRAUS (arredondados; decidido: opção A, estilo Serum); Fine contínuo.
   Motor: `OsciladorVoz.afinacao()` por pedaço; sem modulação = conta de antes (idêntico).
 - Seletor ‹ N › aceita `destino`: linha colorida embaixo + número ao vivo na cor da fonte.
+- Lista de ligações: Oct/Semi/Fine mostram a quantidade na própria medida ("+1 oct", "+7 st",
+  "+25 ct") e a barra anda de 1 em 1 unidade (`MEDIDAS` em interface/modulacao.js). Ao ligar:
+  Oct +1 oct, Semi +12 st, Fine +50 ct. Os outros destinos seguem em %.
 - Medido: Semi com LFO quadrado ±7 pula direto 659 ↔ 294 Hz (nada parado em 440); Fine com
   LFO ±50 = 427,5 a 452,9 Hz; Oct com ENV 2 começa uma oitava acima e volta; presets idênticos.
 

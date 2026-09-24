@@ -538,7 +538,9 @@ h1 {
 }
 
 .linha-mod-valor {
-  width: 46px;
+  flex: 0 0 auto;
+  width: 54px; /* cabe "-200 ct" */
+  white-space: nowrap;
   text-align: right;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
@@ -1622,7 +1624,7 @@ h1 {
   }
 
   .linha-mod-valor {
-    width: 40px;
+    width: 46px;
     font-size: 11px;
   }
 
