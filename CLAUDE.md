@@ -304,7 +304,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Warp W1 (Sync, Bend +, Bend −, PWM) — feito, em teste:**
+**Warp W1 (Sync, Bend +, Bend −, PWM) — feito e aprovado:**
 - `dsp/warp.js` (só contas, usado pelo motor e pelo desenho): lê a onda na posição
   faseWarp(fase). Sync = corre 1×–8× dentro do ciclo; Bend ± = curva k·f/(1+(k−1)·f) (k 1–8,
   só uma divisão por leitura); PWM = onda apertada em até 10% do ciclo, resto parado.
