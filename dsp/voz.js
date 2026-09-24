@@ -1,7 +1,13 @@
 // dsp/voz.js
 // Uma "voz" = uma nota tocando, completa:
-//   cópias de unison (oscilador) + ruído → filtro estéreo → envelope de volume (ENV 1)
+//   cópias de unison (oscilador) ─┐
+//                                  ├─ cada um pela sua rota de filtro ─→ envelope de volume (ENV 1)
+//   ruído ─────────────────────────┘
 // e as fontes de modulação da própria nota: LFO 1 e 2 (modo Retrig), ENV 2 e 3.
+//
+// Rotas de filtro (escolhidas para o oscilador e para o ruído, separadamente):
+//   f1 = Filtro 1 · f2 = Filtro 2 · f12 = Filtro 1 e depois Filtro 2 · f21 = o contrário
+// Cada rota tem os seus próprios filtros (a "memória" de um não mistura com a de outro).
 //
 // Unison: várias cópias do oscilador, desafinadas por igual para cima e
 // para baixo (Detune) e abertas entre esquerda e direita (Width).
@@ -25,6 +31,8 @@ import {
   D_RESO,
   D_RUIDO,
   D_NIVEL_OSC,
+  D_CUTOFF2,
+  D_RESO2,
 } from './modulacao.js';
 import { Ruido } from './ruido.js';
 
@@ -55,8 +63,20 @@ export class Voz {
     this.nivelRuido = 0;
     this.nivelOsc = 1; // nível atual do oscilador (liga/desliga e knob Nível, suavizado)
     this.nivelOscDireto = true;
-    this.filtroE = new Filtro(taxaAmostragem); // lado esquerdo
-    this.filtroD = new Filtro(taxaAmostragem); // lado direito
+    // Cadeias de filtro, uma por rota. Cada etapa: qual filtro (1 ou 2) e um par
+    // [esquerdo, direito] com a memória própria daquela etapa.
+    const etapa = (numero) => ({ numero, par: [new Filtro(taxaAmostragem), new Filtro(taxaAmostragem)] });
+    this.cadeias = {
+      f1: [etapa(1)],
+      f2: [etapa(2)],
+      f12: [etapa(1), etapa(2)],
+      f21: [etapa(2), etapa(1)],
+    };
+    // Grupos deste bloco (quem passa por qual cadeia); fixos para não criar lixo na memória
+    this.grupos = [
+      { cadeia: null, osc: false, ruido: false },
+      { cadeia: null, osc: false, ruido: false },
+    ];
 
     // Fontes de modulação desta nota
     this.lfos = [new EstadoLFO(), new EstadoLFO()];
@@ -67,11 +87,13 @@ export class Voz {
     this.modAnterior = new Float64Array(DESTINOS_MOD.length); // do pedaço anterior
     this.modNova = true; // true = ainda não tem "pedaço anterior"
 
-    // Filtro com Cutoff/Reso modulados: coeficientes próprios desta voz
-    this.coef = new CoeficientesFiltro(taxaAmostragem);
-    this.coef.variavel = true;
-    this.pontasFiltro = new CoeficientesFiltro(taxaAmostragem); // [0] = início, [1] = fim do pedaço
-    this.filtroModNovo = true;
+    // Filtros com Cutoff/Reso modulados: coeficientes próprios desta voz (um por filtro)
+    this.filtrosMod = [1, 2].map(() => {
+      const coef = new CoeficientesFiltro(taxaAmostragem);
+      coef.variavel = true;
+      // pontas: [0] = início, [1] = fim do pedaço
+      return { coef, pontas: new CoeficientesFiltro(taxaAmostragem), novo: true };
+    });
 
     this.nota = null;
     this.frequencia = 440;
@@ -98,6 +120,7 @@ export class Voz {
     // Rascunhos de um bloco de áudio (128 amostras)
     this.somaE = new Float64Array(TAMANHO_BLOCO); // soma das cópias, lado esquerdo
     this.somaD = new Float64Array(TAMANHO_BLOCO); // soma das cópias, lado direito
+    this.ruidoBloco = new Float64Array(TAMANHO_BLOCO); // ruído (mono), separado do oscilador
     this.framesBloco = new Int32Array(TAMANHO_BLOCO); // WT Pos mudando: frame de cada amostra
     this.tsBloco = new Float64Array(TAMANHO_BLOCO); // ...e quanto do frame seguinte
 
@@ -122,14 +145,15 @@ export class Voz {
   // "glide" (opcional): { de: altura de partida em semitons, tempo: segundos }.
   iniciar(nota, idade, recomecar = true, ajustesLfo = null, glide = null) {
     if (!this.envelope.ativo) {
-      // Vindo do silêncio: filtro limpo e cada cópia num ponto sorteado da onda.
-      this.filtroE.reiniciar();
-      this.filtroD.reiniciar();
+      // Vindo do silêncio: filtros limpos e cada cópia num ponto sorteado da onda.
+      for (const cadeia of Object.values(this.cadeias)) {
+        for (const { par } of cadeia) for (const filtro of par) filtro.reiniciar();
+      }
       for (let c = 0; c < MAX_UNISON; c++) this.fases[c] = Math.random();
       this.volumesDireto = true;
       this.nivelOscDireto = true;
       this.modNova = true;
-      this.filtroModNovo = true;
+      for (const f of this.filtrosMod) f.novo = true;
     }
     this.nota = nota;
     if (glide && glide.tempo > 0 && glide.de !== nota) {
@@ -169,12 +193,34 @@ export class Voz {
     this.envelope.silenciarRapido();
   }
 
-  // Liga/desliga e tipo do filtro valem para os dois lados.
-  definirFiltro(nome, valor) {
-    for (const filtro of [this.filtroE, this.filtroD]) {
-      if (nome === 'filtroTipo') filtro.definirTipo(valor);
-      if (nome === 'filtroLigado') filtro.definirLigado(valor);
+  // Liga/desliga e tipo de um filtro (1 ou 2): vale para todas as etapas desse filtro.
+  definirFiltro(numero, nome, valor) {
+    for (const cadeia of Object.values(this.cadeias)) {
+      for (const etapa of cadeia) {
+        if (etapa.numero !== numero) continue;
+        for (const filtro of etapa.par) {
+          if (nome === 'tipo') filtro.definirTipo(valor);
+          if (nome === 'ligado') filtro.definirLigado(valor);
+        }
+      }
     }
+  }
+
+  // Coeficientes de um filtro com Cutoff/Reso modulados, em rampa suave no pedaço.
+  atualizarFiltroModulado(f, cortes, resonancias, dCorte, dReso, inicio, fim) {
+    const j = fim - 1;
+    const corteBase = cortes.length > 1 ? cortes[j] : cortes[0];
+    const resoBase = resonancias.length > 1 ? resonancias[j] : resonancias[0];
+    const posicaoCorte = Math.log(Math.max(corteBase, CORTE_MIN) / CORTE_MIN) / LOG_FAIXA_CORTE;
+    const corte = CORTE_MIN * Math.exp(limitar01(posicaoCorte + this.mod[dCorte]) * LOG_FAIXA_CORTE);
+    const reso = limitar01(resoBase + this.mod[dReso]);
+    f.pontas.calcularEm(1, corte, reso);
+    if (f.novo) {
+      f.pontas.avancarPontas();
+      f.novo = false;
+    }
+    f.coef.interpolar(f.pontas, inicio, fim);
+    f.pontas.avancarPontas();
   }
 
   // Lê as fontes de modulação no fim de um pedaço de "qtd" amostras.
@@ -224,7 +270,8 @@ export class Voz {
     }
     if (!this.envelope.ativo) return;
 
-    const { tabela, posicoesWT, cortes, resonancias, coef, unison, detune, width, matriz } = comum;
+    const { tabela, posicoesWT, cortes, resonancias, cortes2, resonancias2, coef, coef2 } = comum;
+    const { unison, detune, width, matriz, rotaOsc, rotaRuido } = comum;
     const { ruidoLigado, ruidoNivel, ruidoTipo, oscLigado, oscNivel } = comum;
 
     // Volume de cada cópia: 1/√N, para o som não ficar N vezes mais alto.
@@ -244,11 +291,16 @@ export class Voz {
     const s = this.suavizar;
     const somaE = this.somaE;
     const somaD = this.somaD;
+    const ruidoBloco = this.ruidoBloco;
     somaE.fill(0, 0, tamanhoBloco);
     somaD.fill(0, 0, tamanhoBloco);
+    ruidoBloco.fill(0, 0, tamanhoBloco);
+    let temRuido = false;
 
-    const modulaFiltro = matriz.usa(D_CUTOFF) || matriz.usa(D_RESO);
-    if (!modulaFiltro) this.filtroModNovo = true;
+    const modulaF1 = matriz.usa(D_CUTOFF) || matriz.usa(D_RESO);
+    const modulaF2 = matriz.usa(D_CUTOFF2) || matriz.usa(D_RESO2);
+    if (!modulaF1) this.filtrosMod[0].novo = true;
+    if (!modulaF2) this.filtrosMod[1].novo = true;
 
     for (let inicio = 0, pedaco = 0; inicio < tamanhoBloco; inicio += PEDACO, pedaco++) {
       const fim = Math.min(inicio + PEDACO, tamanhoBloco);
@@ -388,50 +440,70 @@ export class Voz {
         if (Math.abs(this.nivelOsc - alvoOsc) < 1e-5) this.nivelOsc = alvoOsc;
       }
 
-      // 4b) Ruído: somado ao oscilador, antes do filtro e do envelope.
+      // 4b) Ruído (mono), guardado separado do oscilador: pode ir para outro filtro.
       // O nível anda suavemente (ligar, desligar e modular não estalam).
       const alvoRuido = ruidoLigado ? limitar01(ruidoNivel + this.mod[D_RUIDO]) : 0;
       if (alvoRuido > 0 || this.nivelRuido > 1e-5) {
+        temRuido = true;
         for (let i = inicio; i < fim; i++) {
           this.nivelRuido += (alvoRuido - this.nivelRuido) * s;
-          const r = this.ruido.proximo(ruidoTipo) * this.nivelRuido;
-          somaE[i] += r;
-          somaD[i] += r;
+          ruidoBloco[i] = this.ruido.proximo(ruidoTipo) * this.nivelRuido;
         }
       } else {
         this.nivelRuido = 0;
       }
 
-      // 5) Filtro com Cutoff/Reso modulados: coeficientes próprios, em rampa suave
-      if (modulaFiltro) {
-        const j = fim - 1;
-        const corteBase = cortes.length > 1 ? cortes[j] : cortes[0];
-        const resoBase = resonancias.length > 1 ? resonancias[j] : resonancias[0];
-        const posicaoCorte = Math.log(Math.max(corteBase, CORTE_MIN) / CORTE_MIN) / LOG_FAIXA_CORTE;
-        const corte = CORTE_MIN * Math.exp(limitar01(posicaoCorte + this.mod[D_CUTOFF]) * LOG_FAIXA_CORTE);
-        const reso = limitar01(resoBase + this.mod[D_RESO]);
-        this.pontasFiltro.calcularEm(1, corte, reso);
-        if (this.filtroModNovo) {
-          this.pontasFiltro.avancarPontas();
-          this.filtroModNovo = false;
-        }
-        this.coef.interpolar(this.pontasFiltro, inicio, fim);
-        this.pontasFiltro.avancarPontas();
-      }
+      // 5) Filtros com Cutoff/Reso modulados: coeficientes próprios, em rampa suave
+      if (modulaF1) this.atualizarFiltroModulado(this.filtrosMod[0], cortes, resonancias, D_CUTOFF, D_RESO, inicio, fim);
+      if (modulaF2) this.atualizarFiltroModulado(this.filtrosMod[1], cortes2, resonancias2, D_CUTOFF2, D_RESO2, inicio, fim);
 
       this.modAnterior.set(this.mod);
     }
 
-    // --- Filtro (estéreo) e envelope de volume ---
-    const coefUsado = modulaFiltro ? this.coef : coef;
-    const filtroE = this.filtroE;
-    const filtroD = this.filtroD;
+    // --- Grupos: quem passa por qual cadeia de filtro neste bloco ---
+    // (oscilador e ruído na mesma rota = um grupo só; em rotas diferentes = dois)
+    const grupos = this.grupos;
+    grupos[0].cadeia = this.cadeias[rotaOsc] || this.cadeias.f1;
+    grupos[0].osc = true;
+    grupos[0].ruido = temRuido && rotaRuido === rotaOsc;
+    let qtdGrupos = 1;
+    if (temRuido && rotaRuido !== rotaOsc) {
+      grupos[1].cadeia = this.cadeias[rotaRuido] || this.cadeias.f1;
+      grupos[1].osc = false;
+      grupos[1].ruido = true;
+      qtdGrupos = 2;
+    }
+
+    // --- Filtros (estéreo) e envelope de volume ---
+    const c1 = modulaF1 ? this.filtrosMod[0].coef : coef;
+    const c2 = modulaF2 ? this.filtrosMod[1].coef : coef2;
     const envelope = this.envelope;
     for (let i = 0; i < tamanhoBloco; i++) {
-      const j = coefUsado.variavel ? i : 0;
+      const j1 = c1.variavel ? i : 0;
+      const j2 = c2.variavel ? i : 0;
+      let e = 0;
+      let d = 0;
+      for (let g = 0; g < qtdGrupos; g++) {
+        const grupo = grupos[g];
+        let xe = grupo.osc ? somaE[i] : 0;
+        let xd = grupo.osc ? somaD[i] : 0;
+        if (grupo.ruido) {
+          xe += ruidoBloco[i];
+          xd += ruidoBloco[i];
+        }
+        const cadeia = grupo.cadeia;
+        for (let k = 0; k < cadeia.length; k++) {
+          const etapa = cadeia[k];
+          const um = etapa.numero === 1;
+          xe = etapa.par[0].processar(xe, um ? c1 : c2, um ? j1 : j2);
+          xd = etapa.par[1].processar(xd, um ? c1 : c2, um ? j1 : j2);
+        }
+        e += xe;
+        d += xd;
+      }
       const env = envelope.proximo();
-      saidaE[i] += filtroE.processar(somaE[i], coefUsado, j) * env;
-      saidaD[i] += filtroD.processar(somaD[i], coefUsado, j) * env;
+      saidaE[i] += e * env;
+      saidaD[i] += d * env;
     }
   }
 }

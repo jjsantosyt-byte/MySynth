@@ -36,10 +36,6 @@ const telaOnda = document.getElementById('tela-onda');
 const nomeOnda = document.getElementById('nome-onda');
 const controleWTPos = document.getElementById('wt-pos');
 const atalhosWT = document.getElementById('atalhos-wt');
-const telaFiltro = document.getElementById('tela-filtro');
-const botaoFiltroLigado = document.getElementById('filtro-ligado');
-const tiposFiltro = document.getElementById('tipos-filtro');
-const knobsFiltro = document.getElementById('knobs-filtro');
 const telaEnvelope = document.getElementById('tela-envelope');
 const botaoLegato = document.getElementById('legato');
 const knobsEnvelope = document.getElementById('knobs-envelope');
@@ -60,6 +56,8 @@ const estado = {
     ruido: 0.5, // nível do ruído (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
+    cutoff2: 2000, // Filtro 2 (Hz)
+    resonancia2: 0.1, // Filtro 2 (0 a 1)
     ataque: 0.005, // segundos
     decaimento: 0.5, // segundos
     sustentacao: 1, // 0 a 1
@@ -69,8 +67,12 @@ const estado = {
   opcoes: {
     wavetable: 'basica', // qual wavetable o OSC A usa
     oscLigado: true, // OSC A ligado
-    filtroLigado: false,
+    filtroLigado: false, // Filtro 1
     filtroTipo: 'lp24',
+    filtro2Ligado: false, // Filtro 2
+    filtro2Tipo: 'lp24',
+    rotaOsc: 'f1', // rota de filtro do oscilador: 'f1', 'f2', 'f12' (1→2) ou 'f21' (2→1)
+    rotaRuido: 'f1', // rota de filtro do ruído
     modo: 'poly', // 'mono' ou 'poly'
     vozes: 8, // quantas notas ao mesmo tempo (Poly)
     legato: true, // só vale no Mono
@@ -349,10 +351,18 @@ function modulado(base, destino) {
 }
 
 // Cutoff ao vivo: a modulação anda na escala do knob (exponencial de 20 Hz a 20 kHz).
+// "nome" = 'cutoff' (Filtro 1) ou 'cutoff2' (Filtro 2): é também o nome do destino de modulação.
 const escalaCutoff = escalaExponencial(20, 20000);
-function corteAoVivo() {
-  return escalaCutoff.paraValor(modulado(escalaCutoff.paraPosicao(estado.parametros.cutoff), 'cutoff'));
+function corteAoVivo(nome) {
+  return escalaCutoff.paraValor(modulado(escalaCutoff.paraPosicao(estado.parametros[nome]), nome));
 }
+
+// Os dois filtros: nomes das opções e dos parâmetros de cada um
+const FILTROS = [
+  { numero: 1, ligado: 'filtroLigado', tipo: 'filtroTipo', corte: 'cutoff', reso: 'resonancia' },
+  { numero: 2, ligado: 'filtro2Ligado', tipo: 'filtro2Tipo', corte: 'cutoff2', reso: 'resonancia2' },
+];
+const cartaoFiltro = (numero) => document.querySelector(`[data-filtro="${numero}"]`);
 
 // ---------- Desenhos ----------
 
@@ -367,13 +377,15 @@ function pedirDesenho() {
     desenhoPendente = false;
     desenharPainelOnda();
     desenharEnvelope(telaEnvelope, estado.parametros);
-    desenharFiltro(telaFiltro, {
-      tipo: estado.opcoes.filtroTipo,
-      ligado: estado.opcoes.filtroLigado,
-      corte: corteAoVivo(),
-      resonancia: modulado(estado.parametros.resonancia, 'resonancia'),
-      taxa: estado.contexto?.sampleRate || 48000,
-    });
+    for (const f of FILTROS) {
+      desenharFiltro(cartaoFiltro(f.numero).querySelector('[data-filtro-tela]'), {
+        tipo: estado.opcoes[f.tipo],
+        ligado: estado.opcoes[f.ligado],
+        corte: corteAoVivo(f.corte),
+        resonancia: modulado(estado.parametros[f.reso], f.reso),
+        taxa: estado.contexto?.sampleRate || 48000,
+      });
+    }
     telasLfo.forEach((tela) => {
       const id = tela.dataset.telaLfo;
       desenharLFO(tela, estado.fontes[id].forma, estado.aoVivo.lfos[id === 'lfo1' ? 0 : 1]);
@@ -386,7 +398,8 @@ function pedirDesenho() {
 const telasLfo = document.querySelectorAll('[data-tela-lfo]');
 const telasEnv = document.querySelectorAll('[data-tela-env]');
 const observarTamanho = new ResizeObserver(pedirDesenho);
-[telaOnda, telaEnvelope, telaFiltro, ...telasLfo, ...telasEnv].forEach((tela) => observarTamanho.observe(tela));
+const telasFiltro = document.querySelectorAll('[data-filtro-tela]');
+[telaOnda, telaEnvelope, ...telasFiltro, ...telasLfo, ...telasEnv].forEach((tela) => observarTamanho.observe(tela));
 
 // ---------- Escolha da wavetable (‹ Básica ›) ----------
 
@@ -732,60 +745,88 @@ sincronizadores.push(mostrarPingPong);
 
 const NOMES_FILTRO = { lp12: 'LP 12', lp24: 'LP 24', hp: 'HP', bp: 'BP' };
 
-function atualizarBotaoFiltro() {
-  const ligado = estado.opcoes.filtroLigado;
-  botaoFiltroLigado.setAttribute('aria-pressed', ligado);
-  botaoFiltroLigado.textContent = ligado ? 'Ligado' : 'Desligado';
+// Monta um cartão de filtro (1 ou 2): liga/desliga, tipos e knobs Cutoff/Reso.
+for (const f of FILTROS) {
+  const cartao = cartaoFiltro(f.numero);
+  const botaoLigado = cartao.querySelector('[data-filtro-ligado]');
+  const tipos = cartao.querySelector('[data-filtro-tipos]');
+
+  const mostrar = () => {
+    const ligado = estado.opcoes[f.ligado];
+    botaoLigado.setAttribute('aria-pressed', ligado);
+    botaoLigado.textContent = ligado ? 'Ligado' : 'Desligado';
+    tipos.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.opcoes[f.tipo]));
+  };
+
+  botaoLigado.addEventListener('click', () => {
+    definirOpcao(f.ligado, !estado.opcoes[f.ligado]);
+    mostrar();
+  });
+
+  // Botões de tipo: LP 12, LP 24, HP, BP.
+  TIPOS_FILTRO.forEach((tipo) => {
+    const botao = document.createElement('button');
+    botao.className = 'botao';
+    botao.textContent = NOMES_FILTRO[tipo];
+    botao.dataset.tipo = tipo;
+    botao.addEventListener('click', () => {
+      definirOpcao(f.tipo, tipo);
+      mostrar();
+    });
+    tipos.appendChild(botao);
+  });
+
+  cartao.querySelector('[data-filtro-knobs]').append(
+    criarKnob({
+      rotulo: 'Cutoff',
+      destino: f.corte,
+      escala: escalaExponencial(20, 20000),
+      padrao: estado.parametros[f.corte],
+      formatar: formatarFrequencia,
+      aoMudar: (v) => definirParametro(f.corte, v),
+      ler: () => estado.parametros[f.corte],
+    }),
+    criarKnob({
+      rotulo: 'Reso',
+      destino: f.reso,
+      escala: escalaLinear(0, 1),
+      padrao: estado.parametros[f.reso],
+      formatar: formatarPorcentagem,
+      aoMudar: (v) => definirParametro(f.reso, v),
+      ler: () => estado.parametros[f.reso],
+    })
+  );
+
+  mostrar();
+  sincronizadores.push(mostrar);
 }
 
-botaoFiltroLigado.addEventListener('click', () => {
-  definirOpcao('filtroLigado', !estado.opcoes.filtroLigado);
-  atualizarBotaoFiltro();
-});
+// ---------- Rotas de filtro (botões no OSC A e no Ruído) ----------
+// Tocar troca: F1 → F2 → F1→F2 → F2→F1 → F1...
+const ROTAS = ['f1', 'f2', 'f12', 'f21'];
+const NOMES_ROTA = { f1: 'F1', f2: 'F2', f12: 'F1→F2', f21: 'F2→F1' };
+const EXPLICACAO_ROTA = {
+  f1: 'Passa pelo Filtro 1',
+  f2: 'Passa pelo Filtro 2',
+  f12: 'Passa pelo Filtro 1 e depois pelo Filtro 2',
+  f21: 'Passa pelo Filtro 2 e depois pelo Filtro 1',
+};
 
-// Botões de tipo: LP 12, LP 24, HP, BP.
-TIPOS_FILTRO.forEach((tipo) => {
-  const botao = document.createElement('button');
-  botao.className = 'botao';
-  botao.textContent = NOMES_FILTRO[tipo];
-  botao.dataset.tipo = tipo;
+document.querySelectorAll('[data-rota]').forEach((botao) => {
+  const opcao = botao.dataset.rota; // 'rotaOsc' ou 'rotaRuido'
+  const mostrar = () => {
+    const rota = estado.opcoes[opcao];
+    botao.textContent = NOMES_ROTA[rota];
+    botao.setAttribute('aria-label', `Rota de filtro: ${EXPLICACAO_ROTA[rota]}. Toque para trocar.`);
+  };
   botao.addEventListener('click', () => {
-    definirOpcao('filtroTipo', tipo);
-    marcarTipoFiltro();
+    const i = ROTAS.indexOf(estado.opcoes[opcao]);
+    definirOpcao(opcao, ROTAS[(i + 1) % ROTAS.length]);
+    mostrar();
   });
-  tiposFiltro.appendChild(botao);
+  mostrar();
+  sincronizadores.push(mostrar);
 });
-
-function marcarTipoFiltro() {
-  tiposFiltro.querySelectorAll('.botao').forEach((botao) => {
-    botao.classList.toggle('escolhido', botao.dataset.tipo === estado.opcoes.filtroTipo);
-  });
-}
-
-knobsFiltro.append(
-  criarKnob({
-    rotulo: 'Cutoff',
-    destino: 'cutoff',
-    escala: escalaExponencial(20, 20000),
-    padrao: estado.parametros.cutoff,
-    formatar: formatarFrequencia,
-    aoMudar: (v) => definirParametro('cutoff', v),
-    ler: () => estado.parametros.cutoff,
-  }),
-  criarKnob({
-    rotulo: 'Reso',
-    destino: 'resonancia',
-    escala: escalaLinear(0, 1),
-    padrao: estado.parametros.resonancia,
-    formatar: formatarPorcentagem,
-    aoMudar: (v) => definirParametro('resonancia', v),
-    ler: () => estado.parametros.resonancia,
-  })
-);
-
-atualizarBotaoFiltro();
-marcarTipoFiltro();
-sincronizadores.push(atualizarBotaoFiltro, marcarTipoFiltro);
 
 // ---------- Aba ENV (envelope de volume) ----------
 

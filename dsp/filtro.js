@@ -123,11 +123,17 @@ export class Filtro {
   }
 
   definirLigado(ligado) {
+    // Religando depois de totalmente desligado: começa com a memória limpa
+    if (ligado && this.alvoMistura === 0 && this.mistura < 1e-5) {
+      this.s1 = this.s2 = this.s3 = this.s4 = 0;
+    }
     this.alvoMistura = ligado ? 1 : 0;
   }
 
   // Filtra uma amostra. "c" = coeficientes; "j" = posição deles no bloco.
   processar(x, c, j) {
+    // Desligado (e já sem mistura): o som passa direto, sem contas.
+    if (this.alvoMistura === 0 && this.mistura < 1e-5) return x;
     const k = c.k[j];
 
     // Estágio 1

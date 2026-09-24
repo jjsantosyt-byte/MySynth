@@ -20,10 +20,12 @@ export const NOMES_DESTINOS = {
   wtPos: 'WT Pos',
   detune: 'Detune',
   width: 'Width',
-  cutoff: 'Cutoff',
-  resonancia: 'Reso',
+  cutoff: 'Cutoff 1',
+  resonancia: 'Reso 1',
   ruido: 'Ruído',
   nivelOsc: 'Nív. OSC',
+  cutoff2: 'Cutoff 2',
+  resonancia2: 'Reso 2',
 };
 
 const QUANTIDADE_INICIAL = 0.5; // +50% ao criar uma ligação

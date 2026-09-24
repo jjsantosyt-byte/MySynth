@@ -45,6 +45,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       // Filtro
       { name: 'cutoff', defaultValue: 2000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
       { name: 'resonancia', defaultValue: 0.1, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+      // Filtro 2
+      { name: 'cutoff2', defaultValue: 2000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
+      { name: 'resonancia2', defaultValue: 0.1, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
       // Envelope de volume (tempos em segundos)
       { name: 'ataque', defaultValue: 0.005, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
       { name: 'decaimento', defaultValue: 0.5, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
@@ -60,7 +63,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.volumeTroca = 1; // abaixa até 0 na troca de wavetable e volta a 1
     this.suavizarTroca = 1 - Math.exp(-1 / (0.0015 * sampleRate)); // ~1,5 ms
     this.vozes = Array.from({ length: MAX_VOZES }, (_, k) => new Voz(sampleRate, k + 1));
-    this.coef = new CoeficientesFiltro(sampleRate);
+    this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
+    this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
+    // Rotas de filtro: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
+    this.rotaOsc = 'f1';
+    this.rotaRuido = 'f1';
 
     // Opções (a página manda os valores escolhidos logo ao ligar)
     this.modo = 'poly';
@@ -184,8 +191,22 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.ruidoTipo = valor;
         break;
       case 'filtroTipo':
+        for (const voz of this.vozes) voz.definirFiltro(1, 'tipo', valor);
+        break;
       case 'filtroLigado':
-        for (const voz of this.vozes) voz.definirFiltro(nome, valor);
+        for (const voz of this.vozes) voz.definirFiltro(1, 'ligado', valor);
+        break;
+      case 'filtro2Tipo':
+        for (const voz of this.vozes) voz.definirFiltro(2, 'tipo', valor);
+        break;
+      case 'filtro2Ligado':
+        for (const voz of this.vozes) voz.definirFiltro(2, 'ligado', valor);
+        break;
+      case 'rotaOsc':
+        this.rotaOsc = valor;
+        break;
+      case 'rotaRuido':
+        this.rotaRuido = valor;
         break;
     }
   }
@@ -339,12 +360,18 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   processarVozes(saidaE, saidaD, tamanhoBloco, parametros) {
     // Dados iguais para todas as vozes neste bloco.
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
+    this.coef2.calcular(parametros.cutoff2, parametros.resonancia2, tamanhoBloco);
     const comum = this.comum;
     comum.tabela = this.tabela;
     comum.posicoesWT = parametros.wtPos;
     comum.cortes = parametros.cutoff;
     comum.resonancias = parametros.resonancia;
     comum.coef = this.coef;
+    comum.cortes2 = parametros.cutoff2;
+    comum.resonancias2 = parametros.resonancia2;
+    comum.coef2 = this.coef2;
+    comum.rotaOsc = this.rotaOsc;
+    comum.rotaRuido = this.rotaRuido;
     comum.unison = this.unison;
     comum.detune = parametros.detune[0];
     comum.width = parametros.width[0];

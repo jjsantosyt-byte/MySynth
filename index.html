@@ -75,14 +75,18 @@
               <canvas id="tela-onda"></canvas>
               <span id="nome-onda" class="nome-onda">Seno</span>
             </div>
-            <label class="grupo-wtpos" data-destino="wtPos">
-              <span>WT Pos</span>
-              <span class="trilho-wtpos">
-                <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
-                <!-- Faixas de modulação e ponto ao vivo (desenhados pelo principal.js) -->
-                <span id="faixas-wtpos" class="faixas-barra" aria-hidden="true"></span>
-              </span>
-            </label>
+            <div class="linha-wt">
+              <label class="grupo-wtpos" data-destino="wtPos">
+                <span>WT Pos</span>
+                <span class="trilho-wtpos">
+                  <input id="wt-pos" type="range" min="0" max="1" step="0.001" value="0" />
+                  <!-- Faixas de modulação e ponto ao vivo (desenhados pelo principal.js) -->
+                  <span id="faixas-wtpos" class="faixas-barra" aria-hidden="true"></span>
+                </span>
+              </label>
+              <!-- Rota de filtro do oscilador: F1, F2, F1→F2, F2→F1 (toque para trocar) -->
+              <button class="chave rota" data-rota="rotaOsc" title="Para qual filtro o oscilador vai">F1</button>
+            </div>
             <!-- Atalhos: tocar no nome pula direto para aquela forma de onda -->
             <div id="atalhos-wt" class="atalhos-wt"></div>
             <!-- Unison: quantas cópias, quanto desafinam (Detune), quanto abrem no estéreo (Width) -->
@@ -110,22 +114,37 @@
               <span id="ruido-tipo" class="seletor-wt-nome">White</span>
               <button id="ruido-proximo" class="seletor-botao" aria-label="Próximo tipo de ruído">›</button>
             </div>
+            <div class="linha-rota">
+              <span class="dica-rota">Filtro</span>
+              <button class="chave rota" data-rota="rotaRuido" title="Para qual filtro o ruído vai">F1</button>
+            </div>
             <div id="knobs-ruido" class="linha-knobs"></div>
           </article>
         </div>
       </section>
 
-      <!-- Aba Filtro -->
+      <!-- Aba Filtro: 2 filtros. Cada fonte (OSC A, Ruído) escolhe a sua rota:
+           F1, F2, F1→F2 ou F2→F1 (botão de rota no cartão da fonte). -->
       <section class="conteudo-aba" data-painel="filtro" hidden>
         <div class="modulos">
-          <article class="cartao">
+          <article class="cartao" data-filtro="1">
             <div class="cabecalho-cartao">
-              <h2 class="titulo-cartao">Filtro</h2>
-              <button id="filtro-ligado" class="chave" aria-pressed="false">Desligado</button>
+              <h2 class="titulo-cartao">Filtro 1</h2>
+              <button class="chave" data-filtro-ligado aria-pressed="false">Desligado</button>
             </div>
-            <div class="tela-grafico"><canvas id="tela-filtro"></canvas></div>
-            <div id="tipos-filtro" class="grupo-botoes"></div>
-            <div id="knobs-filtro" class="linha-knobs"></div>
+            <div class="tela-grafico"><canvas data-filtro-tela></canvas></div>
+            <div class="grupo-botoes" data-filtro-tipos></div>
+            <div class="linha-knobs" data-filtro-knobs></div>
+          </article>
+
+          <article class="cartao" data-filtro="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Filtro 2</h2>
+              <button class="chave" data-filtro-ligado aria-pressed="false">Desligado</button>
+            </div>
+            <div class="tela-grafico"><canvas data-filtro-tela></canvas></div>
+            <div class="grupo-botoes" data-filtro-tipos></div>
+            <div class="linha-knobs" data-filtro-knobs></div>
           </article>
         </div>
       </section>

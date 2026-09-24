@@ -950,6 +950,40 @@ h1 {
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
+/* Linha do WT Pos + botão de rota de filtro */
+.linha-wt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.linha-wt .grupo-wtpos {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Botão de rota de filtro (F1, F2, F1→F2, F2→F1): tocar troca */
+.chave.rota {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 0 8px;
+  border-color: var(--tela-onda-borda);
+  color: var(--texto);
+  white-space: nowrap;
+}
+
+.linha-rota {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dica-rota {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
 /* Seletor de wavetable: ‹ Básica › */
 .seletor-wt {
   display: flex;
@@ -1370,7 +1404,7 @@ h1 {
     height: auto;
   }
 
-  .cartao-osc .grupo-wtpos {
+  .cartao-osc .linha-wt {
     grid-row: 3;
   }
 

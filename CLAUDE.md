@@ -245,7 +245,18 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Tela acompanha ao carregar: knobs/seletores têm `ler` + `sincronizar()`; botões ficam na
   lista `sincronizadores`. Novo controle = dar `ler` ao knob ou registrar o sincronizador.
 
-**Ruído + arquivo .synth — feito, em teste no iPhone:**
+**2 filtros com rotas — feito, em teste no iPhone:**
+- O filtro antigo virou o Filtro 1 (mesmos nomes: cutoff, resonancia, filtroLigado,
+  filtroTipo); Filtro 2 = cutoff2, resonancia2, filtro2Ligado, filtro2Tipo. Os dois são
+  destinos de modulação ("Cutoff 1/2", "Reso 1/2").
+- Rotas por fonte (`rotaOsc`, `rotaRuido`): 'f1', 'f2', 'f12' (1 → 2), 'f21' (2 → 1).
+  Botão de rota no OSC A (ao lado do WT Pos) e no Ruído; tocar troca.
+- Na voz: cadeias de filtro por rota, cada etapa com memória própria; oscilador e ruído em
+  buffers separados; grupos por bloco (mesma rota = um grupo). Filtro desligado não calcula.
+- Padrão: tudo em F1 e F2 desligado → presets antigos soam iguais.
+- Peso 8×8: sem filtro 22%, F1 26%, F1→F2 31%, osc F1 + ruído F2 33%.
+
+**Ruído + arquivo .synth — feito e aprovado:**
 - Ruído (`dsp/ruido.js`), um gerador por voz (semente diferente por voz): White, Pink
   (Paul Kellet, -3 dB/oitava), Brown (-6 dB/oitava); volumes medidos e igualados (~0,35 RMS).
   Somado ao oscilador ANTES do filtro e do ENV 1. Nível = parâmetro `ruido` (0–1), também
