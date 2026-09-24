@@ -1,7 +1,7 @@
 // principal.js
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
-import { WAVETABLES, obterWavetable } from './wavetable.js';
+import { listaWavetables, obterWavetable } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
@@ -23,6 +23,7 @@ import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
+import { criarListaWavetables } from './interface/wavetables.js';
 import { PRESETS_FABRICA, CATEGORIAS } from './presets-fabrica.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
@@ -415,14 +416,23 @@ function trocarWavetable(id) {
   pedirDesenho();
 }
 
+// As setas andam por todas: fábrica e depois as importadas.
 function andarWavetable(passo) {
-  const i = WAVETABLES.findIndex((w) => w.id === wavetable.id);
-  const proxima = WAVETABLES[(i + passo + WAVETABLES.length) % WAVETABLES.length];
+  const lista = listaWavetables();
+  const i = lista.findIndex((w) => w.id === wavetable.id);
+  const proxima = lista[(i + passo + lista.length) % lista.length];
   definirOpcao('wavetable', proxima.id);
 }
 
 document.getElementById('wt-anterior').addEventListener('click', () => andarWavetable(-1));
 document.getElementById('wt-proxima').addEventListener('click', () => andarWavetable(1));
+
+// Tocar no nome abre a lista (e o botão Importar .wav).
+criarListaWavetables({
+  botaoNome: nomeWavetable,
+  idAtual: () => wavetable.id,
+  escolher: (id) => definirOpcao('wavetable', id),
+});
 
 // ---------- WT Pos e desenho da onda ----------
 

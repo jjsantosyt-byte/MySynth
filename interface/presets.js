@@ -8,6 +8,8 @@
 //   Exportar/Importar gera um arquivo .synth (texto JSON por dentro) para backup ou
 //   para mandar para alguém. Importar também aceita os .json antigos.
 
+import { criar, criarJanela } from './janela.js';
+
 const CHAVE_GUARDADOS = 'mysynth.presets.v1';
 const TAMANHO_MAXIMO_NOME = 40;
 
@@ -33,57 +35,6 @@ function gravarGuardados(lista) {
   }
 }
 
-// ---------- Pequenos ajudantes para montar a tela ----------
-
-function criar(tag, classe, texto) {
-  const el = document.createElement(tag);
-  if (classe) el.className = classe;
-  if (texto !== undefined) el.textContent = texto;
-  return el;
-}
-
-// Janela por cima da tela (fundo escuro). Fecha no ✕, tocando fora ou com Esc.
-function criarJanela(titulo) {
-  const fundo = criar('div', 'janela-fundo');
-  fundo.hidden = true;
-  const janela = criar('div', 'janela');
-  janela.setAttribute('role', 'dialog');
-  janela.setAttribute('aria-label', titulo);
-  const topo = criar('div', 'janela-topo');
-  const fechar = criar('button', 'janela-fechar', '✕');
-  fechar.setAttribute('aria-label', 'Fechar');
-  topo.append(criar('h2', 'janela-titulo', titulo), fechar);
-  const corpo = criar('div', 'janela-corpo');
-  const aviso = criar('p', 'janela-aviso');
-  aviso.hidden = true;
-  const rodape = criar('div', 'janela-rodape');
-  janela.append(topo, corpo, aviso, rodape);
-  fundo.appendChild(janela);
-  document.body.appendChild(fundo);
-
-  const esconder = () => (fundo.hidden = true);
-  fechar.addEventListener('click', esconder);
-  fundo.addEventListener('pointerdown', (evento) => {
-    if (evento.target === fundo) esconder();
-  });
-  document.addEventListener('keydown', (evento) => {
-    if (evento.key === 'Escape' && !fundo.hidden) esconder();
-  });
-
-  return {
-    corpo,
-    rodape,
-    abrir: () => {
-      aviso.hidden = true;
-      fundo.hidden = false;
-    },
-    fechar: esconder,
-    avisar: (texto) => {
-      aviso.textContent = texto;
-      aviso.hidden = !texto;
-    },
-  };
-}
 
 // ---------- O módulo ----------
 

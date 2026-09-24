@@ -85,8 +85,9 @@ export function harmonicosVazios() {
 }
 
 // Monta um frame em todos os níveis a partir dos harmônicos.
-// Volume: o nível mais cheio fica com pico 1 (e os outros com o mesmo ajuste).
-export function montarFrame({ a, b }) {
+// Volume (normalizar = true): o nível mais cheio fica com pico 1 (e os outros com o
+// mesmo ajuste). Wavetables importadas usam false e ajustam a tabela inteira junta.
+export function montarFrame({ a, b }, normalizar = true) {
   const N = TAMANHO_TABELA;
   const re = new Float64Array(N);
   const im = new Float64Array(N);
@@ -103,6 +104,7 @@ export function montarFrame({ a, b }) {
     fft(re, im, true);
     return Float32Array.from(re);
   });
+  if (!normalizar) return niveis;
 
   let pico = 0;
   for (const v of niveis[0]) pico = Math.max(pico, Math.abs(v));
@@ -124,6 +126,29 @@ export function harmonicosDeAmostras(amostras) {
   for (let n = 1; n <= limite; n++) {
     h.a[n] = (2 / L) * re[n];
     h.b[n] = (-2 / L) * im[n];
+  }
+  return h;
+}
+
+// Igual à anterior, mas aceita ciclos de QUALQUER tamanho (ex.: 600 pontos).
+// Potência de 2 usa a FFT; outros tamanhos usam a conta direta (mais lenta,
+// mas os ciclos são curtos). Não precisa "esticar" a onda: os harmônicos
+// saem direto do ciclo original, sem perder qualidade.
+export function harmonicosDeCiclo(amostras) {
+  const L = amostras.length;
+  if ((L & (L - 1)) === 0) return harmonicosDeAmostras(amostras);
+  const h = harmonicosVazios();
+  const limite = Math.min(MAX_HARMONICOS, Math.floor((L - 1) / 2));
+  for (let n = 1; n <= limite; n++) {
+    let somaCos = 0;
+    let somaSen = 0;
+    const passo = (2 * Math.PI * n) / L;
+    for (let i = 0; i < L; i++) {
+      somaCos += amostras[i] * Math.cos(passo * i);
+      somaSen += amostras[i] * Math.sin(passo * i);
+    }
+    h.a[n] = (2 / L) * somaCos;
+    h.b[n] = (2 / L) * somaSen;
   }
   return h;
 }
@@ -270,11 +295,77 @@ export const WAVETABLES = [
 ];
 
 // Monta a wavetable só na primeira vez que ela é pedida (e guarda).
+// Id desconhecido (ex.: importada que não existe mais) → Básica.
 const prontas = new Map();
 export function obterWavetable(id) {
   if (!prontas.has(id)) {
-    const receita = WAVETABLES.find((w) => w.id === id) || WAVETABLES[0];
+    const receita = listaWavetables().find((w) => w.id === id);
+    if (!receita) return obterWavetable(WAVETABLES[0].id);
     prontas.set(id, receita.criar());
   }
   return prontas.get(id);
+}
+
+// ---------- Wavetables importadas (.wav) ----------
+
+// Máximo de frames guardados de um arquivo. Tabelas maiores (o Serum usa até 256)
+// ficam com frames escolhidos por igual ao longo da tabela: o morphing continua suave
+// e a memória fica leve no celular (64 frames ≈ 9 MB montados).
+export const MAX_FRAMES_IMPORTADOS = 64;
+
+// Importadas nesta sessão: [{ id, nome, criar }] (a ordem é a da lista)
+export const IMPORTADAS = [];
+
+// Todas as wavetables que dá para escolher: fábrica + importadas.
+export function listaWavetables() {
+  return [...WAVETABLES, ...IMPORTADAS];
+}
+
+// Escolhe no máximo "maximo" ciclos, espalhados por igual (sempre com o 1º e o último).
+function escolherCiclos(ciclos, maximo) {
+  if (ciclos.length <= maximo) return ciclos;
+  return Array.from({ length: maximo }, (_, k) => ciclos[Math.round((k * (ciclos.length - 1)) / (maximo - 1))]);
+}
+
+// Monta uma wavetable a partir de ciclos de onda (listas de amostras, qualquer tamanho).
+// O volume é ajustado para a tabela TODA: o frame mais alto fica com pico 1 e os outros
+// mantêm o volume relativo que tinham no arquivo.
+export function criarWavetableDeCiclos(id, nome, ciclos) {
+  const escolhidos = escolherCiclos(ciclos, MAX_FRAMES_IMPORTADOS);
+  const frames = escolhidos.map((ciclo) => montarFrame(harmonicosDeCiclo(ciclo), false));
+  let pico = 0;
+  for (const niveis of frames) for (const v of niveis[0]) pico = Math.max(pico, Math.abs(v));
+  const ajuste = pico > 1e-9 ? 1 / pico : 1;
+  for (const niveis of frames) for (const onda of niveis) for (let j = 0; j < onda.length; j++) onda[j] *= ajuste;
+
+  // Atalhos: número do frame no início, 1/3, 2/3 e fim (só se tiver mais de 1 frame)
+  const ultimo = frames.length - 1;
+  const atalhos =
+    ultimo > 0
+      ? [0, 1 / 3, 2 / 3, 1].map((posicao) => ({ nome: String(Math.round(posicao * ultimo) + 1), posicao }))
+      : [];
+  return {
+    id,
+    nome,
+    tamanho: TAMANHO_TABELA,
+    harmonicos: HARMONICOS_POR_NIVEL,
+    frames,
+    nomesFrames: null,
+    atalhos,
+    importada: true,
+    framesNoArquivo: ciclos.length,
+  };
+}
+
+// Coloca (ou substitui, se o nome já existe) uma importada no catálogo.
+// Devolve a wavetable montada.
+export function registrarImportada(nome, ciclos) {
+  const id = 'wav:' + nome;
+  const tabela = criarWavetableDeCiclos(id, nome, ciclos);
+  const receita = { id, nome, criar: () => tabela };
+  const i = IMPORTADAS.findIndex((w) => w.id === id);
+  if (i >= 0) IMPORTADAS[i] = receita;
+  else IMPORTADAS.push(receita);
+  prontas.set(id, tabela);
+  return tabela;
 }

@@ -64,7 +64,8 @@
               <!-- Qual wavetable o oscilador usa: ‹ Básica › -->
               <div class="seletor-wt">
                 <button id="wt-anterior" class="seletor-botao" aria-label="Wavetable anterior">‹</button>
-                <span id="wt-nome" class="seletor-wt-nome">Básica</span>
+                <!-- Tocar no nome abre a lista de wavetables (e Importar .wav) -->
+                <button id="wt-nome" class="seletor-wt-nome seletor-wt-lista" aria-haspopup="dialog">Básica</button>
                 <button id="wt-proxima" class="seletor-botao" aria-label="Próxima wavetable">›</button>
               </div>
               <!-- Liga/desliga o oscilador (desligado + Ruído ligado = só ruído) -->

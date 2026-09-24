@@ -1005,6 +1005,30 @@ h1 {
   white-space: nowrap;
 }
 
+/* Nome da wavetable = botão que abre a lista (nomes longos cortados com "…") */
+.seletor-wt-lista {
+  max-width: 130px;
+  height: 34px;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  background: transparent;
+  color: var(--texto);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.seletor-wt-lista:active {
+  background: var(--botao-apertado);
+}
+
+.wavetables-dica {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
 .atalhos-wt {
   display: flex;
   gap: 6px;
@@ -1423,6 +1447,11 @@ h1 {
   .seletor-wt-nome {
     min-width: 76px;
     font-size: 12px;
+  }
+
+  .seletor-wt-lista {
+    max-width: 100px;
+    height: 26px;
   }
 
   /* LFO: formas numa linha só, com nomes curtos */

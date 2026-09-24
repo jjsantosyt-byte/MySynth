@@ -183,6 +183,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `interface/seletor.js` — seletor de número inteiro ‹ N ›
 - `interface/modulacao.js` — fichas, arrastar/tocar para ligar, listas de ligações
 - `interface/presets.js` — barra de presets, lista, salvar, apagar, exportar/importar
+- `interface/janela.js` — janela por cima da tela (usada por presets e wavetables)
+- `interface/wavetables.js` — lista de wavetables e botão Importar .wav
+- `importar-wav.js` — lê arquivos .wav e divide em ciclos (frames)
 - `presets-fabrica.js` — presets de fábrica e categorias
 - `dsp/efeitos/` — distorcao.js, chorus.js, delay.js, reverb.js
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
@@ -288,6 +291,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Item 6c-1 (importar wavetable .wav) — feito, em teste:**
+- Tocar no nome da wavetable (OSC A) abre a lista: Fábrica, Minhas (importadas) e
+  "Importar .wav". As setas ‹ › passam por todas.
+- `importar-wav.js` (só contas): lê PCM 8/16/24/32 bits e float 32/64; estéreo vira mono.
+  Tamanho do ciclo: marca "clm " do Serum ("<!>2048") → múltiplo de 2048 → arquivo curto
+  (até 8192 pontos) = ciclo único (ex.: 600 pontos) → senão, aviso (sample comum fica p/ depois).
+- `wavetable.js`: `harmonicosDeCiclo()` (qualquer tamanho, sem esticar a onda),
+  `criarWavetableDeCiclos()` (volume ajustado pela tabela inteira), `registrarImportada()`,
+  `listaWavetables()`. Máximo 64 frames (tabelas maiores: frames espalhados por igual).
+  Id das importadas = 'wav:' + nome; mesmo nome substitui. Id desconhecido → Básica.
+- Por enquanto as importadas somem ao fechar o app (guardar = 6c-2; ir junto no .synth = 6c-3).
+- A janela virou módulo próprio (`interface/janela.js`), usada por presets e wavetables.
+- Medido: 256 frames de 2048 → ~40 ms para montar; chiado em C7/C8 entre -89 e -100 dB.
 
 **Teclado do computador — feito:**
 - Padrão FL Studio, pela posição da tecla (`evento.code`, funciona em ABNT e americano):
