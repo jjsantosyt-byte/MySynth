@@ -78,6 +78,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   fase sorteada a cada nota.
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
+- Exportar som como .wav:
+  - Salvar uma nota do som como "one shot" (escolher a nota e a duração; a cauda dos
+    efeitos entra no arquivo).
+  - Salvar uma escala específica como .wav (ex.: todas as notas de Dó maior numa
+    faixa de oitavas), em um arquivo por nota ou num arquivo só. Serve para montar
+    instrumentos de sample em outros apps.
 
 ## Distribuição (caminho combinado)
 1. Colocar online (https, ex.: GitHub Pages) e testar no celular. ✔ online (falta o teste no celular)
