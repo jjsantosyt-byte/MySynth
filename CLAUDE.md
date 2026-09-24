@@ -301,6 +301,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
+**Exportar um preset só — feito, em teste:**
+- Lista de presets: botão ⤓ em cada preset (inclusive os de fábrica) → baixa "<Nome>.synth"
+  só com ele (+ wavetables importadas que ele usa). O botão do rodapé virou "Exportar todos
+  os meus" (arquivo único `mysynth-presets.synth`). `baixarSynth()` em interface/presets.js.
+
 **Osciladores: Pan, Blend, Phase, Rand + página "Mais" — feito, em teste:**
 - Pan (`panOsc`, -1 a 1, parâmetro suave) e Blend (`blendOsc`, 0 a 1, padrão 1 = todas as
   cópias iguais) + B/C; ambos destinos de modulação ("Pan A", "Blend B"...; índices 26–31).

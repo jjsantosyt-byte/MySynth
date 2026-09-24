@@ -3,6 +3,7 @@
 //
 // - Barra: [‹] Nome do preset * [›] [Salvar]  (o * aparece quando o som foi mexido)
 // - Tocar no nome abre a lista, por categoria. Presets seus podem ser apagados (🗑).
+// - ⤓ em cada preset exporta só ele (um .synth com o nome do preset).
 // - Presets que vêm com o app (pastas presets/fabrica e presets/usuario do projeto)
 //   não podem ser apagados nem substituídos.
 // - Os seus presets ficam guardados NESTE aparelho (no navegador / no app instalado).
@@ -114,7 +115,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
 
   // ---------- Janela: lista de presets ----------
   const janelaLista = criarJanela('Presets');
-  const botaoExportar = criar('button', 'botao', 'Exportar meus presets');
+  const botaoExportar = criar('button', 'botao', 'Exportar todos os meus');
   const botaoImportar = criar('button', 'botao', 'Importar');
   // Aceita qualquer arquivo (o iPhone às vezes "apaga" extensões que não conhece,
   // como .synth); o conteúdo é conferido ao importar. Arquivos .json antigos também valem.
@@ -144,6 +145,12 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
           janelaLista.fechar();
         });
         linha.appendChild(item);
+        // ⤓ = exportar só este preset (qualquer um, inclusive os de fábrica)
+        const exportar = criar('button', 'presets-apagar presets-exportar', '⤓');
+        exportar.setAttribute('aria-label', `Exportar ${preset.nome}`);
+        exportar.title = 'Exportar só este preset (.synth)';
+        exportar.addEventListener('click', () => exportarUm(preset));
+        linha.appendChild(exportar);
         if (!preset.fabrica) {
           const apagar = criar('button', 'presets-apagar', '🗑');
           apagar.setAttribute('aria-label', `Apagar ${preset.nome}`);
@@ -178,25 +185,41 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
     montarLista();
   }
 
-  // Exportar: baixa um arquivo .synth com os seus presets
-  // (por dentro é texto no formato JSON; o tipo "genérico" evita o navegador trocar a extensão)
+  // Baixa um arquivo .synth com estes presets (e as wavetables importadas que eles usam).
+  // Por dentro é texto no formato JSON; o tipo "genérico" evita o navegador trocar a extensão.
+  // Devolve quantas wavetables foram junto.
+  function baixarSynth(nomeArquivo, lista) {
+    const presetsLimpos = lista.map(({ nome, categoria, som }) => ({ nome, categoria, som }));
+    const extras = extrasExportar?.(presetsLimpos) || {};
+    const conteudo = JSON.stringify({ app: 'MySynth', versao: 2, presets: presetsLimpos, ...extras });
+    const endereco = URL.createObjectURL(new Blob([conteudo], { type: 'application/octet-stream' }));
+    const link = criar('a');
+    link.href = endereco;
+    link.download = nomeArquivo;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(endereco), 5000);
+    return extras.wavetables?.length || 0;
+  }
+
+  const textoWavetables = (qtd) => (qtd ? ` (com ${qtd} wavetable(s) importada(s))` : '');
+
+  // Exportar UM preset: arquivo com o nome dele (tira caracteres que arquivos não aceitam)
+  function exportarUm(preset) {
+    const nomeArquivo = (preset.nome.replace(/[\\/:*?"<>|]/g, '').trim() || 'preset') + '.synth';
+    const qtd = baixarSynth(nomeArquivo, [preset]);
+    janelaLista.avisar(`"${preset.nome}" exportado${textoWavetables(qtd)}.`);
+  }
+
+  // Exportar todos os seus presets num arquivo só
   botaoExportar.addEventListener('click', () => {
     if (guardados.length === 0) {
       janelaLista.avisar('Você ainda não salvou nenhum preset.');
       return;
     }
-    const extras = extrasExportar?.(guardados) || {};
-    const conteudo = JSON.stringify({ app: 'MySynth', versao: 2, presets: guardados, ...extras });
-    const endereco = URL.createObjectURL(new Blob([conteudo], { type: 'application/octet-stream' }));
-    const link = criar('a');
-    link.href = endereco;
-    link.download = 'mysynth-presets.synth';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(endereco), 5000);
-    const comWavetables = extras.wavetables?.length ? ` (com ${extras.wavetables.length} wavetable(s) importada(s))` : '';
-    janelaLista.avisar(`${guardados.length} preset(s) exportado(s)${comWavetables}.`);
+    const qtd = baixarSynth('mysynth-presets.synth', guardados);
+    janelaLista.avisar(`${guardados.length} preset(s) exportado(s)${textoWavetables(qtd)}.`);
   });
 
   // Importar: lê um arquivo exportado (nomes repetidos ganham um número)

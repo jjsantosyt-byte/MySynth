@@ -303,6 +303,16 @@ h1 {
   font-size: 16px;
 }
 
+/* ⤓ exportar só este preset */
+.presets-exportar {
+  color: var(--texto-suave);
+  font-size: 18px;
+}
+
+.presets-exportar:active {
+  background: var(--botao-apertado);
+}
+
 /* Campos (nome, categoria) */
 .campo-rotulo {
   display: flex;
