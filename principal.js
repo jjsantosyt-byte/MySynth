@@ -23,7 +23,12 @@ import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
-import { criarListaWavetables, carregarWavetablesGuardadas } from './interface/wavetables.js';
+import {
+  criarListaWavetables,
+  carregarWavetablesGuardadas,
+  wavetablesDosPresets,
+  receberWavetables,
+} from './interface/wavetables.js';
 import { mostrarRecado } from './interface/janela.js';
 import { PRESETS_FABRICA, CATEGORIAS } from './presets-fabrica.js';
 
@@ -1280,5 +1285,21 @@ const presets = criarPresets({
   categorias: CATEGORIAS,
   obterSom,
   aplicarSom,
+  // Wavetables importadas usadas pelos presets vão junto no arquivo .synth
+  extrasExportar: (lista) => {
+    const wavetables = wavetablesDosPresets(lista);
+    return wavetables.length ? { wavetables } : {};
+  },
+  receberExtras: async (dados) => {
+    const { novas, trocas } = await receberWavetables(dados.wavetables);
+    return {
+      resumo: novas ? ` e ${novas} wavetable(s) nova(s)` : '',
+      // Preset que usava uma wavetable renomeada ("Nome (2)") passa a usar o nome novo
+      ajustarSom: (som) => {
+        const id = som?.opcoes?.wavetable;
+        return trocas[id] ? { ...som, opcoes: { ...som.opcoes, wavetable: trocas[id] } } : som;
+      },
+    };
+  },
 });
 avisarModificado = () => presets.marcarModificado();

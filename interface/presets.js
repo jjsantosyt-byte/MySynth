@@ -44,7 +44,9 @@ function gravarGuardados(lista) {
 //   categorias: ordem das categorias
 //   obterSom(): devolve o som atual (para salvar)
 //   aplicarSom(som): carrega um som
-export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom }) {
+//   extrasExportar(presets): coisas que vão junto no arquivo (ex.: { wavetables: [...] })
+//   receberExtras(dados): lê essas coisas ao importar; devolve { resumo, ajustarSom(som) }
+export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom, extrasExportar, receberExtras }) {
   let guardados = lerGuardados();
   let atual = null; // preset carregado por último
   let modificado = false;
@@ -180,7 +182,8 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom 
       janelaLista.avisar('Você ainda não salvou nenhum preset.');
       return;
     }
-    const conteudo = JSON.stringify({ app: 'MySynth', versao: 1, presets: guardados }, null, 2);
+    const extras = extrasExportar?.(guardados) || {};
+    const conteudo = JSON.stringify({ app: 'MySynth', versao: 2, presets: guardados, ...extras });
     const endereco = URL.createObjectURL(new Blob([conteudo], { type: 'application/octet-stream' }));
     const link = criar('a');
     link.href = endereco;
@@ -189,7 +192,8 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom 
     link.click();
     link.remove();
     setTimeout(() => URL.revokeObjectURL(endereco), 5000);
-    janelaLista.avisar(`${guardados.length} preset(s) exportado(s).`);
+    const comWavetables = extras.wavetables?.length ? ` (com ${extras.wavetables.length} wavetable(s) importada(s))` : '';
+    janelaLista.avisar(`${guardados.length} preset(s) exportado(s)${comWavetables}.`);
   });
 
   // Importar: lê um arquivo exportado (nomes repetidos ganham um número)
@@ -204,6 +208,8 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom 
         (p) => p && typeof p.nome === 'string' && p.som && typeof p.som === 'object'
       );
       if (recebidos.length === 0) throw new Error('sem presets');
+      // Wavetables que vieram junto (podem mudar de nome se já existir outra igual no aparelho)
+      const { resumo = '', ajustarSom = (som) => som } = (await receberExtras?.(dados)) || {};
       const novos = [...guardados];
       const nomeLivre = (nome) => {
         const usado = (n) => novos.some((p) => p.nome === n) || fabrica.some((p) => p.nome === n);
@@ -216,13 +222,13 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom 
         novos.push({
           nome: nomeLivre(p.nome.slice(0, TAMANHO_MAXIMO_NOME)),
           categoria: typeof p.categoria === 'string' ? p.categoria : 'Outros',
-          som: p.som,
+          som: ajustarSom(p.som),
         });
       }
       if (!gravarGuardados(novos)) throw new Error('gravar');
       guardados = novos;
       montarLista();
-      janelaLista.avisar(`${recebidos.length} preset(s) importado(s).`);
+      janelaLista.avisar(`${recebidos.length} preset(s) importado(s)${resumo}.`);
     } catch (erro) {
       janelaLista.avisar(
         erro.message === 'gravar'

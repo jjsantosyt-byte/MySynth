@@ -2,6 +2,7 @@
 // Janela com a lista de wavetables: Fábrica, Minhas (importadas) e o botão Importar .wav.
 // Abre ao tocar no nome da wavetable, no cabeçalho do OSC A.
 // As importadas ficam guardadas neste aparelho (armazem-wavetables.js) e podem ser apagadas (🗑).
+// Exportar presets leva junto as importadas que eles usam (wavetablesDosPresets / receberWavetables).
 
 import { criar, criarJanela } from './janela.js';
 import {
@@ -11,9 +12,10 @@ import {
   escolherCiclos,
   registrarImportada,
   removerImportada,
+  idImportada,
 } from '../wavetable.js';
 import { lerWav, dividirEmCiclos, ErroWav } from '../importar-wav.js';
-import { listarGuardadas, guardarWavetable, apagarWavetable, desempacotar } from './armazem-wavetables.js';
+import { listarGuardadas, guardarWavetable, apagarWavetable, empacotar, desempacotar } from './armazem-wavetables.js';
 
 const TAMANHO_MAXIMO_NOME = 40;
 
@@ -24,6 +26,80 @@ export async function carregarWavetablesGuardadas() {
   } catch (erro) {
     console.warn('Não consegui ler as wavetables guardadas:', erro);
   }
+}
+
+// ---------- Levar junto no arquivo .synth (exportar/importar presets) ----------
+
+// Onda (Float32) → texto (base64), para caber no arquivo .synth (que é texto JSON).
+// Os bytes ficam na ordem "little-endian", a de todos os celulares e computadores atuais.
+function ondaParaTexto(amostras) {
+  const bytes = new Uint8Array(amostras.buffer, amostras.byteOffset, amostras.byteLength);
+  let texto = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) texto += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(texto);
+}
+
+function textoParaOnda(texto) {
+  const binario = atob(texto);
+  const bytes = new Uint8Array(binario.length - (binario.length % 4));
+  for (let i = 0; i < bytes.length; i++) bytes[i] = binario.charCodeAt(i);
+  return new Float32Array(bytes.buffer);
+}
+
+function mesmosCiclos(a, b) {
+  if (a.length !== b.length) return false;
+  for (let k = 0; k < a.length; k++) {
+    if (a[k].length !== b[k].length) return false;
+    for (let i = 0; i < a[k].length; i++) if (a[k][i] !== b[k][i]) return false;
+  }
+  return true;
+}
+
+// As importadas usadas por estes presets, prontas para ir no arquivo.
+export function wavetablesDosPresets(presets) {
+  const usadas = new Set(presets.map((p) => p.som?.opcoes?.wavetable));
+  return IMPORTADAS.filter((w) => usadas.has(w.id)).map((w) => {
+    const { nome, tamanho, amostras } = empacotar(w.nome, w.ciclos);
+    return { nome, tamanho, amostras: ondaParaTexto(amostras) };
+  });
+}
+
+// Recebe as wavetables de um arquivo .synth e guarda no aparelho.
+// - Já existe uma igual (mesmo nome e mesma onda): nada a fazer.
+// - Mesmo nome, onda diferente: entra como "Nome (2)" e os presets do arquivo são ajustados.
+// Devolve { novas, trocas } (trocas = { idNoArquivo: idNovo }).
+export async function receberWavetables(lista) {
+  const trocas = {};
+  let novas = 0;
+  for (const item of Array.isArray(lista) ? lista : []) {
+    try {
+      if (typeof item?.nome !== 'string' || !(item.tamanho > 0) || typeof item.amostras !== 'string') continue;
+      const amostras = textoParaOnda(item.amostras);
+      if (amostras.length < item.tamanho) continue;
+      const ciclos = escolherCiclos(desempacotar({ tamanho: item.tamanho, amostras }));
+      const nomeBase = item.nome.slice(0, TAMANHO_MAXIMO_NOME).trim() || 'Wavetable';
+      let nome = nomeBase;
+      let jaTem = false;
+      for (let i = 2; ; i++) {
+        const existente = IMPORTADAS.find((w) => w.nome === nome);
+        if (!existente) break;
+        if (mesmosCiclos(existente.ciclos, ciclos)) {
+          jaTem = true;
+          break;
+        }
+        nome = `${nomeBase} (${i})`;
+      }
+      if (!jaTem) {
+        registrarImportada(nome, ciclos);
+        novas++;
+        await guardarWavetable(nome, ciclos).catch((erro) => console.warn('Não consegui guardar a wavetable:', erro));
+      }
+      if (nome !== item.nome) trocas[idImportada(item.nome)] = idImportada(nome);
+    } catch (erro) {
+      console.warn('Wavetable do arquivo ignorada:', erro);
+    }
+  }
+  return { novas, trocas };
 }
 
 // opcoes:

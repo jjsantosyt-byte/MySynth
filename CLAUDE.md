@@ -293,7 +293,16 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Item 6c-2 (wavetables importadas guardadas no aparelho) — feito, em teste:**
+**Item 6c-3 (wavetables junto no .synth) — feito, em teste:**
+- Exportar presets leva as importadas que eles usam: arquivo versão 2 =
+  { app, versao, presets, wavetables: [{ nome, tamanho, amostras (Float32 em base64) }] }.
+  Uma tabela de 8 frames ≈ 90 KB no arquivo (64 frames ≈ 700 KB). Sem indentação no JSON.
+- Importar: tabela nova entra e é guardada; igual (mesmo nome e mesma onda) não duplica;
+  mesmo nome com onda diferente entra como "Nome (2)" e os presets do arquivo são ajustados.
+  Arquivos .synth/.json antigos (versão 1) continuam valendo.
+- `presets.js` continua genérico: recebe `extrasExportar` e `receberExtras` (ligados no principal.js).
+
+**Item 6c-2 (wavetables importadas guardadas no aparelho) — feito e aprovado:**
 - `interface/armazem-wavetables.js`: IndexedDB (banco 'mysynth', gaveta 'wavetables', chave =
   nome). Guarda só os ciclos usados (≤ 64, ~0,5 MB por tabela); montagem anti-chiado na hora
   de usar. Pede `navigator.storage.persist()` ao guardar.

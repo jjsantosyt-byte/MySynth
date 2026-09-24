@@ -362,7 +362,8 @@ export const idImportada = (nome) => 'wav:' + nome;
 // Ela só é montada na primeira vez que for escolhida. Devolve o id.
 export function registrarImportada(nome, ciclos) {
   const id = idImportada(nome);
-  const receita = { id, nome, criar: () => criarWavetableDeCiclos(id, nome, ciclos) };
+  // "ciclos" fica guardado na receita: serve para exportar junto com os presets
+  const receita = { id, nome, ciclos, criar: () => criarWavetableDeCiclos(id, nome, ciclos) };
   const i = IMPORTADAS.findIndex((w) => w.id === id);
   if (i >= 0) IMPORTADAS[i] = receita;
   else IMPORTADAS.push(receita);

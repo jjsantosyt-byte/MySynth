@@ -48,7 +48,7 @@ async function operar(modo, fazer) {
 }
 
 // Junta os ciclos (todos do mesmo tamanho) numa fila só, para guardar.
-function empacotar(nome, ciclos) {
+export function empacotar(nome, ciclos) {
   const tamanho = ciclos[0].length;
   const amostras = new Float32Array(tamanho * ciclos.length);
   ciclos.forEach((ciclo, k) => amostras.set(ciclo, k * tamanho));
