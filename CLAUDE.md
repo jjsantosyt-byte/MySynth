@@ -72,7 +72,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    - E1: knobs novos nos efeitos atuais — FEITO (ver "Efeitos E1" no Estado atual).
    - E2: Compressor — FEITO (ver "Efeitos E2"). Páginas na aba FX ficam para quando passar de
      5 efeitos (hoje: 5 cartões lado a lado cabem).
-   - E3: Saturação (Fita / Válvula / Transistor, Drive, Tom, Mix; oversampling).
+   - E3: Saturação + páginas "Cor"/"Espaço" na aba FX — FEITO (ver "Efeitos E3").
    - E4: EQ 3 bandas, Phaser e Flanger.
    - Ordem fixa proposta: Saturação → Distorção → EQ → Compressor → Chorus/Phaser → Delay → Reverb
      (reordenar arrastando fica para depois).
@@ -331,6 +331,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Efeitos E3 (Saturação + páginas na aba FX) — feito, em teste:**
+- `dsp/efeitos/saturacao.js`: tipos Fita (x − x³/3, depois plano em ±2/3), Válvula (tanh
+  assimétrica, bias 0,25 + tira DC), Transistor (x/√(1+x²)); Drive 1×–6×, Tom (1 = aberto; até
+  ~1,5 kHz), Mix. Taxa dobrada (meia-banda) + ADAA; compensação: sinal de 0,5 sai com 0,5.
+  Primeiro da cadeia: Saturação → Distorção → Compressor → Chorus → Delay → Reverb.
+  Como a Distorção, atrasa o som original 15 amostras SEMPRE (0,3 ms; ligar/desligar sem pulo).
+- Aba FX em 2 páginas: "Cor" (Saturação, Distorção, Compressor) e "Espaço" (Chorus, Delay,
+  Reverb). Cartões com `data-pagina`; `.modulos-fx[data-pagina-atual]` esconde a outra página;
+  colunas automáticas (os cartões visíveis dividem a largura). Deitado: botões das páginas numa
+  faixa de 52 px à esquerda; em pé/computador: em cima. `botoesDeTipo()` no principal.js.
+- Medido: com a Saturação desligada, o som = motor antigo atrasado 15 amostras (diferença só
+  nas rampas do início, que ficam "gravadas" nas caudas do Delay/Reverb e no Chorus: normal);
+  chiado em C7 com Drive 100%: Fita -56, Válvula -62, Transistor -60 dB; 852×340/393 e em pé ok.
 
 **Efeitos E2 (Compressor) — feito, em teste:**
 - `dsp/efeitos/compressor.js`: estéreo ligado (mesma redução nos 2 lados), detector de pico,

@@ -287,10 +287,27 @@
           </article>
         </div>
       </section>
-      <!-- Aba FX: efeitos na ordem do caminho do som (Distorção → Chorus → Delay → Reverb) -->
+      <!-- Aba FX: efeitos na ordem do caminho do som
+           (Saturação → Distorção → Compressor → Chorus → Delay → Reverb), em 2 páginas:
+           "Cor" (mudam o timbre) e "Espaço" (movimento e ambiente). -->
       <section class="conteudo-aba" data-painel="fx" hidden>
-        <div class="modulos modulos-4 modulos-fx">
-          <article class="cartao">
+        <div class="fx-paginado">
+        <nav class="paginas-fx" aria-label="Páginas de efeitos">
+          <button class="botao escolhido" data-pagina-fx="1">Cor</button>
+          <button class="botao" data-pagina-fx="2">Espaço</button>
+        </nav>
+        <div class="modulos modulos-4 modulos-fx" data-pagina-atual="1">
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Saturação</h2>
+              <button class="chave" data-ligar-efeito="saturacao" aria-pressed="false">Off</button>
+            </div>
+            <!-- Tipo: Fita (arredonda), Válvula (cheia, assimétrica), Transistor (mais presença) -->
+            <div id="tipos-saturacao" class="grupo-botoes"></div>
+            <div class="linha-knobs" data-knobs-efeito="saturacao"></div>
+          </article>
+
+          <article class="cartao" data-pagina="1">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Distorção</h2>
               <button class="chave" data-ligar-efeito="distorcao" aria-pressed="false">Off</button>
@@ -300,7 +317,7 @@
             <div class="linha-knobs" data-knobs-efeito="distorcao"></div>
           </article>
 
-          <article class="cartao">
+          <article class="cartao" data-pagina="1">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Compressor</h2>
               <button class="chave" data-ligar-efeito="compressor" aria-pressed="false">Off</button>
@@ -313,7 +330,7 @@
             <div class="linha-knobs" data-knobs-efeito="compressor"></div>
           </article>
 
-          <article class="cartao">
+          <article class="cartao" data-pagina="2">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Chorus</h2>
               <button class="chave" data-ligar-efeito="chorus" aria-pressed="false">Off</button>
@@ -321,7 +338,7 @@
             <div class="linha-knobs" data-knobs-efeito="chorus"></div>
           </article>
 
-          <article class="cartao">
+          <article class="cartao" data-pagina="2">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Delay</h2>
               <button class="chave" data-ligar-efeito="delay" aria-pressed="false">Off</button>
@@ -333,13 +350,14 @@
             </div>
           </article>
 
-          <article class="cartao">
+          <article class="cartao" data-pagina="2">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Reverb</h2>
               <button class="chave" data-ligar-efeito="reverb" aria-pressed="false">Off</button>
             </div>
             <div class="linha-knobs" data-knobs-efeito="reverb"></div>
           </article>
+        </div>
         </div>
       </section>
 

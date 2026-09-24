@@ -21,6 +21,7 @@ import { criarModulacao } from './interface/modulacao.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
+import { TIPOS_SATURACAO } from './dsp/efeitos/saturacao.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
 import {
@@ -188,6 +189,7 @@ const estado = {
   // Efeitos (mesmos valores iniciais do motor de som)
   efeitos: {
     // Os valores iniciais dos knobs novos reproduzem o som de antes (presets antigos iguais)
+    saturacao: { ligado: false, tipo: 'fita', drive: 0.3, tom: 1, mix: 1 },
     distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 },
     compressor: { ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1 },
     chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5, atraso: 0.012, feedback: 0, width: 1 },
@@ -1057,24 +1059,52 @@ const knobEfeito = (id, rotulo, nome, escala, formatar) =>
     ler: () => estado.efeitos[id][nome],
   });
 
-// Distorção: tipo (botões) + Drive e Mix
-const NOMES_DISTORCAO = { suave: 'Suave', dura: 'Dura', valvula: 'Válvula' };
-const tiposDistorcao = document.getElementById('tipos-distorcao');
-const marcarTipoDistorcao = () =>
-  tiposDistorcao.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.efeitos.distorcao.tipo));
-TIPOS_DISTORCAO.forEach((tipo) => {
-  const botao = document.createElement('button');
-  botao.className = 'botao';
-  botao.textContent = NOMES_DISTORCAO[tipo];
-  botao.dataset.tipo = tipo;
+// Páginas da aba FX: "Cor" (Saturação, Distorção, Compressor) e "Espaço" (Chorus, Delay, Reverb)
+const gradeFx = document.querySelector('.modulos-fx');
+document.querySelectorAll('[data-pagina-fx]').forEach((botao) => {
   botao.addEventListener('click', () => {
-    definirEfeito('distorcao', 'tipo', tipo);
-    marcarTipoDistorcao();
+    gradeFx.dataset.paginaAtual = botao.dataset.paginaFx;
+    document.querySelectorAll('[data-pagina-fx]').forEach((b) => b.classList.toggle('escolhido', b === botao));
   });
-  tiposDistorcao.appendChild(botao);
 });
-marcarTipoDistorcao();
-sincronizadores.push(marcarTipoDistorcao);
+
+// Botões de tipo de um efeito (ex.: Distorção: Suave / Dura / Válvula)
+function botoesDeTipo(id, lugar, tipos, nomes) {
+  const marcar = () =>
+    lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.efeitos[id].tipo));
+  tipos.forEach((tipo) => {
+    const botao = document.createElement('button');
+    botao.className = 'botao';
+    botao.textContent = nomes[tipo];
+    botao.dataset.tipo = tipo;
+    botao.addEventListener('click', () => {
+      definirEfeito(id, 'tipo', tipo);
+      marcar();
+    });
+    lugar.appendChild(botao);
+  });
+  marcar();
+  sincronizadores.push(marcar);
+}
+
+// Saturação: tipo + Drive, Tom e Mix
+botoesDeTipo('saturacao', document.getElementById('tipos-saturacao'), TIPOS_SATURACAO, {
+  fita: 'Fita',
+  valvula: 'Válvula',
+  transistor: 'Transist.',
+});
+document.querySelector('[data-knobs-efeito="saturacao"]').append(
+  knobEfeito('saturacao', 'Drive', 'drive', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('saturacao', 'Tom', 'tom', escalaLinear(0, 1), (v) => (v > 0.999 ? 'Aberto' : formatarPorcentagem(v))),
+  knobEfeito('saturacao', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+
+// Distorção: tipo (botões) + Drive e Mix
+botoesDeTipo('distorcao', document.getElementById('tipos-distorcao'), TIPOS_DISTORCAO, {
+  suave: 'Suave',
+  dura: 'Dura',
+  valvula: 'Válvula',
+});
 
 // Escalas usadas pelos knobs novos
 const escalaCorte = escalaExponencial(20, 20000); // Low Cut / High Cut (20 Hz a 20 kHz)

@@ -23,6 +23,7 @@ import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
+import { Saturacao } from './dsp/efeitos/saturacao.js';
 import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
@@ -159,7 +160,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
-    // Efeitos (depois das notas somadas): Distorção → Compressor → Chorus → Delay → Reverb
+    // Efeitos (depois das notas somadas): Saturação → Distorção → Compressor → Chorus → Delay → Reverb
+    this.saturacao = new Saturacao(sampleRate);
     this.distorcao = new Distorcao(sampleRate);
     this.chorus = new Chorus(sampleRate);
     this.delay = new Delay(sampleRate);
@@ -167,6 +169,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.compressor = new Compressor(sampleRate);
     this.enviouCompressor = false;
     this.efeitos = {
+      saturacao: this.saturacao,
       distorcao: this.distorcao,
       compressor: this.compressor,
       chorus: this.chorus,
@@ -480,6 +483,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
+    this.saturacao.processar(saidaE, saidaD, tamanhoBloco);
     this.distorcao.processar(saidaE, saidaD, tamanhoBloco);
     this.compressor.processar(saidaE, saidaD, tamanhoBloco);
     this.chorus.processar(saidaE, saidaD, tamanhoBloco);

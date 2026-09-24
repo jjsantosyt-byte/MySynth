@@ -1877,14 +1877,68 @@ h1 {
   }
 }
 
-/* ---------- Aba FX: 5 efeitos lado a lado ---------- */
+/* ---------- Aba FX: páginas "Cor" e "Espaço" ----------
+   Só os cartões da página escolhida aparecem, lado a lado, dividindo a largura. */
+.fx-paginado {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paginas-fx {
+  display: flex;
+  gap: 6px;
+}
+
+.paginas-fx .botao {
+  flex: 1 1 0;
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.paginas-fx .botao.escolhido {
+  background: var(--destaque-escuro);
+}
+
 .modulos.modulos-fx {
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.modulos-fx[data-pagina-atual='1'] > [data-pagina='2'],
+.modulos-fx[data-pagina-atual='2'] > [data-pagina='1'] {
+  display: none;
 }
 
 @media (max-width: 640px) {
   .modulos.modulos-fx {
+    grid-auto-flow: row;
     grid-template-columns: 1fr;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Deitado: botões das páginas numa faixa estreita à esquerda (gasta largura, não altura) */
+  .fx-paginado {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .paginas-fx {
+    flex-direction: column;
+    flex: 0 0 52px;
+  }
+
+  .paginas-fx .botao {
+    min-height: 0;
+    padding: 0 2px;
+    font-size: 11px;
+  }
+
+  .fx-paginado > .modulos-fx {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 }
 
