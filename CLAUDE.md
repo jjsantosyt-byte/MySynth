@@ -305,7 +305,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Ruído: One Shot, Track, Pitch e "1 ruído" — feito, em teste:**
+**Ruído: One Shot, Track, Pitch e "1 ruído" — feito e aprovado:**
 - `dsp/ruido.js`: o ruído virou "sample" (estilo Serum): o motor monta UMA vez um trecho de 4 s
   por tipo (White/Pink/Brown, mesmo gerador de antes) com emenda suave (fim → começo, mistura
   de 4096 amostras; medido: salto na volta menor que um salto normal do Brown). A voz toca o
