@@ -2,14 +2,18 @@
 // Delay estéreo (eco), com Feedback (quantas repetições) e Ping-pong
 // (ecos alternando entre esquerda e direita).
 //
-// - As repetições perdem um pouco de agudo a cada volta (como os delays
-//   analógicos): soa mais natural e nunca fica "ardido".
+// - As repetições perdem agudo (High Cut, padrão 6 kHz) e, se quiser, grave (Low Cut)
+//   a cada volta, como os delays analógicos: soa mais natural e nunca fica "ardido".
+// - Width: abertura dos ecos no estéreo (0 = no meio, 100% = como vieram).
 // - Mudar o Tempo com som tocando: o eco antigo some e o novo entra em ~50 ms
 //   (transição suave, sem estalo e sem mudar a afinação dos ecos).
 // - Desligar: para de entrar som novo, mas os ecos que já existem terminam
 //   naturalmente. Quando tudo silencia, o delay "dorme" e não gasta processamento.
 
+import { coefPolo, aplicarWidth } from './comum.js';
+
 const TEMPO_MAXIMO = 2; // segundos
+const LOW_CUT_DESLIGADO = 20.5; // Hz: Low Cut em 20 Hz = desligado (nem calcula)
 const FEEDBACK_MAXIMO = 0.95; // abaixo de 1: os ecos sempre acabam sumindo
 
 // Volume do som original e do efeito conforme o Mix (0 a 1).
@@ -26,7 +30,16 @@ export class Delay {
     this.linhaD = new Float32Array(this.tamanho);
     this.escrita = 0;
 
-    this.ajustes = { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false };
+    this.ajustes = {
+      ligado: false,
+      tempo: 0.3,
+      feedback: 0.4,
+      mix: 0.3,
+      pingpong: false,
+      lowcut: 20, // Hz (20 = desligado)
+      highcut: 6000, // Hz
+      width: 1, // 0 a 1
+    };
 
     // Tempo do eco (em amostras). Ao mudar, lê o tempo antigo e o novo ao mesmo
     // tempo e passa de um para o outro numa rampa de ~50 ms.
@@ -42,10 +55,14 @@ export class Delay {
     this.feedback = 0;
     this.suavizar = 1 - Math.exp(-1 / (0.01 * taxaAmostragem)); // ~10 ms
 
-    // Perda de agudo nas repetições (passa-baixas suave em ~6 kHz)
-    this.coefAgudo = 1 - Math.exp((-2 * Math.PI * 6000) / taxaAmostragem);
+    // Perda de agudo nas repetições (passa-baixas suave no High Cut) e de grave (Low Cut)
+    this.coefAgudo = coefPolo(6000, taxaAmostragem);
+    this.highcutCalculado = 6000;
     this.baixasE = 0;
     this.baixasD = 0;
+    this.gravesE = 0; // o grave que o Low Cut tira
+    this.gravesD = 0;
+    this.par = [0, 0]; // rascunho do Width
 
     this.silencio = 0; // quantas amostras seguidas sem eco audível
     this.dormindo = true;
@@ -68,7 +85,15 @@ export class Delay {
     const alvoTempo = Math.min(TEMPO_MAXIMO, Math.max(0.001, a.tempo)) * this.taxa;
     const alvoFeedback = Math.min(FEEDBACK_MAXIMO, Math.max(0, a.feedback));
     const s = this.suavizar;
+    if (a.highcut !== this.highcutCalculado) {
+      this.coefAgudo = coefPolo(a.highcut, this.taxa);
+      this.highcutCalculado = a.highcut;
+    }
     const c = this.coefAgudo;
+    const comLowCut = a.lowcut > LOW_CUT_DESLIGADO;
+    const cGrave = comLowCut ? coefPolo(a.lowcut, this.taxa) : 0;
+    const width = Math.min(1, Math.max(0, a.width));
+    const par = this.par;
     const tamanho = this.tamanho;
     const linhaE = this.linhaE;
     const linhaD = this.linhaD;
@@ -108,9 +133,17 @@ export class Delay {
         }
       }
 
-      // As repetições perdem um pouco de agudo
+      // As repetições perdem um pouco de agudo (e de grave, com o Low Cut)
       this.baixasE += (ecoE - this.baixasE) * c;
       this.baixasD += (ecoD - this.baixasD) * c;
+      let voltaE = this.baixasE;
+      let voltaD = this.baixasD;
+      if (comLowCut) {
+        this.gravesE += (voltaE - this.gravesE) * cGrave;
+        this.gravesD += (voltaD - this.gravesD) * cGrave;
+        voltaE -= this.gravesE;
+        voltaD -= this.gravesD;
+      }
 
       const entradaE = saidaE[i] * this.entrada;
       const entradaD = saidaD[i] * this.entrada;
@@ -118,17 +151,23 @@ export class Delay {
       let novoD;
       if (a.pingpong) {
         // Ping-pong: o som entra só na esquerda; cada repetição troca de lado.
-        novoE = (entradaE + entradaD) * 0.5 + this.baixasD * this.feedback;
-        novoD = this.baixasE * this.feedback;
+        novoE = (entradaE + entradaD) * 0.5 + voltaD * this.feedback;
+        novoD = voltaE * this.feedback;
       } else {
-        novoE = entradaE + this.baixasE * this.feedback;
-        novoD = entradaD + this.baixasD * this.feedback;
+        novoE = entradaE + voltaE * this.feedback;
+        novoD = entradaD + voltaD * this.feedback;
       }
       // Segurança: nunca deixa acumular além de um limite
       linhaE[this.escrita] = novoE > 4 ? 4 : novoE < -4 ? -4 : novoE;
       linhaD[this.escrita] = novoD > 4 ? 4 : novoD < -4 ? -4 : novoD;
       if (++this.escrita === tamanho) this.escrita = 0;
 
+      // Width dos ecos (100% = como vieram: nem calcula)
+      if (width < 1) {
+        aplicarWidth(ecoE, ecoD, width, par);
+        ecoE = par[0];
+        ecoD = par[1];
+      }
       saidaE[i] = saidaE[i] * this.seco + ecoE * this.molhado;
       saidaD[i] = saidaD[i] * this.seco + ecoD * this.molhado;
       energia += ecoE * ecoE + ecoD * ecoD;
@@ -143,6 +182,8 @@ export class Delay {
       this.linhaD.fill(0);
       this.baixasE = 0;
       this.baixasD = 0;
+      this.gravesE = 0;
+      this.gravesD = 0;
       this.seco = 1;
     }
   }

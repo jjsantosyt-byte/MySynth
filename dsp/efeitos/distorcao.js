@@ -21,6 +21,13 @@
 
 import { ganhosMix } from './delay.js';
 import { TAPS, MEIO, filtrarMeiaBanda } from '../meia-banda.js';
+import { coefPolo } from './comum.js';
+
+// Low Cut (antes de distorcer): tira o grave que entra (distorção mais "limpa" e firme).
+// Tom (depois de distorcer): 100% = aberto; menos = mais escuro (até ~800 Hz).
+const LOW_CUT_DESLIGADO = 20.5; // Hz
+const TOM_ABERTO = 0.999;
+const tomParaHz = (tom) => 800 * Math.pow(20000 / 800, tom);
 
 export const TIPOS_DISTORCAO = ['suave', 'dura', 'valvula'];
 
@@ -150,7 +157,12 @@ export class Distorcao {
     this.secoD = new Float64Array(ATRASO_DISTORCAO + 1);
     this.pSeco = 0;
 
-    this.ajustes = { ligado: false, tipo: 'suave', drive: 0.4, mix: 1 };
+    this.ajustes = { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 };
+    // Memória dos filtros do Low Cut (antes) e do Tom (depois), por lado
+    this.graveE = 0;
+    this.graveD = 0;
+    this.tomE = 0;
+    this.tomD = 0;
     this.ganho = ganhoDoDrive(0.4);
     this.seco = 1;
     this.molhado = 0;
@@ -183,6 +195,10 @@ export class Distorcao {
     const alvoMolhado = a.ligado ? mix.molhado : 0;
     const alvoGanho = ganhoDoDrive(a.drive);
     const s = this.suavizar;
+    const comLowCut = a.lowcut > LOW_CUT_DESLIGADO;
+    const cGrave = comLowCut ? coefPolo(a.lowcut, this.taxa) : 0;
+    const comTom = a.tom < TOM_ABERTO;
+    const cTom = comTom ? coefPolo(tomParaHz(a.tom), this.taxa) : 0;
 
     for (let i = 0; i < tamanhoBloco; i++) {
       this.seco += (alvoSeco - this.seco) * s;
@@ -193,8 +209,24 @@ export class Distorcao {
       const desconto = a.tipo === 'valvula' ? 0.7 : 1;
       const compensacao = (desconto * 0.5) / Math.abs(saturar(a.tipo, 0.5 * this.ganho) || 1);
 
-      const distE = this.esquerdo.processar(saidaE[i], a.tipo, this.ganho, compensacao);
-      const distD = this.direito.processar(saidaD[i], a.tipo, this.ganho, compensacao);
+      // Low Cut antes de distorcer (só no caminho distorcido)
+      let entradaE = saidaE[i];
+      let entradaD = saidaD[i];
+      if (comLowCut) {
+        this.graveE += (entradaE - this.graveE) * cGrave;
+        this.graveD += (entradaD - this.graveD) * cGrave;
+        entradaE -= this.graveE;
+        entradaD -= this.graveD;
+      }
+      let distE = this.esquerdo.processar(entradaE, a.tipo, this.ganho, compensacao);
+      let distD = this.direito.processar(entradaD, a.tipo, this.ganho, compensacao);
+      // Tom depois de distorcer
+      if (comTom) {
+        this.tomE += (distE - this.tomE) * cTom;
+        this.tomD += (distD - this.tomD) * cTom;
+        distE = this.tomE;
+        distD = this.tomD;
+      }
 
       // Som original atrasado na mesma medida
       this.secoE[this.pSeco] = saidaE[i];
@@ -212,6 +244,10 @@ export class Distorcao {
       this.dormindo = true;
       this.esquerdo.limpar();
       this.direito.limpar();
+      this.graveE = 0;
+      this.graveD = 0;
+      this.tomE = 0;
+      this.tomD = 0;
       this.seco = 1;
       this.molhado = 0;
     }

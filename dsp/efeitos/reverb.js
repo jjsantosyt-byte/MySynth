@@ -7,10 +7,15 @@
 // - Brilho: quanto agudo sobra na cauda (baixo = sala abafada, alto = sala clara).
 // - Antes das 8 linhas, 4 "difusores" espalham o som, para a cauda ficar lisa
 //   (sem aquele som metálico de "mola").
-// - Os graves muito baixos não entram no reverb (deixam o som embolado).
+// - Low Cut: os graves abaixo dele não entram no reverb (deixam o som embolado). Padrão 120 Hz.
+// - Pre-delay: espera antes de o reverb começar (0 a 200 ms): separa o som da "sala".
+// - Width: abertura da cauda no estéreo (0 = no meio, 100% = bem aberto).
 // - Desligar: para de entrar som novo e a cauda termina naturalmente.
 
 import { ganhosMix } from './delay.js';
+import { coefPolo, aplicarWidth } from './comum.js';
+
+const PRE_DELAY_MAXIMO = 0.2; // segundos
 
 // Tempos das 8 linhas (ms): valores "quebrados", que não se repetem em
 // múltiplos, para os ecos não se somarem num tom só.
@@ -61,11 +66,17 @@ export class Reverb {
     this.difusores = TEMPOS_DIFUSORES_MS.map((ms) => new Float32Array(amostras(ms)));
     this.posDifusores = new Int32Array(4);
 
-    // Tira os graves muito baixos da entrada (~120 Hz)
-    this.coefGrave = 1 - Math.exp((-2 * Math.PI * 120) / taxaAmostragem);
+    // Tira os graves da entrada (Low Cut, padrão 120 Hz)
+    this.coefGrave = coefPolo(120, taxaAmostragem);
+    this.lowcutCalculado = 120;
     this.graveEntrada = 0;
 
-    this.ajustes = { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3 };
+    // Pre-delay: memória da entrada (até 200 ms)
+    this.pre = new Float32Array(Math.ceil(PRE_DELAY_MAXIMO * taxaAmostragem) + 2);
+    this.posPre = 0;
+    this.par = [0, 0]; // rascunho do Width
+
+    this.ajustes = { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 };
     this.entrada = 0;
     this.seco = 1;
     this.molhado = 0;
@@ -97,6 +108,10 @@ export class Reverb {
       this.coefBrilho = 1 - Math.exp((-2 * Math.PI * Math.min(fc, 0.45 * this.taxa)) / this.taxa);
       this.brilhoCalculado = brilho;
     }
+    if (this.ajustes.lowcut !== this.lowcutCalculado) {
+      this.coefGrave = coefPolo(this.ajustes.lowcut, this.taxa);
+      this.lowcutCalculado = this.ajustes.lowcut;
+    }
   }
 
   // Aplica o reverb nas saídas (esquerda e direita), no lugar.
@@ -112,6 +127,10 @@ export class Reverb {
     const s = this.suavizar;
     const cb = this.coefBrilho;
     const v = this.v;
+    const atrasoPre = Math.round(Math.min(PRE_DELAY_MAXIMO, Math.max(0, a.predelay)) * this.taxa);
+    const tamanhoPre = this.pre.length;
+    const width = Math.min(1, Math.max(0, a.width));
+    const par = this.par;
     let energia = 0;
 
     for (let i = 0; i < tamanhoBloco; i++) {
@@ -123,6 +142,15 @@ export class Reverb {
       let x = (saidaE[i] + saidaD[i]) * 0.5 * this.entrada;
       this.graveEntrada += (x - this.graveEntrada) * this.coefGrave;
       x -= this.graveEntrada;
+
+      // Pre-delay (0 = nem passa pela memória)
+      if (atrasoPre > 0) {
+        this.pre[this.posPre] = x;
+        let leitura = this.posPre - atrasoPre;
+        if (leitura < 0) leitura += tamanhoPre;
+        x = this.pre[leitura];
+        this.posPre = this.posPre + 1 === tamanhoPre ? 0 : this.posPre + 1;
+      }
 
       // Difusores em série (espalham o som antes de entrar na sala)
       for (let d = 0; d < 4; d++) {
@@ -142,8 +170,14 @@ export class Reverb {
         v[k] = this.baixas[k];
       }
       // Saída estéreo: linhas pares à esquerda, ímpares à direita
-      const molhadoE = (v[0] - v[2] + v[4] - v[6]) * ESCALA_SAIDA;
-      const molhadoD = (v[1] - v[3] + v[5] - v[7]) * ESCALA_SAIDA;
+      let molhadoE = (v[0] - v[2] + v[4] - v[6]) * ESCALA_SAIDA;
+      let molhadoD = (v[1] - v[3] + v[5] - v[7]) * ESCALA_SAIDA;
+      // Width da cauda (100% = como veio: nem calcula)
+      if (width < 1) {
+        aplicarWidth(molhadoE, molhadoD, width, par);
+        molhadoE = par[0];
+        molhadoD = par[1];
+      }
 
       misturar8(v);
       for (let k = 0; k < 8; k++) {
@@ -166,6 +200,7 @@ export class Reverb {
       for (const linha of this.linhas) linha.fill(0);
       for (const difusor of this.difusores) difusor.fill(0);
       this.baixas.fill(0);
+      this.pre.fill(0);
       this.graveEntrada = 0;
       this.seco = 1;
     }

@@ -187,10 +187,11 @@ const estado = {
   ligacoes: [],
   // Efeitos (mesmos valores iniciais do motor de som)
   efeitos: {
-    distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1 },
-    chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5 },
-    delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false },
-    reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3 },
+    // Os valores iniciais dos knobs novos reproduzem o som de antes (presets antigos iguais)
+    distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 },
+    chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5, atraso: 0.012, feedback: 0, width: 1 },
+    delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false, lowcut: 20, highcut: 6000, width: 1 },
+    reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 },
   },
   // O que a nota mais recente está fazendo agora (vem do motor ~30 vezes por segundo):
   // mod = quanto cada controle está sendo modulado; lfos = fase e valor de cada LFO.
@@ -1069,20 +1070,33 @@ TIPOS_DISTORCAO.forEach((tipo) => {
 marcarTipoDistorcao();
 sincronizadores.push(marcarTipoDistorcao);
 
+// Escalas usadas pelos knobs novos
+const escalaCorte = escalaExponencial(20, 20000); // Low Cut / High Cut (20 Hz a 20 kHz)
+const formatarCorte = (hz) => (hz < 20.5 ? 'Off' : formatarFrequencia(hz)); // Low Cut em 20 Hz = desligado
+const formatarAberto = (v) => (v > 0.999 ? 'Aberto' : formatarPorcentagem(v)); // Tom em 100% = aberto
+
 document.querySelector('[data-knobs-efeito="distorcao"]').append(
   knobEfeito('distorcao', 'Drive', 'drive', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('distorcao', 'Tom', 'tom', escalaLinear(0, 1), formatarAberto),
+  knobEfeito('distorcao', 'Low Cut', 'lowcut', escalaExponencial(20, 1000), formatarCorte),
   knobEfeito('distorcao', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
 
 document.querySelector('[data-knobs-efeito="chorus"]').append(
   knobEfeito('chorus', 'Rate', 'rate', escalaExponencial(0.05, 5), formatarRate),
   knobEfeito('chorus', 'Depth', 'depth', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('chorus', 'Delay', 'atraso', escalaLinear(0.005, 0.03), formatarTempo),
+  knobEfeito('chorus', 'Feedback', 'feedback', escalaLinear(0, 0.9), formatarPorcentagem),
+  knobEfeito('chorus', 'Width', 'width', escalaLinear(0, 1), formatarPorcentagem),
   knobEfeito('chorus', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
 
 document.querySelector('[data-knobs-efeito="delay"]').append(
   knobEfeito('delay', 'Tempo', 'tempo', escalaExponencial(0.01, 2), formatarTempo),
   knobEfeito('delay', 'Feedback', 'feedback', escalaLinear(0, 0.95), formatarPorcentagem),
+  knobEfeito('delay', 'Low Cut', 'lowcut', escalaExponencial(20, 2000), formatarCorte),
+  knobEfeito('delay', 'High Cut', 'highcut', escalaExponencial(1000, 20000), formatarFrequencia),
+  knobEfeito('delay', 'Width', 'width', escalaLinear(0, 1), formatarPorcentagem),
   knobEfeito('delay', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
 
@@ -1090,6 +1104,9 @@ document.querySelector('[data-knobs-efeito="reverb"]').append(
   // Tamanho mostra quanto tempo a cauda leva para sumir
   knobEfeito('reverb', 'Tamanho', 'tamanho', escalaLinear(0, 1), (v) => formatarTempo(tempoDoTamanho(v))),
   knobEfeito('reverb', 'Brilho', 'brilho', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('reverb', 'Pre-delay', 'predelay', escalaLinear(0, 0.2), formatarTempo),
+  knobEfeito('reverb', 'Low Cut', 'lowcut', escalaExponencial(20, 1000), formatarCorte),
+  knobEfeito('reverb', 'Width', 'width', escalaLinear(0, 1), formatarPorcentagem),
   knobEfeito('reverb', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
 

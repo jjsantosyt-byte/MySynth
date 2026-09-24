@@ -68,13 +68,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 
 ## Próximos passos (ordem combinada em 24/09/2026)
 1. **Upgrade dos efeitos** → objetivo: uma versão BETA bem funcional do sintetizador.
-   Plano proposto (falta decidir: quais efeitos novos entram, se a ordem fixa serve):
-   - E1: páginas na aba FX ([1] Saturação · Distorção · EQ · Compressor / [2] Chorus ·
-     Phaser · Delay · Reverb) + knobs novos nos efeitos atuais (Distorção: Tom, Filtro antes;
-     Chorus: Delay, Feedback, Width; Delay: Low/High Cut, Width; Reverb: Pre-delay, Low Cut, Width).
-   - E2: Compressor (Threshold, Ratio, Attack, Release, Ganho automático, Mix + medidor).
+   Decidido: entram Saturação, Compressor, EQ, Phaser e Flanger (além dos 4 atuais).
+   - E1: knobs novos nos efeitos atuais — FEITO (ver "Efeitos E1" no Estado atual).
+   - E2: Compressor (Threshold, Ratio, Attack, Release, Ganho automático, Mix + medidor)
+     + páginas na aba FX (com mais de 4 efeitos não cabe numa página só).
    - E3: Saturação (Fita / Válvula / Transistor, Drive, Tom, Mix; oversampling).
-   - E4 (opcional): EQ 3 bandas e Phaser/Flanger.
+   - E4: EQ 3 bandas, Phaser e Flanger.
    - Ordem fixa proposta: Saturação → Distorção → EQ → Compressor → Chorus/Phaser → Delay → Reverb
      (reordenar arrastando fica para depois).
 2. **Ajustes visuais e de espaço** — o dono decide cada um, aos poucos.
@@ -328,6 +327,22 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Efeitos E1 (knobs novos nos 4 efeitos) — feito, em teste:**
+- Distorção: Tom (`tom`, 1 = aberto; menos = passa-baixas até ~800 Hz no distorcido) e Low Cut
+  (`lowcut`, antes de distorcer, 20 Hz = desligado).
+- Chorus: Delay (`atraso`, 5–30 ms, padrão 12 ms, anda suave), Feedback (`feedback`, 0–90%:
+  com Delay curto vira flanger), Width (`width`).
+- Delay: Low Cut (`lowcut`, 20 = desligado) e High Cut (`highcut`, padrão 6 kHz = o fixo de
+  antes) nas repetições; Width dos ecos.
+- Reverb: Pre-delay (`predelay`, 0–200 ms), Low Cut (`lowcut`, padrão 120 Hz = o fixo de antes),
+  Width da cauda.
+- `dsp/efeitos/comum.js`: `coefPolo()` (filtro de 1 polo) e `aplicarWidth()` (meio/lados).
+  Valores iniciais = som de antes; Width 100%, Low Cut 20 Hz e Tom aberto nem são calculados.
+- Tela: knobs em até 2 linhas de 3 por cartão (`[data-knobs-efeito]`). 852×340/393 e em pé ok.
+- Medido: os 4 efeitos ligados com os valores iniciais = motor antigo (diferença 0); Reverb
+  Width 0 = cauda mono; Pre-delay 150 ms = silêncio até ~150 ms; Delay Low Cut 800 Hz: 2º eco
+  -8 dB, 3º -10 dB; Chorus Feedback 90% estável; Tom 0 escurece a Distorção.
 
 **PWA completo (funciona sem internet) — feito, em teste:**
 - `sw.js` (service worker, registrado no principal.js): na instalação guarda os arquivos do app

@@ -1859,3 +1859,20 @@ h1 {
     row-gap: 3px;
   }
 }
+
+/* ---------- Aba FX: knobs dos efeitos em até 2 linhas (3 por linha) ---------- */
+[data-knobs-efeito] {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+[data-knobs-efeito] .knob {
+  flex: 0 0 31%;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  [data-knobs-efeito] .knob-numero,
+  [data-knobs-efeito] .knob-rotulo {
+    line-height: 1.05;
+  }
+}
