@@ -1766,3 +1766,39 @@ h1 {
     padding: 1px 4px;
   }
 }
+
+/* Página "Mais": linha do Warp (‹ modo ›) em cima, knobs embaixo */
+.cartao-osc.pagina-2 .pagina-mais {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.linha-warp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.rotulo-warp {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Warp ligado: o nome do modo fica em destaque */
+.cartao-osc.com-warp .linha-warp .seletor-wt-nome {
+  color: var(--destaque);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao-osc.pagina-2 .pagina-mais {
+    gap: 2px;
+  }
+
+  .linha-warp .seletor-wt-nome {
+    min-width: 64px;
+  }
+}

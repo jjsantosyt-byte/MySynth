@@ -30,6 +30,10 @@ import {
   receberWavetables,
 } from './interface/wavetables.js';
 import { mostrarRecado } from './interface/janela.js';
+import { MODOS_WARP, W_NENHUM, codigoWarp, forcaWarp, faseWarp } from './dsp/warp.js';
+
+// Nomes dos modos de Warp na tela
+const NOMES_WARP = { nenhum: 'Off', sync: 'Sync', bendMais: 'Bend +', bendMenos: 'Bend −', pwm: 'PWM' };
 import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
@@ -70,6 +74,8 @@ const OSCILADORES = ['A', 'B', 'C'].map((letra) => {
       blend: 'blendOsc' + s,
       fase: 'faseOsc' + s,
       rand: 'randOsc' + s,
+      warp: 'warpOsc' + s,
+      warpModo: 'warpModoOsc' + s,
     },
   };
 });
@@ -85,6 +91,7 @@ const estado = {
     fineOsc: 0, // afinação fina do oscilador A (centésimos de semitom, -100 a 100)
     panOsc: 0, // posição no estéreo (-1 esquerda, 0 centro, 1 direita)
     blendOsc: 1, // volume das cópias de fora do unison (1 = todas iguais)
+    warpOsc: 0, // quantidade do Warp (0 a 1)
     // OSC B e C: os mesmos controles, com a letra no fim
     wtPosB: 0,
     detuneB: 0.25,
@@ -93,6 +100,7 @@ const estado = {
     fineOscB: 0,
     panOscB: 0,
     blendOscB: 1,
+    warpOscB: 0,
     wtPosC: 0,
     detuneC: 0.25,
     widthC: 1,
@@ -100,6 +108,7 @@ const estado = {
     fineOscC: 0,
     panOscC: 0,
     blendOscC: 1,
+    warpOscC: 0,
     ruido: 0.5, // nível do ruído (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
@@ -132,6 +141,7 @@ const estado = {
     semiOsc: 0, // e semitons (-12 a +12)
     faseOsc: 0, // Phase: ponto de início da onda (0 a 1 = 0° a 360°)
     randOsc: 1, // Rand: quanto o início é sorteado a cada nota (1 = totalmente)
+    warpModoOsc: 'nenhum', // Warp: 'nenhum', 'sync', 'bendMais', 'bendMenos' ou 'pwm'
     // OSC B e C (começam desligados: presets antigos soam iguais)
     wavetableB: 'basica',
     oscBLigado: false,
@@ -141,6 +151,7 @@ const estado = {
     semiOscB: 0,
     faseOscB: 0,
     randOscB: 1,
+    warpModoOscB: 'nenhum',
     wavetableC: 'basica',
     oscCLigado: false,
     unisonC: 1,
@@ -149,6 +160,7 @@ const estado = {
     semiOscC: 0,
     faseOscC: 0,
     randOscC: 1,
+    warpModoOscC: 'nenhum',
   },
   // Fontes de modulação (mesmos valores iniciais do motor de som).
   fontes: {
@@ -557,6 +569,7 @@ function montarOscilador(osc) {
   const botaoNome = peca('wt-nome');
   const botaoLigado = peca('osc-ligado');
   const ondaDesenhada = new Float32Array(osc.wavetable.tamanho);
+  const ondaDeformada = new Float32Array(osc.wavetable.tamanho); // com Warp
 
   // --- Wavetable: ‹ Nome › (as setas andam por todas: fábrica e depois as importadas) ---
   const andar = (passo) => {
@@ -680,7 +693,21 @@ function montarOscilador(osc) {
     for (let j = 0; j < ondaDesenhada.length; j++) {
       ondaDesenhada[j] = a[j] + t * (b[j] - a[j]);
     }
-    desenharOnda(telaOnda, ondaDesenhada, marcasUnison());
+    // Com Warp: a onda desenhada já deformada (mesma conta do motor, dsp/warp.js)
+    const codigo = codigoWarp(estado.opcoes[nomes.warpModo]);
+    let desenho = ondaDesenhada;
+    if (codigo !== W_NENHUM) {
+      const forca = forcaWarp(codigo, modulado(estado.parametros[nomes.warp], nomes.warp));
+      const n = ondaDesenhada.length;
+      for (let j = 0; j < n; j++) {
+        const lida = faseWarp(codigo, forca, j / n) * n;
+        const i0 = Math.min(Math.floor(lida), n - 1);
+        const i1 = (i0 + 1) % n;
+        ondaDeformada[j] = ondaDesenhada[i0] + (lida - i0) * (ondaDesenhada[i1] - ondaDesenhada[i0]);
+      }
+      desenho = ondaDeformada;
+    }
+    desenharOnda(telaOnda, desenho, marcasUnison());
 
     // Nome: se os frames têm nome (ex.: Seno, Tri...), a forma exata ou "de → para";
     // senão, o nome da wavetable com a posição em %.
@@ -773,9 +800,34 @@ function montarOscilador(osc) {
     })
   );
 
-  // --- Página "Mais": Pan, Blend, Phase, Rand ---
+  // --- Página "Mais": Warp ‹ modo ›, e os knobs Pan, Blend, Phase, Rand, Warp ---
+  // Modo do Warp: ‹ Off › ‹ Sync › ‹ Bend + › ‹ Bend − › ‹ PWM › (tocar nas setas troca)
+  const linhaWarp = peca('warp');
+  linhaWarp.innerHTML = `
+    <span class="rotulo-warp">Warp</span>
+    <div class="seletor-wt">
+      <button class="seletor-botao" aria-label="Modo de Warp anterior">‹</button>
+      <span class="seletor-wt-nome"></span>
+      <button class="seletor-botao" aria-label="Próximo modo de Warp">›</button>
+    </div>`;
+  const [warpAnterior, warpProximo] = linhaWarp.querySelectorAll('.seletor-botao');
+  const nomeWarp = linhaWarp.querySelector('.seletor-wt-nome');
+  function mostrarWarp() {
+    nomeWarp.textContent = NOMES_WARP[estado.opcoes[nomes.warpModo]] || 'Off';
+    cartao.classList.toggle('com-warp', estado.opcoes[nomes.warpModo] !== 'nenhum');
+  }
+  const andarWarp = (passo) => {
+    const i = MODOS_WARP.indexOf(estado.opcoes[nomes.warpModo]);
+    definirOpcao(nomes.warpModo, MODOS_WARP[(i + passo + MODOS_WARP.length) % MODOS_WARP.length]);
+    mostrarWarp();
+  };
+  warpAnterior.addEventListener('click', () => andarWarp(-1));
+  warpProximo.addEventListener('click', () => andarWarp(1));
+  mostrarWarp();
+  sincronizadores.push(mostrarWarp);
+
   const formatarPan = (v) => (Math.abs(v) < 0.005 ? 'C' : `${v < 0 ? 'L' : 'R'} ${Math.round(Math.abs(v) * 100)}`);
-  peca('pagina-mais').append(
+  peca('knobs-mais').append(
     criarKnob({
       rotulo: 'Pan',
       destino: nomes.pan, // aceita modulação (ex.: LFO = auto-pan)
@@ -809,6 +861,15 @@ function montarOscilador(osc) {
       formatar: formatarPorcentagem,
       aoMudar: (v) => definirOpcao(nomes.rand, v),
       ler: () => estado.opcoes[nomes.rand],
+    }),
+    criarKnob({
+      rotulo: 'Warp',
+      destino: nomes.warp, // aceita modulação (ex.: ENV = "rasga" no ataque)
+      escala: escalaLinear(0, 1),
+      padrao: estado.parametros[nomes.warp],
+      formatar: formatarPorcentagem,
+      aoMudar: (v) => definirParametro(nomes.warp, v),
+      ler: () => estado.parametros[nomes.warp],
     })
   );
 

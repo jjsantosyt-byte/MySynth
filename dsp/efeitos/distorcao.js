@@ -20,33 +20,11 @@
 //   fica SEMPRE ligado: se ele sumisse ao desligar, o som daria um pulinho (estalo).
 
 import { ganhosMix } from './delay.js';
+import { TAPS, MEIO, filtrarMeiaBanda } from '../meia-banda.js';
 
 export const TIPOS_DISTORCAO = ['suave', 'dura', 'valvula'];
 
-// ---------- Filtro "meia-banda" (para subir e descer a taxa) ----------
-// 31 coeficientes, janela de Blackman: corta tudo acima da metade da taxa original.
-const TAPS = 31;
-const MEIO = (TAPS - 1) / 2;
-const COEFS = new Float64Array(TAPS);
-for (let n = 0; n < TAPS; n++) {
-  const k = n - MEIO;
-  const sinc = k === 0 ? 0.5 : Math.sin((Math.PI * k) / 2) / (Math.PI * k);
-  const janela = 0.42 - 0.5 * Math.cos((2 * Math.PI * n) / (TAPS - 1)) + 0.08 * Math.cos((4 * Math.PI * n) / (TAPS - 1));
-  COEFS[n] = sinc * janela;
-}
-// Normaliza para ganho 1 no grave
-{
-  let soma = 0;
-  for (const c of COEFS) soma += c;
-  for (let n = 0; n < TAPS; n++) COEFS[n] /= soma;
-}
-// Nesse tipo de filtro, metade dos coeficientes é zero: guarda só os outros
-// (e em que posição estão), para pular as contas inúteis.
-const POSICOES_UTEIS = [];
-for (let n = 0; n < TAPS; n++) if (Math.abs(COEFS[n]) > 1e-12) POSICOES_UTEIS.push(n);
-const COEFS_UTEIS = Float64Array.from(POSICOES_UTEIS, (n) => COEFS[n]);
-const QTD_UTEIS = POSICOES_UTEIS.length;
-const DESLOC_UTEIS = Int32Array.from(POSICOES_UTEIS);
+// ---------- Filtro "meia-banda" (para subir e descer a taxa): ver dsp/meia-banda.js ----------
 // Atraso total (subir + descer) na taxa original, em amostras
 export const ATRASO_DISTORCAO = MEIO; // (15 + 15 na taxa dobrada) / 2
 
@@ -124,16 +102,9 @@ class Canal {
     this.desvio = 0;
   }
 
-  // Filtra o histórico circular "h" (posição "p" = amostra mais nova),
-  // usando só os coeficientes diferentes de zero.
+  // Filtra o histórico circular "h" (posição "p" = amostra mais nova).
   filtrar(h, p) {
-    let soma = 0;
-    for (let u = 0; u < QTD_UTEIS; u++) {
-      let j = p - DESLOC_UTEIS[u];
-      if (j < 0) j += TAPS;
-      soma += COEFS_UTEIS[u] * h[j];
-    }
-    return soma;
+    return filtrarMeiaBanda(h, p);
   }
 
   processar(x, tipo, ganho, compensacao) {

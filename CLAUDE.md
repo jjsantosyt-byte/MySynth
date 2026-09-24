@@ -73,8 +73,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Qualidade (aba Global): escolher a taxa de amostragem (44,1/48 kHz — exige religar o
   motor de som por um instante) e/ou um modo "qualidade alta" (mais limpo, mais pesado).
 - Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).
-- Oscilador: Warp (Sync, Bend, PWM; depois FM entre osciladores) — próximo passo planejado,
-  precisa de oversampling (2–4×) no oscilador com Warp ligado para não chiar.
+- Oscilador: FM entre osciladores (W2, planejado). Talvez modos de Warp Espelho e Quantizar.
+- Warp: compensar o pequeno atraso (7,5 amostras) do oscilador com Warp, para ele somar
+  exatamente em fase com um oscilador sem Warp na mesma altura.
 - Efeitos: mais knobs (Distorção: Tom, Filtro antes; Chorus: Delay, Feedback, Width;
   Delay: Low/High Cut, Width, Sync BPM; Reverb: Pre-delay, Low Cut, Width) — planejado.
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
@@ -181,7 +182,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
 - `dsp/voz.js` — uma voz completa (unison → filtro estéreo → envelope)
 - `dsp/oscilador.js` — leitura da wavetable sem aliasing
-- `dsp/oscilador-voz.js` — um oscilador dentro da nota (unison, WT Pos, nível)
+- `dsp/oscilador-voz.js` — um oscilador dentro da nota (unison, WT Pos, nível, Warp)
+- `dsp/warp.js` — contas do Warp (Sync, Bend, PWM)
+- `dsp/meia-banda.js` — filtro para trabalhar em taxa dobrada (Warp e Distorção)
 - `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelas vozes)
 - `dsp/lfo.js`, `dsp/modulacao.js` — LFO e ligações de modulação (dentro do motor)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
@@ -264,7 +267,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Tela acompanha ao carregar: knobs/seletores têm `ler` + `sincronizar()`; botões ficam na
   lista `sincronizadores`. Novo controle = dar `ler` ao knob ou registrar o sincronizador.
 
-**2 filtros com rotas — feito, em teste no iPhone:**
+**2 filtros com rotas — feito e aprovado:**
 - O filtro antigo virou o Filtro 1 (mesmos nomes: cutoff, resonancia, filtroLigado,
   filtroTipo); Filtro 2 = cutoff2, resonancia2, filtro2Ligado, filtro2Tipo. Os dois são
   destinos de modulação ("Cutoff 1/2", "Reso 1/2").
@@ -300,6 +303,24 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Warp W1 (Sync, Bend +, Bend −, PWM) — feito, em teste:**
+- `dsp/warp.js` (só contas, usado pelo motor e pelo desenho): lê a onda na posição
+  faseWarp(fase). Sync = corre 1×–8× dentro do ciclo; Bend ± = curva k·f/(1+(k−1)·f) (k 1–8,
+  só uma divisão por leitura); PWM = onda apertada em até 10% do ciclo, resto parado.
+- Opções `warpModoOsc` (+B/C: 'nenhum', 'sync', 'bendMais', 'bendMenos', 'pwm') e parâmetro
+  `warpOsc` (+B/C, 0–1), destino de modulação "Warp A/B/C" (índices 32–34).
+- Motor: com Warp, o oscilador lê em taxa DOBRADA e volta com o filtro meia-banda
+  (`dsp/meia-banda.js`, agora compartilhado com a Distorção); versão da onda escolhida como se
+  a nota fosse "aceleração" × mais aguda. Troca de modo = "abaixa, troca e sobe" (como a
+  wavetable; reenviar o mesmo modo não faz nada). Warp "nenhum" = conta de antes (idêntico).
+- Tela: página Mais = linha "Warp ‹ Modo ›" + knobs Pan, Blend, Phase, Rand, Warp; o desenho
+  mostra a onda deformada (ao vivo com modulação).
+- Medido: presets antigos e Distorção idênticos; chiado até 15 kHz (Serra): Sync/Bend -46 a
+  -99 dB; PWM limpo até C6 (-55 dB), no máximo em C7 -30 dB (resto do chiado fica entre 18 e
+  22 kHz). Testado e descartado: 4× (não melhorava o audível e pesava o dobro) e escolher a
+  onda pelo limite da taxa alta (chiava). Peso 8 notas × 8 cópias: sem Warp 19%, com Warp
+  ~46–50%. Troca de modo com nota segurada sem estalo. Telas 852×340/393 e em pé sem cortes.
 
 **Exportar um preset só — feito e aprovado:**
 - Lista de presets: botão ⤓ em cada preset (inclusive os de fábrica) → baixa "<Nome>.synth"

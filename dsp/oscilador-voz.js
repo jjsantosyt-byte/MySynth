@@ -10,6 +10,8 @@
 // Quem usa (a voz) manda cada pedaço de modulação (32 amostras) com processarPedaco().
 
 import { escolherNiveis, lerAmostra } from './oscilador.js';
+import { W_NENHUM, forcaWarp, aceleracaoWarp, faseWarp } from './warp.js';
+import { Decimador } from './meia-banda.js';
 
 export const MAX_UNISON = 16;
 
@@ -22,6 +24,10 @@ const DETUNE_MAXIMO = 1;
 const FREQUENCIA_MAXIMA = 0.45;
 
 const limitar01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+// Com Warp, quantas leituras da onda por amostra de saída (oversampling).
+// Medido: 4× não melhorava a faixa audível em relação a 2× e pesava o dobro.
+const FATOR_WARP = 2;
 
 export class OsciladorVoz {
   // "destinos" = índices de modulação deste oscilador (ver DESTINOS_OSC em modulacao.js)
@@ -53,6 +59,15 @@ export class OsciladorVoz {
     this.framesBloco = new Int32Array(tamanhoBloco); // WT Pos mudando: frame de cada amostra
     this.tsBloco = new Float64Array(tamanhoBloco); // ...e quanto do frame seguinte
 
+    // Warp: as contas são feitas em taxa DOBRADA (2 amostras para cada 1) e depois
+    // filtradas e trazidas de volta (dsp/meia-banda.js): os agudos que a deformação
+    // cria são cortados em vez de voltarem como chiado.
+    this.warpE = new Float64Array(FATOR_WARP * tamanhoBloco);
+    this.warpD = new Float64Array(FATOR_WARP * tamanhoBloco);
+    this.decimadorE = new Decimador();
+    this.decimadorD = new Decimador();
+    this.usouWarp = false; // o pedaço anterior passou pelo Warp? (senão, limpa os filtros)
+
     this.suavizar = 1 - Math.exp(-1 / (0.005 * taxaAmostragem));
     this.escolha = { nivel: 0, nivelB: 0, mistura: 0 };
   }
@@ -71,6 +86,7 @@ export class OsciladorVoz {
     }
     this.volumesDireto = true;
     this.nivelDireto = true;
+    this.usouWarp = false;
   }
 
   // Zera as somas no começo de cada bloco.
@@ -82,7 +98,9 @@ export class OsciladorVoz {
   // Ajusta cada cópia de unison (altura, estéreo, nível anti-aliasing).
   // pan: posição do oscilador no estéreo (-1 esquerda, 0 centro, 1 direita), somada à
   // abertura do unison (Width).
-  ajustarCopias(frequencia, unison, detune, width, pan, tabela) {
+  // aceleracao: a versão da onda (com mais ou menos agudos) é escolhida como se a nota
+  // fosse "aceleracao" vezes mais aguda (usado pelo Warp; 1 = normal).
+  ajustarCopias(frequencia, unison, detune, width, pan, tabela, aceleracao = 1) {
     for (let c = 0; c < unison; c++) {
       // Posição da cópia de -1 (ponta de baixo/esquerda) a +1 (ponta de cima/direita).
       const posicao = unison === 1 ? 0 : (c / (unison - 1)) * 2 - 1;
@@ -90,7 +108,7 @@ export class OsciladorVoz {
       const passo = freq / this.taxa;
       this.agudaDemais[c] = passo > FREQUENCIA_MAXIMA ? 1 : 0;
       this.passos[c] = Math.min(passo, FREQUENCIA_MAXIMA); // a leitura da onda nunca "pula" um ciclo
-      escolherNiveis(tabela.harmonicos, freq, this.taxa, this.escolha);
+      escolherNiveis(tabela.harmonicos, freq * aceleracao, this.taxa, this.escolha);
       this.niveis[c] = this.escolha.nivel;
       this.niveisB[c] = this.escolha.nivelB;
       this.misturas[c] = this.escolha.mistura;
@@ -156,8 +174,13 @@ export class OsciladorVoz {
     this.calado = alvoNivel === 0 && this.nivel < 1e-5;
     if (this.calado) {
       this.nivel = 0;
+      this.usouWarp = false;
       return;
     }
+
+    // Warp: modo e força deste pedaço (a Quantidade pode estar sendo modulada)
+    const modoWarp = ajustes.warpModo;
+    const forca = modoWarp === W_NENHUM ? 1 : forcaWarp(modoWarp, limitar01(ajustes.warp + mod[destinos.warp]));
 
     // Cópias de unison com Detune/Width modulados, na altura da nota + afinação do oscilador
     const transposicao = this.afinacao(ajustes, mod);
@@ -167,7 +190,11 @@ export class OsciladorVoz {
       limitar01(ajustes.detune + mod[destinos.detune]),
       limitar01(ajustes.width + mod[destinos.width]),
       Math.min(1, Math.max(-1, ajustes.pan + mod[destinos.pan] * 2)), // faixa do Pan = 2 (de -1 a 1)
-      tabela
+      tabela,
+      // Com Warp a onda corre até N× mais rápido: a versão da onda (com menos agudos) é
+      // escolhida para caber no limite NORMAL mesmo assim. (Testado: aproveitar o limite da
+      // taxa 4× deixa o som mais brilhante, mas o filtro de volta não segura e chia.)
+      modoWarp === W_NENHUM ? 1 : aceleracaoWarp(modoWarp, forca)
     );
 
     // Volume de cada cópia. Blend: as cópias "de fora" do unison tocam com Blend × o
@@ -208,10 +235,17 @@ export class OsciladorVoz {
       }
     }
 
-    // Uma cópia inteira de cada vez.
     const somaE = this.somaE;
     const somaD = this.somaD;
-    for (let c = 0; c < qtdCopias; c++) {
+    if (modoWarp !== W_NENHUM) {
+      // Com Warp: caminho próprio, em taxa dobrada
+      this.copiasComWarp(inicio, fim, unison, qtdCopias, tabela, wtParado, f0Parado, tParado, modoWarp, forca);
+    } else {
+      this.usouWarp = false;
+    }
+
+    // Sem Warp: uma cópia inteira de cada vez.
+    for (let c = 0; modoWarp === W_NENHUM && c < qtdCopias; c++) {
       let fase = this.fases[c];
       const passo = this.passos[c];
       const ganhoE = this.ganhosE[c];
@@ -285,6 +319,68 @@ export class OsciladorVoz {
         somaD[i] *= this.nivel;
       }
       if (Math.abs(this.nivel - alvoNivel) < 1e-5) this.nivel = alvoNivel;
+    }
+  }
+
+  // Cópias de unison com Warp, em taxa dobrada: cada amostra de saída = 2 leituras da
+  // onda deformada (meio passo cada), somadas em warpE/warpD e depois filtradas e
+  // trazidas de volta à taxa normal em somaE/somaD.
+  copiasComWarp(inicio, fim, unison, qtdCopias, tabela, wtParado, f0Parado, tParado, modoWarp, forca) {
+    const frames = tabela.frames;
+    const ultimoFrame = frames.length - 1;
+    const tamanho = tabela.tamanho;
+    const mascara = tamanho - 1;
+    const s = this.suavizar;
+    const warpE = this.warpE;
+    const warpD = this.warpD;
+    const F = FATOR_WARP;
+    // Vindo de um pedaço sem Warp (ou calado): os filtros de volta começam limpos
+    if (!this.usouWarp) {
+      this.decimadorE.limpar();
+      this.decimadorD.limpar();
+      this.usouWarp = true;
+    }
+    warpE.fill(0, F * inicio, F * fim);
+    warpD.fill(0, F * inicio, F * fim);
+
+    for (let c = 0; c < qtdCopias; c++) {
+      let fase = this.fases[c];
+      const meioPasso = this.passos[c] / F;
+      const ganhoE = this.ganhosE[c];
+      const ganhoD = this.ganhosD[c];
+      const nivel = this.niveis[c];
+      const nivelB = this.niveisB[c];
+      const mistura = this.misturas[c];
+      const alvo = this.volumeDaCopia(c, unison);
+      let volume = this.volumes[c];
+      const suavizando = Math.abs(volume - alvo) > 1e-4;
+      if (!suavizando) volume = alvo;
+
+      for (let i = inicio; i < fim; i++) {
+        if (suavizando) volume += (alvo - volume) * s;
+        const f0 = wtParado ? f0Parado : this.framesBloco[i];
+        const t = wtParado ? tParado : this.tsBloco[i];
+        const frameA = frames[f0];
+        const frameB = frames[Math.min(f0 + 1, ultimoFrame)];
+        for (let sub = 0; sub < F; sub++) {
+          let lida = faseWarp(modoWarp, forca, fase);
+          if (lida >= 1) lida = 0; // (arredondamento: o fim do ciclo é o começo)
+          const amostra = lerAmostra(frameA, frameB, t, nivel, nivelB, mistura, lida, tamanho, mascara) * volume;
+          const j = F * i + sub;
+          warpE[j] += amostra * ganhoE;
+          warpD[j] += amostra * ganhoD;
+          fase += meioPasso;
+          if (fase >= 1) fase -= 1;
+        }
+      }
+      this.fases[c] = fase;
+      this.volumes[c] = volume;
+    }
+
+    // Volta para a taxa normal, filtrando os agudos acima do limite
+    for (let i = inicio; i < fim; i++) {
+      this.somaE[i] = this.decimadorE.processar(warpE[2 * i], warpE[2 * i + 1]);
+      this.somaD[i] = this.decimadorD.processar(warpD[2 * i], warpD[2 * i + 1]);
     }
   }
 }

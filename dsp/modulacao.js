@@ -21,6 +21,8 @@ export const DESTINOS_MOD = [
   'panOsc', 'blendOsc',
   'panOscB', 'blendOscB',
   'panOscC', 'blendOscC',
+  // Quantidade do Warp de cada oscilador
+  'warpOsc', 'warpOscB', 'warpOscC',
 ];
 
 // Índices para acesso rápido
@@ -36,9 +38,9 @@ export const D_RESO2 = 8;
 
 // Destinos de cada oscilador (A, B, C), na ordem acima
 export const DESTINOS_OSC = [
-  { wtPos: 0, detune: 1, width: 2, nivel: 6, oitava: 17, semi: 18, fine: 19, pan: 26, blend: 27 },
-  { wtPos: 9, detune: 10, width: 11, nivel: 12, oitava: 20, semi: 21, fine: 22, pan: 28, blend: 29 },
-  { wtPos: 13, detune: 14, width: 15, nivel: 16, oitava: 23, semi: 24, fine: 25, pan: 30, blend: 31 },
+  { wtPos: 0, detune: 1, width: 2, nivel: 6, oitava: 17, semi: 18, fine: 19, pan: 26, blend: 27, warp: 32 },
+  { wtPos: 9, detune: 10, width: 11, nivel: 12, oitava: 20, semi: 21, fine: 22, pan: 28, blend: 29, warp: 33 },
+  { wtPos: 13, detune: 14, width: 15, nivel: 16, oitava: 23, semi: 24, fine: 25, pan: 30, blend: 31, warp: 34 },
 ];
 
 export class MatrizModulacao {

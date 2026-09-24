@@ -16,6 +16,7 @@
 //   (um só para todas as notas, rodando sem parar).
 
 import { Voz } from './dsp/voz.js';
+import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
 import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
@@ -46,11 +47,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       // 1 = todas as cópias de unison com o mesmo volume)
       { name: 'panOsc', defaultValue: 0, minValue: -1, maxValue: 1, automationRate: 'k-rate' },
       { name: 'blendOsc', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      // Warp: quantidade da deformação da onda (0 a 1); o modo é uma opção (warpModoOsc)
+      { name: 'warpOsc', defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // OSC B e C: os mesmos controles, com a letra no fim
       ...['B', 'C'].flatMap((letra) => [
         { name: 'fineOsc' + letra, defaultValue: 0, minValue: -100, maxValue: 100, automationRate: 'k-rate' },
         { name: 'panOsc' + letra, defaultValue: 0, minValue: -1, maxValue: 1, automationRate: 'k-rate' },
         { name: 'blendOsc' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+        { name: 'warpOsc' + letra, defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
         { name: 'wtPos' + letra, defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
         { name: 'detune' + letra, defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
         { name: 'width' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
@@ -91,8 +95,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         fine: 'fineOsc' + letra,
         pan: 'panOsc' + letra,
         blend: 'blendOsc' + letra,
+        warp: 'warpOsc' + letra,
       },
       tabelaNova: null, // wavetable esperando para entrar (troca sem estalo)
+      warpNovo: null, // modo de Warp esperando para entrar (troca sem estalo, igual à wavetable)
       ajustes: {
         tabela: null, // wavetable recebida da página
         posicoesWT: null,
@@ -110,6 +116,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         blend: 1,
         fase: 0, // ponto de início da onda (0 a 1 = 0° a 360°)
         rand: 1, // quanto o início é sorteado a cada nota (0 a 1)
+        warpModo: W_NENHUM, // modo do Warp (número, ver dsp/warp.js)
+        warp: 0, // quantidade do Warp (0 a 1)
       },
     }));
     this.comum = { oscs: this.oscs.map((o) => o.ajustes) }; // dados do bloco, compartilhados por todas as vozes
@@ -216,6 +224,15 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     achado = /^semiOsc([BC]?)$/.exec(nome);
     if (achado) {
       ajustesOsc(achado[1]).semi = Math.min(12, Math.max(-12, Math.round(valor)));
+      return;
+    }
+    achado = /^warpModoOsc([BC]?)$/.exec(nome);
+    if (achado) {
+      // Troca de modo passa pelo "abaixa, troca e sobe" (ver process), como a wavetable.
+      // Mesmo modo de agora (ex.: preset reenviando tudo): nada a fazer.
+      const osc = this.oscs[{ '': 0, B: 1, C: 2 }[achado[1]]];
+      const codigo = codigoWarp(valor);
+      osc.warpNovo = codigo === osc.ajustes.warpModo ? null : codigo;
       return;
     }
     achado = /^faseOsc([BC]?)$/.exec(nome);
@@ -401,14 +418,17 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Troca de wavetable (em cada oscilador): sem notas, troca direto; com notas,
     // abaixa só aquele oscilador (ganho 0, o nível desce suave em poucos ms), troca
     // quando todas as notas chegaram no silêncio e sobe de novo.
+    // O mesmo vale para a troca do modo de Warp (muda o jeito de ler a onda).
     for (let k = 0; k < this.oscs.length; k++) {
       const osc = this.oscs[k];
-      if (!osc.tabelaNova) continue;
+      if (!osc.tabelaNova && osc.warpNovo === null) continue;
       let silencio = true;
       for (const voz of this.vozes) if (voz.ativa && voz.oscs[k].nivel > 0.001) silencio = false;
       if (!algumaAtiva || silencio) {
-        osc.ajustes.tabela = osc.tabelaNova;
+        if (osc.tabelaNova) osc.ajustes.tabela = osc.tabelaNova;
+        if (osc.warpNovo !== null) osc.ajustes.warpModo = osc.warpNovo;
         osc.tabelaNova = null;
+        osc.warpNovo = null;
         osc.ajustes.ganho = 1;
       } else {
         osc.ajustes.ganho = 0;
@@ -436,6 +456,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       ajustes.fine = parametros[params.fine][0];
       ajustes.pan = parametros[params.pan][0];
       ajustes.blend = parametros[params.blend][0];
+      ajustes.warp = parametros[params.warp][0];
       ajustes.posicoesWT = parametros[params.wtPos];
       ajustes.detune = parametros[params.detune][0];
       ajustes.width = parametros[params.width][0];
