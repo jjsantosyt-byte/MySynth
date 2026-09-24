@@ -177,6 +177,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
 - `dsp/voz.js` — uma voz completa (unison → filtro estéreo → envelope)
 - `dsp/oscilador.js` — leitura da wavetable sem aliasing
+- `dsp/oscilador-voz.js` — um oscilador dentro da nota (unison, WT Pos, nível)
 - `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelas vozes)
 - `dsp/lfo.js`, `dsp/modulacao.js` — LFO e ligações de modulação (dentro do motor)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
@@ -293,7 +294,15 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Item 6c-3 (wavetables junto no .synth) — feito, em teste:**
+**Item 6d-1 (arrumação: oscilador separado da voz) — feito, em teste:**
+- `dsp/oscilador-voz.js` (classe `OsciladorVoz`): cópias de unison, WT Pos, nível e as suas
+  somas (somaE/somaD); recebe os índices de modulação dele (wtPos, detune, width, nivel).
+  A voz tem `oscA` e chama `processarPedaco()` a cada pedaço de 32 amostras.
+- Medido: som idêntico ao anterior (diferença 0 amostra a amostra em 5 cenários, com o
+  sorteio de fases fixado); peso igual (8×8 com filtro ≈ 20%).
+- Teste A/B: cópia do motor antigo em `_antigo/` (fora do Git, via .git/info/exclude).
+
+**Item 6c-3 (wavetables junto no .synth) — feito e aprovado. Item 6c completo.**
 - Exportar presets leva as importadas que eles usam: arquivo versão 2 =
   { app, versao, presets, wavetables: [{ nome, tamanho, amostras (Float32 em base64) }] }.
   Uma tabela de 8 frames ≈ 90 KB no arquivo (64 frames ≈ 700 KB). Sem indentação no JSON.
