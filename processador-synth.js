@@ -85,8 +85,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         fine: 'fineOsc' + letra,
       },
       tabelaNova: null, // wavetable esperando para entrar (troca sem estalo)
-      oitava: 0, // afinação: oitavas (-3 a +3) e semitons (-12 a +12); o Fine é parâmetro
-      semi: 0,
       ajustes: {
         tabela: null, // wavetable recebida da página
         posicoesWT: null,
@@ -97,7 +95,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         nivel: 1,
         ganho: 1, // 0 durante a troca de wavetable
         rota: 'f1',
-        transposicao: 0, // afinação total em semitons (Oct × 12 + Semi + Fine / 100)
+        oitava: 0, // afinação: oitavas (-3 a +3), semitons (-12 a +12), centésimos (-100 a +100)
+        semi: 0,
+        fine: 0,
       },
     }));
     this.comum = { oscs: this.oscs.map((o) => o.ajustes) }; // dados do bloco, compartilhados por todas as vozes
@@ -195,16 +195,15 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   definirOpcao(nome, valor) {
     // Opções dos osciladores: A sem letra (unison, oscLigado, rotaOsc),
     // B e C com a letra (unisonB, oscBLigado, rotaOscB...)
-    const osc = (letra) => this.oscs[{ '': 0, B: 1, C: 2 }[letra]];
-    const ajustesOsc = (letra) => osc(letra).ajustes;
+    const ajustesOsc = (letra) => this.oscs[{ '': 0, B: 1, C: 2 }[letra]].ajustes;
     let achado = /^oitavaOsc([BC]?)$/.exec(nome);
     if (achado) {
-      osc(achado[1]).oitava = Math.min(3, Math.max(-3, Math.round(valor)));
+      ajustesOsc(achado[1]).oitava = Math.min(3, Math.max(-3, Math.round(valor)));
       return;
     }
     achado = /^semiOsc([BC]?)$/.exec(nome);
     if (achado) {
-      osc(achado[1]).semi = Math.min(12, Math.max(-12, Math.round(valor)));
+      ajustesOsc(achado[1]).semi = Math.min(12, Math.max(-12, Math.round(valor)));
       return;
     }
     achado = /^unison([BC]?)$/.exec(nome);
@@ -411,8 +410,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
     this.coef2.calcular(parametros.cutoff2, parametros.resonancia2, tamanhoBloco);
     const comum = this.comum;
-    for (const { params, ajustes, oitava, semi } of this.oscs) {
-      ajustes.transposicao = oitava * 12 + semi + parametros[params.fine][0] / 100;
+    for (const { params, ajustes } of this.oscs) {
+      ajustes.fine = parametros[params.fine][0];
       ajustes.posicoesWT = parametros[params.wtPos];
       ajustes.detune = parametros[params.detune][0];
       ajustes.width = parametros[params.width][0];

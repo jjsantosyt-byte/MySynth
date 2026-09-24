@@ -297,6 +297,16 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
+**Modulação da afinação (Oct, Semi, Fine) — feito, em teste:**
+- 9 destinos novos no fim de `DESTINOS_MOD`: oitavaOsc, semiOsc, fineOsc (+ B, C); nomes na
+  lista "Oct A", "Semi B", "Fine C"... `DESTINOS_OSC` ganhou oitava/semi/fine.
+- Faixa como nos knobs (100% = faixa toda: Oct 6 oitavas, Semi 24 semitons, Fine 200 cents).
+  Oct e Semi em DEGRAUS (arredondados; decidido: opção A, estilo Serum); Fine contínuo.
+  Motor: `OsciladorVoz.afinacao()` por pedaço; sem modulação = conta de antes (idêntico).
+- Seletor ‹ N › aceita `destino`: linha colorida embaixo + número ao vivo na cor da fonte.
+- Medido: Semi com LFO quadrado ±7 pula direto 659 ↔ 294 Hz (nada parado em 440); Fine com
+  LFO ±50 = 427,5 a 452,9 Hz; Oct com ENV 2 começa uma oitava acima e volta; presets idênticos.
+
 **Aviso do limitador — feito, em teste:**
 - Recado na tela ("Limitador agindo: ... abaixado ~X dB. Abaixe o Nível dos osciladores ou o
   Volume.") quando o som passa do limiar (-3 dB); no máximo um aviso a cada 6 s; some em 4 s.
@@ -307,7 +317,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   0,1 s (> 1 s). Proposto trocar por um limitador próprio no motor; decidido manter o do
   navegador por enquanto (ideia guardada).
 
-**Item 6d-3 (afinação por oscilador) — feito, em teste:**
+**Item 6d-3 (afinação por oscilador) — feito e aprovado. Item 6d (3 osciladores) completo.**
 - Oct (-3 a +3) e Semi (-12 a +12) são opções (`oitavaOsc`, `semiOsc`, + B/C); Fine é parâmetro
   suave em centésimos (`fineOsc`, + B/C, -100 a +100). Motor: `ajustes.transposicao` =
   Oct×12 + Semi + Fine/100 (semitons), aplicada na frequência de cada oscilador.

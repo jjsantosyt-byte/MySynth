@@ -91,8 +91,24 @@ export class OsciladorVoz {
   }
 
   // Calcula um pedaço (amostras "inicio" até "fim") e soma em somaE/somaD.
-  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho, transposicao }
-  //   transposicao = afinação do oscilador em semitons (Oct × 12 + Semi + Fine / 100)
+  // Afinação deste pedaço, em semitons: Oct × 12 + Semi + Fine / 100, com a modulação.
+  // A modulação anda na faixa de cada controle (como nos knobs): 100% = a faixa toda
+  // (Oct: 6 oitavas, Semi: 24 semitons, Fine: 200 centésimos).
+  // Oct e Semi andam em DEGRAUS (arredondados: saltos de nota inteira, bom para arpejos
+  // e trills); Fine é contínuo (vibrato). A onda continua de onde estava: sem estalo.
+  afinacao(ajustes, mod) {
+    const { oitava, semi, fine } = ajustes;
+    const mOitava = mod[this.destinos.oitava];
+    const mSemi = mod[this.destinos.semi];
+    const mFine = mod[this.destinos.fine];
+    if (mOitava === 0 && mSemi === 0 && mFine === 0) return oitava * 12 + semi + fine / 100;
+    const o = Math.min(3, Math.max(-3, Math.round(oitava + mOitava * 6)));
+    const s = Math.min(12, Math.max(-12, Math.round(semi + mSemi * 24)));
+    const f = Math.min(100, Math.max(-100, fine + mFine * 200));
+    return o * 12 + s + f / 100;
+  }
+
+  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho, oitava, semi, fine }
   //   ganho = 1 normalmente; 0 enquanto a wavetable deste oscilador está sendo trocada
   //   (o som abaixa suavemente, troca no silêncio e volta: sem estalo).
   // mod / modAnterior: modulação da voz (fim deste pedaço / fim do pedaço anterior)
@@ -117,7 +133,7 @@ export class OsciladorVoz {
     }
 
     // Cópias de unison com Detune/Width modulados, na altura da nota + afinação do oscilador
-    const transposicao = ajustes.transposicao;
+    const transposicao = this.afinacao(ajustes, mod);
     this.ajustarCopias(
       transposicao === 0 ? frequencia : frequencia * Math.pow(2, transposicao / 12),
       unison,

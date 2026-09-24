@@ -13,7 +13,11 @@ const PIXELS_POR_PASSO = 16;
 // "pixelsPorPasso": quanto arrastar para andar 1 (menor = mais rápido; ex.: Fine, -100 a 100).
 // "formatar": como mostrar o número (ex.: "+7" em vez de "7").
 // Toque duplo no número volta ao valor inicial.
+// "destino" (opcional): nome do controle de som, para receber ligações de modulação.
+//   Ligado: linha colorida embaixo; com nota tocando, o número mostra o valor modulado
+//   (na cor da fonte). A modulação anda na faixa toda: 100% = de min a max.
 export function criarSeletor({
+  destino,
   rotulo,
   min,
   max,
@@ -38,8 +42,11 @@ export function criarSeletor({
 
   const [botaoMenos, botaoMais] = elemento.querySelectorAll('.seletor-botao');
   const numero = elemento.querySelector('.seletor-numero');
+  const controle = elemento.querySelector('.seletor-controle');
   let valor = padrao;
   let habilitado = true;
+  let aoVivo = null; // valor com a modulação de agora (ou null)
+  if (destino) elemento.dataset.destino = destino;
 
   function mudar(novo) {
     if (!habilitado) return;
@@ -51,7 +58,7 @@ export function criarSeletor({
   }
 
   function mostrar() {
-    numero.textContent = formatar(valor);
+    numero.textContent = formatar(aoVivo ?? valor);
     numero.setAttribute('aria-valuenow', valor);
     botaoMenos.disabled = !habilitado || valor <= min;
     botaoMais.disabled = !habilitado || valor >= max;
@@ -102,6 +109,20 @@ export function criarSeletor({
   elemento.sincronizar = () => {
     if (!ler) return;
     valor = Math.min(max, Math.max(min, Math.round(ler())));
+    mostrar();
+  };
+
+  // Modulação (chamado pela tela de modulação, ~30 vezes por segundo com nota tocando):
+  // faixas = ligações [{ cor, ... }]; deslocamento = quanto está somando agora (0 a 1) ou null.
+  elemento.mostrarModulacao = (faixas, deslocamento) => {
+    const cor = faixas.length > 0 ? faixas[0].cor : '';
+    controle.style.boxShadow = cor ? `inset 0 -2px 0 ${cor}` : '';
+    aoVivo =
+      cor && deslocamento !== null
+        ? Math.min(max, Math.max(min, Math.round(valor + deslocamento * (max - min))))
+        : null;
+    if (aoVivo === valor) aoVivo = null;
+    numero.style.color = aoVivo !== null ? cor : '';
     mostrar();
   };
 

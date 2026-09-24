@@ -722,6 +722,7 @@ function montarOscilador(osc) {
   const comSinal = (v) => (v > 0 ? '+' + v : String(v));
   peca('afinacao').append(
     criarSeletor({
+      destino: nomes.oitava,
       rotulo: 'Oct',
       min: -3,
       max: 3,
@@ -732,6 +733,7 @@ function montarOscilador(osc) {
       ler: () => estado.opcoes[nomes.oitava],
     }),
     criarSeletor({
+      destino: nomes.semi,
       rotulo: 'Semi',
       min: -12,
       max: 12,
@@ -742,6 +744,7 @@ function montarOscilador(osc) {
       ler: () => estado.opcoes[nomes.semi],
     }),
     criarSeletor({
+      destino: nomes.fine,
       rotulo: 'Fine',
       min: -100,
       max: 100,
