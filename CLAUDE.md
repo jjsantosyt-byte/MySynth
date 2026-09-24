@@ -301,12 +301,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Exportar um preset só — feito, em teste:**
+**Exportar um preset só — feito e aprovado:**
 - Lista de presets: botão ⤓ em cada preset (inclusive os de fábrica) → baixa "<Nome>.synth"
   só com ele (+ wavetables importadas que ele usa). O botão do rodapé virou "Exportar todos
   os meus" (arquivo único `mysynth-presets.synth`). `baixarSynth()` em interface/presets.js.
 
-**Osciladores: Pan, Blend, Phase, Rand + página "Mais" — feito, em teste:**
+**Osciladores: Pan, Blend, Phase, Rand + página "Mais" — feito e aprovado:**
 - Pan (`panOsc`, -1 a 1, parâmetro suave) e Blend (`blendOsc`, 0 a 1, padrão 1 = todas as
   cópias iguais) + B/C; ambos destinos de modulação ("Pan A", "Blend B"...; índices 26–31).
   Phase (`faseOsc`, 0 a 1 = 0°–360°) e Rand (`randOsc`, padrão 1) + B/C são opções (valem no
@@ -321,7 +321,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Blend 50% = cópias de fora -6 dB, 25% = -12 dB, 0% = somem, volume total igual;
   Rand 0% = notas idênticas com sorteios diferentes; Phase 90° = onda adiantada 1/4 de ciclo.
 
-**Presets em pastas (.synth) — feito, em teste:**
+**Presets em pastas (.synth) — feito e aprovado:**
 - `presets-fabrica.js` saiu; os 10 presets de fábrica viraram arquivos em `presets/fabrica/`
   (um .synth por preset, mesmo formato do Exportar; conferidos idênticos aos antigos).
 - `presets/usuario/`: .synth seus levados para o projeto (vão junto no app publicado).
@@ -331,7 +331,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   porque um .synth pode trazer wavetables importadas). Arquivo que falhar = recado na tela;
   sem a lista, o app funciona só com o Init.
 
-**Consertos pequenos (24/09/2026) — feito, em teste:**
+**Consertos pequenos (24/09/2026) — feito e aprovado:**
 - Celular em pé: a barra de cima volta a ter 2 linhas ([presets · Ligar som] / [oitava ·
   volume]). Causa: presets e volume com largura base 0 → tudo tentava caber numa linha e o
   volume saía da tela. Agora presets = `calc(100% - 110px)`, volume = 120 px de base;

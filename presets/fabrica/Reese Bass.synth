@@ -1,17 +1,1 @@
-{
-  "app": "MySynth",
-  "versao": 2,
-  "presets": [
-    {
-      "nome": "Reese Bass",
-      "categoria": "Baixo",
-      "som": {
-        "parametros": { "wtPos": 0.6666666666666666, "detune": 0.08, "width": 0.4, "cutoff": 600, "resonancia": 0.15, "soltura": 0.15 },
-        "opcoes": { "filtroLigado": true, "filtroTipo": "lp24", "modo": "mono", "legato": true, "unison": 3, "glide": 0.06 },
-        "fontes": { "lfo2": { "forma": "triangulo", "rate": 0.15, "modo": "livre" } },
-        "ligacoes": [{ "fonte": "lfo2", "destino": "cutoff", "quantidade": 0.1 }],
-        "efeitos": { "distorcao": { "ligado": true, "tipo": "suave", "drive": 0.3, "mix": 1 } }
-      }
-    }
-  ]
-}
+{"app":"MySynth","versao":2,"presets":[{"nome":"Reese bass ","categoria":"Baixo","som":{"parametros":{"wtPos":0.6666666666666666,"detune":0.08,"width":0.4,"nivelOsc":1,"fineOsc":0,"panOsc":0,"blendOsc":1,"wtPosB":0,"detuneB":0.25,"widthB":1,"nivelOscB":1,"fineOscB":0,"panOscB":0,"blendOscB":1,"wtPosC":0,"detuneC":0.25,"widthC":1,"nivelOscC":1,"fineOscC":0,"panOscC":0,"blendOscC":1,"ruido":0.5,"cutoff":600,"resonancia":0.15,"cutoff2":2000,"resonancia2":0.1,"ataque":0.005,"decaimento":0.5,"sustentacao":1,"soltura":0.15},"opcoes":{"wavetable":"basica","oscLigado":true,"filtroLigado":true,"filtroTipo":"lp24","filtro2Ligado":false,"filtro2Tipo":"lp24","rotaOsc":"f1","rotaRuido":"f1","modo":"mono","vozes":8,"legato":true,"unison":8,"glide":0.06,"glideSempre":false,"ruidoLigado":false,"ruidoTipo":"white","oitavaOsc":-1,"semiOsc":0,"faseOsc":0,"randOsc":1,"wavetableB":"basica","oscBLigado":false,"unisonB":1,"rotaOscB":"f1","oitavaOscB":0,"semiOscB":0,"faseOscB":0,"randOscB":1,"wavetableC":"basica","oscCLigado":false,"unisonC":1,"rotaOscC":"f1","oitavaOscC":0,"semiOscC":0,"faseOscC":0,"randOscC":1},"fontes":{"lfo1":{"forma":"seno","rate":2,"modo":"retrig"},"lfo2":{"forma":"triangulo","rate":0.29729250380908673,"modo":"retrig"},"env2":{"ataque":0.005,"decaimento":0.3,"sustentacao":0,"soltura":0.2},"env3":{"ataque":0.005,"decaimento":0.3,"sustentacao":0,"soltura":0.2}},"ligacoes":[{"fonte":"lfo2","destino":"cutoff","quantidade":0.05}],"efeitos":{"distorcao":{"ligado":true,"tipo":"suave","drive":0.3,"mix":1},"chorus":{"ligado":false,"rate":0.8,"depth":0.5,"mix":0.5},"delay":{"ligado":false,"tempo":0.3,"feedback":0.4,"mix":0.3,"pingpong":false},"reverb":{"ligado":false,"tamanho":0.5,"brilho":0.6,"mix":0.3}}}}]}
