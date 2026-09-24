@@ -297,6 +297,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
+**Consertos pequenos (24/09/2026) — feito, em teste:**
+- Celular em pé: a barra de cima volta a ter 2 linhas ([presets · Ligar som] / [oitava ·
+  volume]). Causa: presets e volume com largura base 0 → tudo tentava caber numa linha e o
+  volume saía da tela. Agora presets = `calc(100% - 110px)`, volume = 120 px de base;
+  Ligar som e Salvar mais estreitos. Medido: 393 e 360 px sem rolagem lateral.
+- Safari deitado (altura ≤ 360 px): barra de cima, abas e linhas do cartão do oscilador
+  alguns px mais baixas → desenho da onda 22 → 42 px. App instalado (852×393) igual.
+
 **Modulação da afinação (Oct, Semi, Fine) — feito e aprovado:**
 - 9 destinos novos no fim de `DESTINOS_MOD`: oitavaOsc, semiOsc, fineOsc (+ B, C); nomes na
   lista "Oct A", "Semi B", "Fine C"... `DESTINOS_OSC` ganhou oitava/semi/fine.
@@ -353,7 +361,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   idênticos ao A com os mesmos ajustes; troca de wavetable no B sem estalo e o A não baixa.
   Peso 8 notas × 8 cópias: 1 oscilador ≈ 22%, 3 osciladores ≈ 40%.
   852×340 e 852×393 sem rolagem; cada cartão ~213 px de largura.
-- Achado (já existia antes): celular em pé, a barra de volume passa ~30 px da tela (rolagem lateral).
+- Achado (já existia antes): celular em pé, a barra de volume passava ~30 px da tela
+  (rolagem lateral) — corrigido em "Consertos pequenos" (abaixo).
 - Correção (volume diferente a cada nota com A + B): o ponto de início das cópias era sorteado
   separado por oscilador; na mesma altura, as ondas somavam ou se cancelavam conforme a sorte
   (variação medida: 6 dB). Agora a voz faz UM sorteio por nota (`fasesSorteadas`) e os 3

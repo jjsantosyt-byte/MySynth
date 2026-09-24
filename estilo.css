@@ -1094,9 +1094,23 @@ h1 {
 /* ---------- Tela estreita (celular em pé) ---------- */
 
 @media (max-width: 640px) {
-  /* Barra em 2 linhas: [presets, Ligar som] e [oitava, volume] */
+  /* Barra em 2 linhas: [presets, Ligar som] e [oitava, volume].
+     A largura base dos presets (a linha toda menos o botão Ligar som) é o que força a
+     quebra de linha; com base zero, tudo tentava caber numa linha só e o volume
+     era empurrado para fora da tela. */
+  .barra-topo {
+    column-gap: 12px;
+  }
+
   .presets {
-    flex: 1;
+    flex: 1 1 calc(100% - 110px);
+  }
+
+  /* Botões da 1ª linha mais estreitos: sobra espaço para o nome do preset */
+  #botao-ligar,
+  .presets-salvar {
+    padding: 0 10px;
+    font-size: 14px;
   }
 
   .presets-nome {
@@ -1110,6 +1124,7 @@ h1 {
 
   .grupo-volume {
     order: 4;
+    flex: 1 1 120px;
     min-width: 0;
   }
 
@@ -1645,5 +1660,46 @@ h1 {
     padding-bottom: 4px;
     border-radius: 0 0 6px 6px;
     font-size: 10px;
+  }
+}
+
+/* ---------- Celular deitado no Safari (com as barras do navegador: ~340 px de altura) ----------
+   Tudo alguns px mais baixo (barra de cima, abas, linhas do cartão do oscilador), para o
+   desenho da onda ganhar altura. No app instalado (~393 px) nada disto vale. */
+@media (orientation: landscape) and (max-height: 360px) {
+  .barra-topo .botao,
+  .presets-nome {
+    min-height: 28px;
+    height: 28px;
+  }
+
+  .grupo-volume input {
+    height: 24px;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .linha-abas .abas {
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
+
+  .cartao-osc .seletor-wt .seletor-botao,
+  .cartao-osc .seletor-wt-lista {
+    height: 22px;
+  }
+
+  .cartao-osc .cabecalho-cartao .chave,
+  .cartao-osc .linha-wt .chave.rota {
+    min-height: 22px;
+  }
+
+  .cartao-osc .grupo-wtpos input {
+    height: 22px;
+  }
+
+  .linha-afinacao .seletor-numero {
+    height: 20px;
+    line-height: 20px;
   }
 }
