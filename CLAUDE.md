@@ -297,7 +297,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Modulação da afinação (Oct, Semi, Fine) — feito, em teste:**
+**Modulação da afinação (Oct, Semi, Fine) — feito e aprovado:**
 - 9 destinos novos no fim de `DESTINOS_MOD`: oitavaOsc, semiOsc, fineOsc (+ B, C); nomes na
   lista "Oct A", "Semi B", "Fine C"... `DESTINOS_OSC` ganhou oitava/semi/fine.
 - Faixa como nos knobs (100% = faixa toda: Oct 6 oitavas, Semi 24 semitons, Fine 200 cents).
@@ -310,7 +310,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Medido: Semi com LFO quadrado ±7 pula direto 659 ↔ 294 Hz (nada parado em 440); Fine com
   LFO ±50 = 427,5 a 452,9 Hz; Oct com ENV 2 começa uma oitava acima e volta; presets idênticos.
 
-**Aviso do limitador — feito, em teste:**
+**Aviso do limitador — feito e aprovado:**
 - Recado na tela ("Limitador agindo: ... abaixado ~X dB. Abaixe o Nível dos osciladores ou o
   Volume.") quando o som passa do limiar (-3 dB); no máximo um aviso a cada 6 s; some em 4 s.
 - Como mede: um AnalyserNode logo ANTES do limitador (depois do volume geral), lido a cada
@@ -333,7 +333,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Medido: A4 com Oct -1 = 220 Hz; Semi +7 = 659,2 Hz; Fine +50 = 452,9 Hz; presets antigos
   idênticos; 852×340, 852×393 e em pé sem cortes.
 
-**Item 6d-2 (OSC B e C funcionando) — feito e aprovado:**
+**Item 6d-2 (OSC B e C funcionando) — feito e aprovado (com a correção do volume por nota):**
 - Os 3 osciladores são iguais: wavetable (fábrica ou importada), On/Off, Nível, WT Pos, rota
   de filtro, Unison/Detune/Width. B e C começam desligados (presets antigos soam iguais).
 - Nomes: A sem letra (wtPos, detune, width, nivelOsc, wavetable, oscLigado, unison, rotaOsc);
