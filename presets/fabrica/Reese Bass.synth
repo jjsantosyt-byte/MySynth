@@ -1,0 +1,17 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Reese Bass",
+      "categoria": "Baixo",
+      "som": {
+        "parametros": { "wtPos": 0.6666666666666666, "detune": 0.08, "width": 0.4, "cutoff": 600, "resonancia": 0.15, "soltura": 0.15 },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp24", "modo": "mono", "legato": true, "unison": 3, "glide": 0.06 },
+        "fontes": { "lfo2": { "forma": "triangulo", "rate": 0.15, "modo": "livre" } },
+        "ligacoes": [{ "fonte": "lfo2", "destino": "cutoff", "quantidade": 0.1 }],
+        "efeitos": { "distorcao": { "ligado": true, "tipo": "suave", "drive": 0.3, "mix": 1 } }
+      }
+    }
+  ]
+}

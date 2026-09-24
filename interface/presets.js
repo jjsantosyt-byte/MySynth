@@ -3,7 +3,8 @@
 //
 // - Barra: [‹] Nome do preset * [›] [Salvar]  (o * aparece quando o som foi mexido)
 // - Tocar no nome abre a lista, por categoria. Presets seus podem ser apagados (🗑).
-// - Presets de fábrica não podem ser apagados nem substituídos.
+// - Presets que vêm com o app (pastas presets/fabrica e presets/usuario do projeto)
+//   não podem ser apagados nem substituídos.
 // - Os seus presets ficam guardados NESTE aparelho (no navegador / no app instalado).
 //   Exportar/Importar gera um arquivo .synth (texto JSON por dentro) para backup ou
 //   para mandar para alguém. Importar também aceita os .json antigos.
@@ -40,7 +41,8 @@ function gravarGuardados(lista) {
 
 // opcoes:
 //   lugar: onde colocar a barra dos presets
-//   fabrica: lista de presets de fábrica [{ nome, categoria, som }]
+//   fabrica: presets que vêm com o app [{ nome, categoria, som, pasta }]
+//            (arquivos .synth em presets/fabrica e presets/usuario, ver presets-projeto.js)
 //   categorias: ordem das categorias
 //   obterSom(): devolve o som atual (para salvar)
 //   aplicarSom(som): carrega um som
@@ -135,7 +137,8 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
         const linha = criar('div', 'presets-linha');
         const item = criar('button', 'presets-item', preset.nome);
         if (mesmoPreset(preset, atual)) item.classList.add('atual');
-        if (!preset.fabrica) item.appendChild(criar('span', 'presets-meu', 'meu'));
+        // "meu" = salvo no aparelho, ou da pasta presets/usuario do projeto
+        if (!preset.fabrica || preset.pasta === 'usuario') item.appendChild(criar('span', 'presets-meu', 'meu'));
         item.addEventListener('click', () => {
           carregar(preset);
           janelaLista.fechar();
@@ -283,7 +286,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
       return;
     }
     if (fabrica.some((p) => p.nome === nome)) {
-      janelaSalvar.avisar('Esse nome é de um preset de fábrica. Escolha outro.');
+      janelaSalvar.avisar('Esse nome é de um preset que vem com o app. Escolha outro.');
       return;
     }
     const preset = { nome, categoria: campoCategoria.value, som: obterSom() };

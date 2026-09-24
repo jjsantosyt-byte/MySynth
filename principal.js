@@ -30,7 +30,7 @@ import {
   receberWavetables,
 } from './interface/wavetables.js';
 import { mostrarRecado } from './interface/janela.js';
-import { PRESETS_FABRICA, CATEGORIAS } from './presets-fabrica.js';
+import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -528,7 +528,7 @@ const janelaWavetables = criarListaWavetables({
 });
 
 // As importadas guardadas no aparelho entram no catálogo (leva alguns milissegundos).
-carregarWavetablesGuardadas();
+const wavetablesGuardadasProntas = carregarWavetablesGuardadas();
 
 // Monta um cartão de oscilador (liga cada peça do cartão aos controles daquele oscilador).
 function montarOscilador(osc) {
@@ -1423,10 +1423,17 @@ montarTeclado();
 
 // ---------- Presets (barra de cima) ----------
 // Criado por último: tudo que foi feito até aqui (montar a tela) não conta como "mexeu no som".
+// Os presets que vêm com o app são arquivos .synth nas pastas presets/fabrica e presets/usuario.
+// Espera as wavetables guardadas no aparelho entrarem antes (um preset do projeto pode usar uma).
+await wavetablesGuardadasProntas;
+const doProjeto = await carregarPresetsDoProjeto(receberWavetables);
+if (doProjeto.erros.length > 0) {
+  mostrarRecado(`Não consegui carregar alguns presets do app (${doProjeto.erros.join(', ')}).`, 6);
+}
 const presets = criarPresets({
   lugar: document.getElementById('lugar-presets'),
-  fabrica: PRESETS_FABRICA,
-  categorias: CATEGORIAS,
+  fabrica: doProjeto.presets,
+  categorias: doProjeto.categorias,
   obterSom,
   aplicarSom,
   // Wavetables importadas usadas pelos presets vão junto no arquivo .synth

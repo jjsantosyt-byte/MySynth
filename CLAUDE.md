@@ -191,7 +191,10 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `interface/wavetables.js` — lista de wavetables e botão Importar .wav
 - `interface/armazem-wavetables.js` — guarda as wavetables importadas no aparelho (IndexedDB)
 - `importar-wav.js` — lê arquivos .wav e divide em ciclos (frames)
-- `presets-fabrica.js` — presets de fábrica e categorias
+- `presets/` — presets que vêm com o app, como arquivos .synth (formato do Exportar):
+  `presets/fabrica/` (de fábrica), `presets/usuario/` (seus, trazidos para o projeto) e
+  `presets/lista.json` (categorias + ordem dos arquivos; todo .synth novo precisa entrar aqui)
+- `interface/presets-projeto.js` — lê os .synth das pastas ao abrir o app
 - `dsp/efeitos/` — distorcao.js, chorus.js, delay.js, reverb.js
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
@@ -296,6 +299,16 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Presets em pastas (.synth) — feito, em teste:**
+- `presets-fabrica.js` saiu; os 10 presets de fábrica viraram arquivos em `presets/fabrica/`
+  (um .synth por preset, mesmo formato do Exportar; conferidos idênticos aos antigos).
+- `presets/usuario/`: .synth seus levados para o projeto (vão junto no app publicado).
+  Aparecem com a marca "meu", sem lixeira. LEIA-ME.txt explica como colocar.
+- `presets/lista.json`: categorias + nomes dos arquivos de cada pasta (o site não lista pastas).
+- Ao abrir, o app busca tudo em paralelo (espera antes as wavetables guardadas no aparelho,
+  porque um .synth pode trazer wavetables importadas). Arquivo que falhar = recado na tela;
+  sem a lista, o app funciona só com o Init.
 
 **Consertos pequenos (24/09/2026) — feito, em teste:**
 - Celular em pé: a barra de cima volta a ter 2 linhas ([presets · Ligar som] / [oitava ·

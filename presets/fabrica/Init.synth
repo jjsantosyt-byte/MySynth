@@ -1,0 +1,11 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Init",
+      "categoria": "Início",
+      "som": {}
+    }
+  ]
+}
