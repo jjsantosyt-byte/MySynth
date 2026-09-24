@@ -6,7 +6,7 @@
 // quantidade +50% com a fonte no máximo = knob meio giro para cima.
 
 export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3'];
-export const DESTINOS_MOD = ['wtPos', 'detune', 'width', 'cutoff', 'resonancia', 'ruido'];
+export const DESTINOS_MOD = ['wtPos', 'detune', 'width', 'cutoff', 'resonancia', 'ruido', 'nivelOsc'];
 
 // Índices para acesso rápido
 export const D_WTPOS = 0;
@@ -15,6 +15,7 @@ export const D_WIDTH = 2;
 export const D_CUTOFF = 3;
 export const D_RESO = 4;
 export const D_RUIDO = 5;
+export const D_NIVEL_OSC = 6;
 
 export class MatrizModulacao {
   constructor(taxaAmostragem, tamanhoBloco = 128) {

@@ -23,6 +23,7 @@ export const NOMES_DESTINOS = {
   cutoff: 'Cutoff',
   resonancia: 'Reso',
   ruido: 'Ruído',
+  nivelOsc: 'Nív. OSC',
 };
 
 const QUANTIDADE_INICIAL = 0.5; // +50% ao criar uma ligação

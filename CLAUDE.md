@@ -76,8 +76,6 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Oscilador: knobs Blend (volume das cópias de fora vs. centro), Phase (ponto de início
   da onda) e Rand (quanto esse início é sorteado). Hoje: Blend fixo (todas iguais) e
   fase sorteada a cada nota.
-- OSC A: botão liga/desliga e Nível próprio (hoje ele sempre toca; com isso daria para
-  fazer sons só de ruído, ex.: risers e percussão).
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
 
@@ -253,6 +251,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Somado ao oscilador ANTES do filtro e do ENV 1. Nível = parâmetro `ruido` (0–1), também
   destino de modulação ('ruido'); opções `ruidoLigado` e `ruidoTipo`. Rampa suave ao ligar.
 - Aba OSC com 4 colunas: OSC A (1,35) · OSC B · OSC C · Ruído (0,8).
+- OSC A: botão On/Off (opção `oscLigado`) no cabeçalho e knob Nível (parâmetro `nivelOsc`,
+  destino de modulação 'nivelOsc' = tremolo). Rampa suave; desligado não é calculado
+  (8×8: 21% → 15%). Desligado + Ruído ligado = sons só de ruído.
 - Presets exportados como `mysynth-presets.synth` (JSON por dentro, tipo octet-stream para o
   navegador não trocar a extensão). Importar aceita qualquer arquivo e confere o conteúdo
   (.synth e .json antigos).

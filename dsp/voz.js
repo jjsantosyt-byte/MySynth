@@ -15,7 +15,17 @@ import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { escolherNiveis, lerAmostra } from './oscilador.js';
 import { EstadoLFO } from './lfo.js';
-import { DESTINOS_MOD, FONTES_MOD, D_WTPOS, D_DETUNE, D_WIDTH, D_CUTOFF, D_RESO, D_RUIDO } from './modulacao.js';
+import {
+  DESTINOS_MOD,
+  FONTES_MOD,
+  D_WTPOS,
+  D_DETUNE,
+  D_WIDTH,
+  D_CUTOFF,
+  D_RESO,
+  D_RUIDO,
+  D_NIVEL_OSC,
+} from './modulacao.js';
 import { Ruido } from './ruido.js';
 
 export const MAX_UNISON = 16;
@@ -43,6 +53,8 @@ export class Voz {
     this.envelope = new Envelope(taxaAmostragem); // ENV 1: volume
     this.ruido = new Ruido(numero);
     this.nivelRuido = 0;
+    this.nivelOsc = 1; // nível atual do oscilador (liga/desliga e knob Nível, suavizado)
+    this.nivelOscDireto = true;
     this.filtroE = new Filtro(taxaAmostragem); // lado esquerdo
     this.filtroD = new Filtro(taxaAmostragem); // lado direito
 
@@ -115,6 +127,7 @@ export class Voz {
       this.filtroD.reiniciar();
       for (let c = 0; c < MAX_UNISON; c++) this.fases[c] = Math.random();
       this.volumesDireto = true;
+      this.nivelOscDireto = true;
       this.modNova = true;
       this.filtroModNovo = true;
     }
@@ -212,7 +225,7 @@ export class Voz {
     if (!this.envelope.ativo) return;
 
     const { tabela, posicoesWT, cortes, resonancias, coef, unison, detune, width, matriz } = comum;
-    const { ruidoLigado, ruidoNivel, ruidoTipo } = comum;
+    const { ruidoLigado, ruidoNivel, ruidoTipo, oscLigado, oscNivel } = comum;
 
     // Volume de cada cópia: 1/√N, para o som não ficar N vezes mais alto.
     const volumeCopia = 1 / Math.sqrt(unison);
@@ -291,8 +304,16 @@ export class Voz {
         }
       }
 
-      // 4) Oscilador: uma cópia inteira de cada vez
-      for (let c = 0; c < qtdCopias; c++) {
+      // 4) Oscilador: uma cópia inteira de cada vez.
+      // Com o OSC desligado (e já silencioso), nem calcula: economiza processamento.
+      const alvoOsc = oscLigado ? limitar01(oscNivel + this.mod[D_NIVEL_OSC]) : 0;
+      if (this.nivelOscDireto) {
+        this.nivelOsc = alvoOsc; // nota começando do silêncio: já no nível certo
+        this.nivelOscDireto = false;
+      }
+      const oscCalado = alvoOsc === 0 && this.nivelOsc < 1e-5;
+      if (oscCalado) this.nivelOsc = 0;
+      for (let c = 0; !oscCalado && c < qtdCopias; c++) {
         let fase = this.fases[c];
         const passo = this.passos[c];
         const ganhoE = this.ganhosE[c];
@@ -355,6 +376,16 @@ export class Voz {
 
         this.fases[c] = fase;
         this.volumes[c] = volume;
+      }
+
+      // Nível do oscilador (liga/desliga e knob Nível), em rampa suave
+      if (!oscCalado && (alvoOsc !== 1 || this.nivelOsc !== 1)) {
+        for (let i = inicio; i < fim; i++) {
+          this.nivelOsc += (alvoOsc - this.nivelOsc) * s;
+          somaE[i] *= this.nivelOsc;
+          somaD[i] *= this.nivelOsc;
+        }
+        if (Math.abs(this.nivelOsc - alvoOsc) < 1e-5) this.nivelOsc = alvoOsc;
       }
 
       // 4b) Ruído: somado ao oscilador, antes do filtro e do envelope.

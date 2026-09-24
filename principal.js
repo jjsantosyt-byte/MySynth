@@ -56,6 +56,7 @@ const estado = {
     wtPos: 0, // posição na wavetable (0 a 1)
     detune: 0.25, // unison: quanto as cópias desafinam (0 a 1)
     width: 1, // unison: abertura no estéreo (0 a 1)
+    nivelOsc: 1, // nível do oscilador A (0 a 1)
     ruido: 0.5, // nível do ruído (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
@@ -67,6 +68,7 @@ const estado = {
   // Opções liga/desliga e escolhas.
   opcoes: {
     wavetable: 'basica', // qual wavetable o OSC A usa
+    oscLigado: true, // OSC A ligado
     filtroLigado: false,
     filtroTipo: 'lp24',
     modo: 'poly', // 'mono' ou 'poly'
@@ -555,8 +557,32 @@ unisonOsc.append(
     formatar: formatarPorcentagem,
     aoMudar: (v) => definirParametro('width', v),
     ler: () => estado.parametros.width,
+  }),
+  criarKnob({
+    rotulo: 'Nível',
+    destino: 'nivelOsc', // aceita modulação (ex.: LFO = tremolo)
+    escala: escalaLinear(0, 1),
+    padrao: estado.parametros.nivelOsc,
+    formatar: formatarPorcentagem,
+    aoMudar: (v) => definirParametro('nivelOsc', v),
+    ler: () => estado.parametros.nivelOsc,
   })
 );
+
+// Liga/desliga do OSC A
+const botaoOsc = document.getElementById('osc-ligado');
+function mostrarOsc() {
+  const ligado = estado.opcoes.oscLigado;
+  botaoOsc.setAttribute('aria-pressed', ligado);
+  botaoOsc.textContent = ligado ? 'On' : 'Off';
+  botaoOsc.setAttribute('aria-label', ligado ? 'Oscilador A ligado' : 'Oscilador A desligado');
+}
+botaoOsc.addEventListener('click', () => {
+  definirOpcao('oscLigado', !estado.opcoes.oscLigado);
+  mostrarOsc();
+});
+mostrarOsc();
+sincronizadores.push(mostrarOsc);
 
 // ---------- Opções de voz (Mono/Poly, vozes, Legato) ----------
 

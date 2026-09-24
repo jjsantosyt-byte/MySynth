@@ -38,6 +38,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       // Unison: Detune e Width de 0 a 1
       { name: 'detune', defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       { name: 'width', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      // Oscilador: nível de 0 a 1
+      { name: 'nivelOsc', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Ruído: nível de 0 a 1
       { name: 'ruido', defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Filtro
@@ -75,6 +77,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.glideSempre = false;
     this.ultimaNota = null;
 
+    // Oscilador ligado? (o nível é o parâmetro "nivelOsc")
+    this.oscLigado = true;
     // Ruído (o nível é o parâmetro "ruido")
     this.ruidoLigado = false;
     this.ruidoTipo = 'white';
@@ -172,6 +176,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'ruidoLigado':
         this.ruidoLigado = valor;
+        break;
+      case 'oscLigado':
+        this.oscLigado = valor;
         break;
       case 'ruidoTipo':
         this.ruidoTipo = valor;
@@ -341,6 +348,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     comum.unison = this.unison;
     comum.detune = parametros.detune[0];
     comum.width = parametros.width[0];
+    comum.oscLigado = this.oscLigado;
+    comum.oscNivel = parametros.nivelOsc[0];
     comum.ruidoLigado = this.ruidoLigado;
     comum.ruidoNivel = parametros.ruido[0];
     comum.ruidoTipo = this.ruidoTipo;
