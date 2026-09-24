@@ -17,13 +17,21 @@ export const FONTES = [
 ];
 
 export const NOMES_DESTINOS = {
-  wtPos: 'WT Pos',
-  detune: 'Detune',
-  width: 'Width',
+  wtPos: 'WT Pos A',
+  detune: 'Detune A',
+  width: 'Width A',
+  nivelOsc: 'Nível A',
+  wtPosB: 'WT Pos B',
+  detuneB: 'Detune B',
+  widthB: 'Width B',
+  nivelOscB: 'Nível B',
+  wtPosC: 'WT Pos C',
+  detuneC: 'Detune C',
+  widthC: 'Width C',
+  nivelOscC: 'Nível C',
   cutoff: 'Cutoff 1',
   resonancia: 'Reso 1',
   ruido: 'Ruído',
-  nivelOsc: 'Nív. OSC',
   cutoff2: 'Cutoff 2',
   resonancia2: 'Reso 2',
 };

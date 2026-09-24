@@ -1,11 +1,11 @@
 // dsp/voz.js
 // Uma "voz" = uma nota tocando, completa:
-//   oscilador (cópias de unison, ver oscilador-voz.js) ─┐
-//                                                        ├─ cada um pela sua rota de filtro ─→ ENV 1 (volume)
-//   ruído ───────────────────────────────────────────────┘
+//   OSC A, B, C (cópias de unison, ver oscilador-voz.js) ─┐
+//                                                          ├─ cada um pela sua rota de filtro ─→ ENV 1 (volume)
+//   ruído ─────────────────────────────────────────────────┘
 // e as fontes de modulação da própria nota: LFO 1 e 2 (modo Retrig), ENV 2 e 3.
 //
-// Rotas de filtro (escolhidas para o oscilador e para o ruído, separadamente):
+// Rotas de filtro (escolhidas para cada oscilador e para o ruído, separadamente):
 //   f1 = Filtro 1 · f2 = Filtro 2 · f12 = Filtro 1 e depois Filtro 2 · f21 = o contrário
 // Cada rota tem os seus próprios filtros (a "memória" de um não mistura com a de outro).
 //
@@ -17,19 +17,7 @@ import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { OsciladorVoz } from './oscilador-voz.js';
 import { EstadoLFO } from './lfo.js';
-import {
-  DESTINOS_MOD,
-  FONTES_MOD,
-  D_WTPOS,
-  D_DETUNE,
-  D_WIDTH,
-  D_CUTOFF,
-  D_RESO,
-  D_RUIDO,
-  D_NIVEL_OSC,
-  D_CUTOFF2,
-  D_RESO2,
-} from './modulacao.js';
+import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
 import { Ruido } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
@@ -52,27 +40,23 @@ export class Voz {
     this.envelope = new Envelope(taxaAmostragem); // ENV 1: volume
     this.ruido = new Ruido(numero);
     this.nivelRuido = 0;
-    // Oscilador A (com os seus destinos de modulação)
-    this.oscA = new OsciladorVoz(taxaAmostragem, TAMANHO_BLOCO, {
-      wtPos: D_WTPOS,
-      detune: D_DETUNE,
-      width: D_WIDTH,
-      nivel: D_NIVEL_OSC,
-    });
-    // Cadeias de filtro, uma por rota. Cada etapa: qual filtro (1 ou 2) e um par
-    // [esquerdo, direito] com a memória própria daquela etapa.
+    // Osciladores A, B e C (cada um com os seus destinos de modulação)
+    this.oscs = DESTINOS_OSC.map((destinos) => new OsciladorVoz(taxaAmostragem, TAMANHO_BLOCO, destinos));
+    this.tocou = [false, false, false]; // cada oscilador fez som neste bloco?
+
+    // Rotas de filtro. Cada uma tem a sua cadeia de filtros (cada etapa: qual filtro,
+    // 1 ou 2, e um par [esquerdo, direito] com a memória própria daquela etapa) e uma
+    // "caixa" onde as fontes daquela rota somam o seu som antes de passar pelos filtros.
     const etapa = (numero) => ({ numero, par: [new Filtro(taxaAmostragem), new Filtro(taxaAmostragem)] });
-    this.cadeias = {
-      f1: [etapa(1)],
-      f2: [etapa(2)],
-      f12: [etapa(1), etapa(2)],
-      f21: [etapa(2), etapa(1)],
-    };
-    // Grupos deste bloco (quem passa por qual cadeia); fixos para não criar lixo na memória
-    this.grupos = [
-      { cadeia: null, osc: false, ruido: false },
-      { cadeia: null, osc: false, ruido: false },
-    ];
+    const rota = (...numeros) => ({
+      cadeia: numeros.map(etapa),
+      somaE: new Float64Array(TAMANHO_BLOCO),
+      somaD: new Float64Array(TAMANHO_BLOCO),
+      usada: false,
+    });
+    this.rotas = { f1: rota(1), f2: rota(2), f12: rota(1, 2), f21: rota(2, 1) };
+    this.listaRotas = Object.values(this.rotas);
+    this.usadas = []; // rotas com som neste bloco (reaproveitada, sem criar lixo na memória)
 
     // Fontes de modulação desta nota
     this.lfos = [new EstadoLFO(), new EstadoLFO()];
@@ -102,10 +86,8 @@ export class Voz {
     this.idade = 0; // ordem em que a nota começou (para saber qual é a mais antiga)
     this.pendente = null; // nota que vai tocar assim que esta voz terminar de sumir
 
-    // Rascunho de um bloco de áudio (128 amostras): ruído (mono), separado do oscilador
+    // Rascunho de um bloco de áudio (128 amostras): ruído (mono), separado dos osciladores
     this.ruidoBloco = new Float64Array(TAMANHO_BLOCO);
-    // Ajustes do oscilador A neste bloco (reaproveitado, sem criar lixo na memória)
-    this.ajustesA = { tabela: null, posicoesWT: null, unison: 1, detune: 0, width: 0, ligado: true, nivel: 1 };
 
     this.suavizar = 1 - Math.exp(-1 / (0.005 * taxaAmostragem));
     // Modulação suavizada em ~2 ms: saltos bruscos (LFO quadrado, aleatório,
@@ -128,10 +110,10 @@ export class Voz {
   iniciar(nota, idade, recomecar = true, ajustesLfo = null, glide = null) {
     if (!this.envelope.ativo) {
       // Vindo do silêncio: filtros limpos e cada cópia num ponto sorteado da onda.
-      for (const cadeia of Object.values(this.cadeias)) {
+      for (const { cadeia } of this.listaRotas) {
         for (const { par } of cadeia) for (const filtro of par) filtro.reiniciar();
       }
-      this.oscA.reiniciar();
+      for (const osc of this.oscs) osc.reiniciar();
       this.modNova = true;
       for (const f of this.filtrosMod) f.novo = true;
     }
@@ -175,7 +157,7 @@ export class Voz {
 
   // Liga/desliga e tipo de um filtro (1 ou 2): vale para todas as etapas desse filtro.
   definirFiltro(numero, nome, valor) {
-    for (const cadeia of Object.values(this.cadeias)) {
+    for (const { cadeia } of this.listaRotas) {
       for (const etapa of cadeia) {
         if (etapa.numero !== numero) continue;
         for (const filtro of etapa.par) {
@@ -223,6 +205,18 @@ export class Voz {
     }
   }
 
+  // Caixa de uma rota neste bloco (na primeira vez que é usada: zera e entra na lista).
+  caixa(nome, tamanhoBloco) {
+    const rota = this.rotas[nome] || this.rotas.f1;
+    if (!rota.usada) {
+      rota.somaE.fill(0, 0, tamanhoBloco);
+      rota.somaD.fill(0, 0, tamanhoBloco);
+      rota.usada = true;
+      this.usadas.push(rota);
+    }
+    return rota;
+  }
+
   // Calcula o som desta voz e SOMA nas saídas (esquerda e direita).
   processar(saidaE, saidaD, tamanhoBloco, comum) {
     // Terminou de sumir e tem nota esperando? Começa ela agora.
@@ -232,25 +226,17 @@ export class Voz {
     }
     if (!this.envelope.ativo) return;
 
-    const { tabela, posicoesWT, cortes, resonancias, cortes2, resonancias2, coef, coef2 } = comum;
-    const { unison, detune, width, matriz, rotaOsc, rotaRuido } = comum;
-    const { ruidoLigado, ruidoNivel, ruidoTipo, oscLigado, oscNivel } = comum;
-
-    // Ajustes do oscilador A neste bloco
-    const ajustesA = this.ajustesA;
-    ajustesA.tabela = tabela;
-    ajustesA.posicoesWT = posicoesWT;
-    ajustesA.unison = unison;
-    ajustesA.detune = detune;
-    ajustesA.width = width;
-    ajustesA.ligado = oscLigado;
-    ajustesA.nivel = oscNivel;
-    const oscA = this.oscA;
-    oscA.limpar(tamanhoBloco);
+    const { cortes, resonancias, cortes2, resonancias2, coef, coef2 } = comum;
+    const { matriz, rotaRuido, ruidoLigado, ruidoNivel, ruidoTipo } = comum;
+    // Ajustes de cada oscilador neste bloco (ver OsciladorVoz.processarPedaco)
+    const ajustesOscs = comum.oscs;
+    const oscs = this.oscs;
+    for (let k = 0; k < oscs.length; k++) {
+      oscs[k].limpar(tamanhoBloco);
+      this.tocou[k] = false;
+    }
 
     const s = this.suavizar;
-    const somaE = oscA.somaE;
-    const somaD = oscA.somaD;
     const ruidoBloco = this.ruidoBloco;
     ruidoBloco.fill(0, 0, tamanhoBloco);
     let temRuido = false;
@@ -285,8 +271,12 @@ export class Voz {
         }
       }
 
-      // 2) Oscilador A (unison, WT Pos, nível; tudo com modulação)
-      oscA.processarPedaco(inicio, fim, this.frequencia, ajustesA, this.mod, this.modAnterior);
+      // 2) Osciladores A, B, C (unison, WT Pos, nível; tudo com modulação).
+      // Desligado e já em silêncio: não calcula nada.
+      for (let k = 0; k < oscs.length; k++) {
+        oscs[k].processarPedaco(inicio, fim, this.frequencia, ajustesOscs[k], this.mod, this.modAnterior);
+        if (!oscs[k].calado) this.tocou[k] = true;
+      }
 
       // 3) Ruído (mono), guardado separado do oscilador: pode ir para outro filtro.
       // O nível anda suavemente (ligar, desligar e modular não estalam).
@@ -308,38 +298,43 @@ export class Voz {
       this.modAnterior.set(this.mod);
     }
 
-    // --- Grupos: quem passa por qual cadeia de filtro neste bloco ---
-    // (oscilador e ruído na mesma rota = um grupo só; em rotas diferentes = dois)
-    const grupos = this.grupos;
-    grupos[0].cadeia = this.cadeias[rotaOsc] || this.cadeias.f1;
-    grupos[0].osc = true;
-    grupos[0].ruido = temRuido && rotaRuido === rotaOsc;
-    let qtdGrupos = 1;
-    if (temRuido && rotaRuido !== rotaOsc) {
-      grupos[1].cadeia = this.cadeias[rotaRuido] || this.cadeias.f1;
-      grupos[1].osc = false;
-      grupos[1].ruido = true;
-      qtdGrupos = 2;
+    // --- Caixas das rotas: cada fonte soma o seu som na caixa da sua rota ---
+    // (várias fontes na mesma rota passam juntas por um filtro só)
+    for (const rota of this.listaRotas) rota.usada = false;
+    const usadas = this.usadas;
+    usadas.length = 0;
+    for (let k = 0; k < oscs.length; k++) {
+      if (!this.tocou[k]) continue;
+      const rota = this.caixa(ajustesOscs[k].rota, tamanhoBloco);
+      const { somaE, somaD } = oscs[k];
+      for (let i = 0; i < tamanhoBloco; i++) {
+        rota.somaE[i] += somaE[i];
+        rota.somaD[i] += somaD[i];
+      }
+    }
+    if (temRuido) {
+      const rota = this.caixa(rotaRuido, tamanhoBloco);
+      for (let i = 0; i < tamanhoBloco; i++) {
+        rota.somaE[i] += ruidoBloco[i];
+        rota.somaD[i] += ruidoBloco[i];
+      }
     }
 
     // --- Filtros (estéreo) e envelope de volume ---
     const c1 = modulaF1 ? this.filtrosMod[0].coef : coef;
     const c2 = modulaF2 ? this.filtrosMod[1].coef : coef2;
     const envelope = this.envelope;
+    const qtdUsadas = usadas.length;
     for (let i = 0; i < tamanhoBloco; i++) {
       const j1 = c1.variavel ? i : 0;
       const j2 = c2.variavel ? i : 0;
       let e = 0;
       let d = 0;
-      for (let g = 0; g < qtdGrupos; g++) {
-        const grupo = grupos[g];
-        let xe = grupo.osc ? somaE[i] : 0;
-        let xd = grupo.osc ? somaD[i] : 0;
-        if (grupo.ruido) {
-          xe += ruidoBloco[i];
-          xd += ruidoBloco[i];
-        }
-        const cadeia = grupo.cadeia;
+      for (let g = 0; g < qtdUsadas; g++) {
+        const rota = usadas[g];
+        let xe = rota.somaE[i];
+        let xd = rota.somaD[i];
+        const cadeia = rota.cadeia;
         for (let k = 0; k < cadeia.length; k++) {
           const etapa = cadeia[k];
           const um = etapa.numero === 1;

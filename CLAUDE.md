@@ -294,7 +294,29 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Item 6d-1 (arrumação: oscilador separado da voz) — feito, em teste:**
+**Item 6d-2 (OSC B e C funcionando) — feito, em teste:**
+- Os 3 osciladores são iguais: wavetable (fábrica ou importada), On/Off, Nível, WT Pos, rota
+  de filtro, Unison/Detune/Width. B e C começam desligados (presets antigos soam iguais).
+- Nomes: A sem letra (wtPos, detune, width, nivelOsc, wavetable, oscLigado, unison, rotaOsc);
+  B/C com a letra (wtPosB, detuneC, nivelOscB, wavetableC, oscBLigado, unisonB, rotaOscC...).
+  Destinos de modulação novos no FIM de `DESTINOS_MOD` (índices antigos não mudam);
+  `DESTINOS_OSC` diz os índices de cada oscilador. Nomes na lista: "WT Pos A/B/C", "Nível A"...
+- Motor: cada oscilador tem `ajustes` (tabela, unison, ligado, nivel, ganho, rota) enviados às
+  vozes. Mensagem `wavetable` tem `osc: 'A'|'B'|'C'`. Troca de wavetable: ganho 0 só naquele
+  oscilador (desce em ~5 ms), troca quando todas as notas estão em silêncio, volta.
+- Voz: "caixas" por rota (f1, f2, f12, f21): cada fonte soma o som na caixa da sua rota e só as
+  caixas usadas passam pelos filtros. Oscilador desligado não calcula nada.
+- Tela: cartões com `data-osc="A|B|C"` e peças `data-wt-nome`, `data-tela-onda`, `data-wt-pos`,
+  `data-knobs-osc`...; `montarOscilador()` no principal.js liga tudo. Uma janela de wavetables
+  para os 3 (`abrir(osc)`, título "Wavetables · OSC B"). Aba OSC: 4 colunas 1 : 1 : 1 : 0,8.
+  Oscilador desligado = desenho apagado.
+- Medido: presets antigos idênticos ao motor antigo (diferença 0 com sorteio fixo); B e C
+  idênticos ao A com os mesmos ajustes; troca de wavetable no B sem estalo e o A não baixa.
+  Peso 8 notas × 8 cópias: 1 oscilador ≈ 22%, 3 osciladores ≈ 40%.
+  852×340 e 852×393 sem rolagem; cada cartão ~213 px de largura.
+- Achado (já existia antes): celular em pé, a barra de volume passa ~30 px da tela (rolagem lateral).
+
+**Item 6d-1 (arrumação: oscilador separado da voz) — feito e aprovado (presets iguais):**
 - `dsp/oscilador-voz.js` (classe `OsciladorVoz`): cópias de unison, WT Pos, nível e as suas
   somas (somaE/somaD); recebe os índices de modulação dele (wtPos, detune, width, nivel).
   A voz tem `oscA` e chama `processarPedaco()` a cada pedaço de 32 amostras.

@@ -81,7 +81,9 @@ export class OsciladorVoz {
   }
 
   // Calcula um pedaço (amostras "inicio" até "fim") e soma em somaE/somaD.
-  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel }
+  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho }
+  //   ganho = 1 normalmente; 0 enquanto a wavetable deste oscilador está sendo trocada
+  //   (o som abaixa suavemente, troca no silêncio e volta: sem estalo).
   // mod / modAnterior: modulação da voz (fim deste pedaço / fim do pedaço anterior)
   processarPedaco(inicio, fim, frequencia, ajustes, mod, modAnterior) {
     const { tabela, posicoesWT, unison } = ajustes;
@@ -91,7 +93,8 @@ export class OsciladorVoz {
 
     // Nível (liga/desliga e knob Nível + modulação).
     // Desligado (e já silencioso): nem calcula, economiza processamento.
-    const alvoNivel = ajustes.ligado ? limitar01(ajustes.nivel + mod[destinos.nivel]) : 0;
+    const ligado = ajustes.ligado && tabela !== null;
+    const alvoNivel = ligado ? limitar01(ajustes.nivel + mod[destinos.nivel]) * ajustes.ganho : 0;
     if (this.nivelDireto) {
       this.nivel = alvoNivel; // nota começando do silêncio: já no nível certo
       this.nivelDireto = false;

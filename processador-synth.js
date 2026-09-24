@@ -3,7 +3,7 @@
 // para o som não falhar mesmo se a tela ficar lenta.
 //
 // Ele é o "gerente de vozes": cada nota tocada ganha uma voz completa
-// (unison → filtro → envelope, ver dsp/voz.js). A saída é estéreo.
+// (OSC A, B, C + ruído → filtros → envelope, ver dsp/voz.js). A saída é estéreo.
 //
 // - Poly: até N notas ao mesmo tempo. Se faltar voz, "rouba" a melhor
 //   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
@@ -40,6 +40,13 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { name: 'width', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Oscilador: nível de 0 a 1
       { name: 'nivelOsc', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      // OSC B e C: os mesmos controles, com a letra no fim
+      ...['B', 'C'].flatMap((letra) => [
+        { name: 'wtPos' + letra, defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+        { name: 'detune' + letra, defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+        { name: 'width' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+        { name: 'nivelOsc' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      ]),
       // Ruído: nível de 0 a 1
       { name: 'ruido', defaultValue: 0.5, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Filtro
@@ -58,22 +65,35 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   constructor() {
     super();
-    this.tabela = null; // wavetable recebida da página
-    this.tabelaNova = null; // wavetable esperando para entrar (troca sem estalo)
-    this.volumeTroca = 1; // abaixa até 0 na troca de wavetable e volta a 1
-    this.suavizarTroca = 1 - Math.exp(-1 / (0.0015 * sampleRate)); // ~1,5 ms
     this.vozes = Array.from({ length: MAX_VOZES }, (_, k) => new Voz(sampleRate, k + 1));
     this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
     this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
-    // Rotas de filtro: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
-    this.rotaOsc = 'f1';
+    // Rota de filtro do ruído: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
     this.rotaRuido = 'f1';
+
+    // Osciladores A, B, C. "ajustes" vai para as vozes a cada bloco (ver OsciladorVoz).
+    // Nomes dos parâmetros: os do A sem letra (wtPos...), os do B e C com (wtPosB...).
+    this.oscs = ['', 'B', 'C'].map((letra) => ({
+      params: { wtPos: 'wtPos' + letra, detune: 'detune' + letra, width: 'width' + letra, nivel: 'nivelOsc' + letra },
+      tabelaNova: null, // wavetable esperando para entrar (troca sem estalo)
+      ajustes: {
+        tabela: null, // wavetable recebida da página
+        posicoesWT: null,
+        unison: 1,
+        detune: 0,
+        width: 1,
+        ligado: letra === '', // só o A começa ligado
+        nivel: 1,
+        ganho: 1, // 0 durante a troca de wavetable
+        rota: 'f1',
+      },
+    }));
+    this.comum = { oscs: this.oscs.map((o) => o.ajustes) }; // dados do bloco, compartilhados por todas as vozes
 
     // Opções (a página manda os valores escolhidos logo ao ligar)
     this.modo = 'poly';
     this.maxVozes = 8;
     this.legato = true;
-    this.unison = 1;
 
     this.notasPresas = []; // (modo Mono) notas seguradas, na ordem em que foram tocadas
     this.contador = 0; // numera as notas, para saber qual é a mais antiga
@@ -84,12 +104,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.glideSempre = false;
     this.ultimaNota = null;
 
-    // Oscilador ligado? (o nível é o parâmetro "nivelOsc")
-    this.oscLigado = true;
     // Ruído (o nível é o parâmetro "ruido")
     this.ruidoLigado = false;
     this.ruidoTipo = 'white';
-    this.comum = {}; // dados do bloco, compartilhados por todas as vozes
 
     // Modulação
     this.matriz = new MatrizModulacao(sampleRate);
@@ -120,12 +137,15 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   receberMensagem(msg) {
     switch (msg.tipo) {
-      case 'wavetable':
+      case 'wavetable': {
+        // Qual oscilador: 'A' (padrão), 'B' ou 'C'.
         // Primeira tabela: entra direto. Trocas depois: passam por um "abaixa e sobe"
-        // rápido (sem estalo), feito no process().
-        if (!this.tabela) this.tabela = msg.wavetable;
-        else this.tabelaNova = msg.wavetable;
+        // rápido só naquele oscilador (sem estalo), feito no process().
+        const osc = this.oscs[{ B: 1, C: 2 }[msg.osc] || 0];
+        if (!osc.ajustes.tabela) osc.ajustes.tabela = msg.wavetable;
+        else osc.tabelaNova = msg.wavetable;
         break;
+      }
       case 'notaOn':
         if (this.modo === 'mono') this.notaOnMono(msg.nota);
         else this.notaOnPoly(msg.nota);
@@ -161,6 +181,24 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   }
 
   definirOpcao(nome, valor) {
+    // Opções dos osciladores: A sem letra (unison, oscLigado, rotaOsc),
+    // B e C com a letra (unisonB, oscBLigado, rotaOscB...)
+    const ajustesOsc = (letra) => this.oscs[{ '': 0, B: 1, C: 2 }[letra]].ajustes;
+    let achado = /^unison([BC]?)$/.exec(nome);
+    if (achado) {
+      ajustesOsc(achado[1]).unison = Math.min(16, Math.max(1, valor));
+      return;
+    }
+    achado = /^osc([BC]?)Ligado$/.exec(nome);
+    if (achado) {
+      ajustesOsc(achado[1]).ligado = valor;
+      return;
+    }
+    achado = /^rotaOsc([BC]?)$/.exec(nome);
+    if (achado) {
+      ajustesOsc(achado[1]).rota = valor;
+      return;
+    }
     switch (nome) {
       case 'modo':
         if (valor !== this.modo) this.soltarTudo();
@@ -172,9 +210,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'legato':
         this.legato = valor;
         break;
-      case 'unison':
-        this.unison = Math.min(16, Math.max(1, valor));
-        break;
       case 'glide':
         this.glideTempo = Math.max(0, valor);
         break;
@@ -183,9 +218,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'ruidoLigado':
         this.ruidoLigado = valor;
-        break;
-      case 'oscLigado':
-        this.oscLigado = valor;
         break;
       case 'ruidoTipo':
         this.ruidoTipo = valor;
@@ -201,9 +233,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'filtro2Ligado':
         for (const voz of this.vozes) voz.definirFiltro(2, 'ligado', valor);
-        break;
-      case 'rotaOsc':
-        this.rotaOsc = valor;
         break;
       case 'rotaRuido':
         this.rotaRuido = valor;
@@ -325,26 +354,23 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     let algumaAtiva = false;
     for (const voz of this.vozes) if (voz.ativa) algumaAtiva = true;
 
-    // Troca de wavetable: sem notas, troca direto; com notas, abaixa o volume
-    // das notas (~3 ms), troca quando chega no silêncio e sobe de novo.
-    if (this.tabelaNova && (!algumaAtiva || this.volumeTroca < 0.001)) {
-      this.tabela = this.tabelaNova;
-      this.tabelaNova = null;
-    }
-    if (this.tabela && algumaAtiva) {
-      this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
-      const alvo = this.tabelaNova ? 0 : 1;
-      if (alvo !== 1 || this.volumeTroca < 1) {
-        for (let i = 0; i < tamanhoBloco; i++) {
-          this.volumeTroca += (alvo - this.volumeTroca) * this.suavizarTroca;
-          saidaE[i] *= this.volumeTroca;
-          saidaD[i] *= this.volumeTroca;
-        }
-        if (alvo === 1 && this.volumeTroca > 0.9999) this.volumeTroca = 1;
+    // Troca de wavetable (em cada oscilador): sem notas, troca direto; com notas,
+    // abaixa só aquele oscilador (ganho 0, o nível desce suave em poucos ms), troca
+    // quando todas as notas chegaram no silêncio e sobe de novo.
+    for (let k = 0; k < this.oscs.length; k++) {
+      const osc = this.oscs[k];
+      if (!osc.tabelaNova) continue;
+      let silencio = true;
+      for (const voz of this.vozes) if (voz.ativa && voz.oscs[k].nivel > 0.001) silencio = false;
+      if (!algumaAtiva || silencio) {
+        osc.ajustes.tabela = osc.tabelaNova;
+        osc.tabelaNova = null;
+        osc.ajustes.ganho = 1;
+      } else {
+        osc.ajustes.ganho = 0;
       }
-    } else {
-      this.volumeTroca = 1;
     }
+    if (algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
@@ -362,21 +388,19 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
     this.coef2.calcular(parametros.cutoff2, parametros.resonancia2, tamanhoBloco);
     const comum = this.comum;
-    comum.tabela = this.tabela;
-    comum.posicoesWT = parametros.wtPos;
+    for (const { params, ajustes } of this.oscs) {
+      ajustes.posicoesWT = parametros[params.wtPos];
+      ajustes.detune = parametros[params.detune][0];
+      ajustes.width = parametros[params.width][0];
+      ajustes.nivel = parametros[params.nivel][0];
+    }
     comum.cortes = parametros.cutoff;
     comum.resonancias = parametros.resonancia;
     comum.coef = this.coef;
     comum.cortes2 = parametros.cutoff2;
     comum.resonancias2 = parametros.resonancia2;
     comum.coef2 = this.coef2;
-    comum.rotaOsc = this.rotaOsc;
     comum.rotaRuido = this.rotaRuido;
-    comum.unison = this.unison;
-    comum.detune = parametros.detune[0];
-    comum.width = parametros.width[0];
-    comum.oscLigado = this.oscLigado;
-    comum.oscNivel = parametros.nivelOsc[0];
     comum.ruidoLigado = this.ruidoLigado;
     comum.ruidoNivel = parametros.ruido[0];
     comum.ruidoTipo = this.ruidoTipo;

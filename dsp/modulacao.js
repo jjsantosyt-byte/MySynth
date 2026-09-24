@@ -6,8 +6,14 @@
 // quantidade +50% com a fonte no máximo = knob meio giro para cima.
 
 export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3'];
-// cutoff/resonancia = Filtro 1; cutoff2/resonancia2 = Filtro 2
-export const DESTINOS_MOD = ['wtPos', 'detune', 'width', 'cutoff', 'resonancia', 'ruido', 'nivelOsc', 'cutoff2', 'resonancia2'];
+// cutoff/resonancia = Filtro 1; cutoff2/resonancia2 = Filtro 2.
+// wtPos/detune/width/nivelOsc = OSC A; os do B e do C têm a letra no fim (sempre no fim da
+// lista: os índices antigos não mudam).
+export const DESTINOS_MOD = [
+  'wtPos', 'detune', 'width', 'cutoff', 'resonancia', 'ruido', 'nivelOsc', 'cutoff2', 'resonancia2',
+  'wtPosB', 'detuneB', 'widthB', 'nivelOscB',
+  'wtPosC', 'detuneC', 'widthC', 'nivelOscC',
+];
 
 // Índices para acesso rápido
 export const D_WTPOS = 0;
@@ -19,6 +25,13 @@ export const D_RUIDO = 5;
 export const D_NIVEL_OSC = 6;
 export const D_CUTOFF2 = 7;
 export const D_RESO2 = 8;
+
+// Destinos de cada oscilador (A, B, C), na ordem acima
+export const DESTINOS_OSC = [
+  { wtPos: 0, detune: 1, width: 2, nivel: 6 },
+  { wtPos: 9, detune: 10, width: 11, nivel: 12 },
+  { wtPos: 13, detune: 14, width: 15, nivel: 16 },
+];
 
 export class MatrizModulacao {
   constructor(taxaAmostragem, tamanhoBloco = 128) {

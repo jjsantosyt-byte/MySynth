@@ -772,7 +772,7 @@ h1 {
 
 /* Aba OSC: OSC A (mais largo), OSC B, OSC C e Ruído (mais estreito) */
 .modulos.modulos-osc {
-  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
 }
 
 .cartao-ruido .seletor-wt {
@@ -800,6 +800,11 @@ h1 {
 .tela-onda {
   touch-action: none;
   cursor: ew-resize;
+}
+
+/* Oscilador desligado: desenho da onda apagado (os controles continuam mexíveis) */
+.cartao-osc.desligado .tela-onda {
+  opacity: 0.4;
 }
 
 /* ---------- Knobs ---------- */
@@ -1436,12 +1441,29 @@ h1 {
      Os atalhos somem aqui (dá para usar a barra ou arrastar no desenho). */
   .cartao-osc {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: auto minmax(26px, 1fr) auto auto;
   }
 
   .cartao-osc .cabecalho-osc {
     grid-row: 1;
+    gap: 4px;
+  }
+
+  /* 3 osciladores lado a lado: o nome da wavetable ocupa o espaço que sobrar */
+  .cabecalho-osc .seletor-wt {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .cabecalho-osc .seletor-wt-lista {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .cabecalho-osc .chave {
+    padding: 0 8px;
   }
 
   .cartao-osc .tela-onda {
@@ -1457,7 +1479,7 @@ h1 {
     display: none;
   }
 
-  .cartao-osc #unison-osc {
+  .cartao-osc [data-knobs-osc] {
     grid-row: 4;
   }
 

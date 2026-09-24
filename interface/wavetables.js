@@ -55,9 +55,11 @@ function mesmosCiclos(a, b) {
   return true;
 }
 
-// As importadas usadas por estes presets, prontas para ir no arquivo.
+// As importadas usadas por estes presets (em qualquer oscilador), prontas para ir no arquivo.
 export function wavetablesDosPresets(presets) {
-  const usadas = new Set(presets.map((p) => p.som?.opcoes?.wavetable));
+  const usadas = new Set(
+    presets.flatMap((p) => ['wavetable', 'wavetableB', 'wavetableC'].map((nome) => p.som?.opcoes?.[nome]))
+  );
   return IMPORTADAS.filter((w) => usadas.has(w.id)).map((w) => {
     const { nome, tamanho, amostras } = empacotar(w.nome, w.ciclos);
     return { nome, tamanho, amostras: ondaParaTexto(amostras) };
@@ -102,13 +104,15 @@ export async function receberWavetables(lista) {
   return { novas, trocas };
 }
 
+// Uma janela só, usada pelos 3 osciladores: abrir(osc) mostra a lista para aquele oscilador.
 // opcoes:
-//   botaoNome: o nome da wavetable (tocar abre a lista)
-//   idAtual(): id da wavetable em uso
-//   escolher(id): troca a wavetable do oscilador
+//   idAtual(osc): id da wavetable em uso naquele oscilador
+//   escolher(osc, id): troca a wavetable do oscilador
 //   aoApagar(id): uma importada foi apagada
-export function criarListaWavetables({ botaoNome, idAtual, escolher, aoApagar }) {
+export function criarListaWavetables({ idAtual, escolher, aoApagar }) {
   const janela = criarJanela('Wavetables');
+  const titulo = janela.corpo.parentElement.querySelector('.janela-titulo');
+  let oscAtual = null; // para qual oscilador a janela está aberta
   const botaoImportar = criar('button', 'botao', 'Importar .wav');
   // Aceita qualquer arquivo (o iPhone às vezes esconde extensões); o conteúdo é conferido.
   const escolherArquivo = criar('input');
@@ -122,9 +126,9 @@ export function criarListaWavetables({ botaoNome, idAtual, escolher, aoApagar })
     for (const { id, nome } of lista) {
       const linha = criar('div', 'presets-linha');
       const item = criar('button', 'presets-item', nome);
-      if (id === idAtual()) item.classList.add('atual');
+      if (id === idAtual(oscAtual)) item.classList.add('atual');
       item.addEventListener('click', () => {
-        escolher(id);
+        escolher(oscAtual, id);
         janela.fechar();
       });
       linha.appendChild(item);
@@ -151,11 +155,13 @@ export function criarListaWavetables({ botaoNome, idAtual, escolher, aoApagar })
     }
   }
 
-  botaoNome.addEventListener('click', () => {
+  function abrir(osc) {
+    oscAtual = osc;
+    titulo.textContent = `Wavetables · OSC ${osc.letra}`;
     montarLista();
     janela.abrir();
     janela.corpo.querySelector('.atual')?.scrollIntoView({ block: 'center' });
-  });
+  }
 
   async function apagarImportada(id, nome) {
     if (!window.confirm(`Apagar a wavetable "${nome}" deste aparelho? Presets que usam ela passam a abrir com a Básica.`)) return;
@@ -189,7 +195,7 @@ export function criarListaWavetables({ botaoNome, idAtual, escolher, aoApagar })
     // Guarda só os ciclos que vão ser usados (no máximo 64): ocupa menos espaço.
     // Cópia de cada ciclo: não prende o arquivo inteiro na memória.
     const escolhidos = escolherCiclos(ciclos).map((ciclo) => Float32Array.from(ciclo));
-    escolher(registrarImportada(nome, escolhidos));
+    escolher(oscAtual, registrarImportada(nome, escolhidos));
     montarLista();
 
     let guardou = true;
@@ -204,4 +210,6 @@ export function criarListaWavetables({ botaoNome, idAtual, escolher, aoApagar })
     const guardada = guardou ? '' : ' Atenção: não consegui guardar no aparelho, ela some ao fechar o app.';
     janela.avisar(`"${nome}" ${existia ? 'substituída' : 'importada'}: ${escolhidos.length} frame(s)${reduzida}.${guardada}`);
   });
+
+  return { abrir };
 }
