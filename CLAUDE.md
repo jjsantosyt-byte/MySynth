@@ -73,7 +73,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Qualidade (aba Global): escolher a taxa de amostragem (44,1/48 kHz — exige religar o
   motor de som por um instante) e/ou um modo "qualidade alta" (mais limpo, mais pesado).
 - Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).
-- Oscilador: FM entre osciladores (W2, planejado). Talvez modos de Warp Espelho e Quantizar.
+- Oscilador: talvez modos de Warp Espelho e Quantizar; FM a partir do Ruído.
 - Warp: compensar o pequeno atraso (7,5 amostras) do oscilador com Warp, para ele somar
   exatamente em fase com um oscilador sem Warp na mesma altura.
 - Ruído: importar samples de ruído (.wav: vinil, fita, ataques/transientes) com One Shot/Loop.
@@ -91,6 +91,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   - Salvar uma escala específica como .wav (ex.: todas as notas de Dó maior numa
     faixa de oitavas), em um arquivo por nota ou num arquivo só. Serve para montar
     instrumentos de sample em outros apps.
+
+## Aparelhos de teste
+- Android: do dono do projeto (é onde o APK vai ser testado).
+- iPhone 15 Pro: de um amigo que testa junto (o layout "celular deitado" foi feito para ele;
+  no iPhone o app é usado pelo Safari / "Adicionar à Tela de Início", não por APK).
 
 ## Distribuição (caminho combinado)
 1. Colocar online (https, ex.: GitHub Pages) e testar no celular. ✔ online (falta o teste no celular)
@@ -304,6 +309,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Warp W2 (FM entre osciladores) — feito, em teste:**
+- Modos novos no Warp: 'fmA', 'fmB', 'fmC' (cada oscilador mostra só os outros dois: "FM ← B").
+  Modulação de FASE (como DX7/Serum): leitura = fase + índice × som do modulador; índice =
+  Warp × 2 ciclos (`INDICE_FM_MAXIMO`). O knob Warp (e o destino "Warp A/B/C") é a força.
+- Modulador = o outro oscilador (wavetable, WT Pos e afinação DELE, uma cópia sem unison),
+  calculado 1× por nota em taxa dobrada (`prepararModulador`, fase recomeça em 0 a cada nota)
+  e usado por todas as cópias de unison. Funciona mesmo com o modulador em Off.
+- Versão da onda da portadora escolhida pela aceleração 1 + 2π·índice·razão (FM forte deixa a
+  portadora com menos harmônicos, como um seno — é o normal do FM).
+- Desenho: um ciclo da portadora empurrado pelo modulador na razão das alturas.
+- Medido: B em Oct +1 (2:1) → componentes em 220, 660, 1100, 1540 Hz e nada em 440 (-135 dB);
+  chiado até 15 kHz entre -78 e -101 dB (só 2:1 no máximo em C7: -48 dB); peso 8×8 com FM ~57%
+  (Bend ~47%, sem Warp ~19%); presets antigos idênticos.
 
 **Ruído: One Shot, Track, Pitch e "1 ruído" — feito e aprovado:**
 - `dsp/ruido.js`: o ruído virou "sample" (estilo Serum): o motor monta UMA vez um trecho de 4 s

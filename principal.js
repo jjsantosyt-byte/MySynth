@@ -30,10 +30,19 @@ import {
   receberWavetables,
 } from './interface/wavetables.js';
 import { mostrarRecado } from './interface/janela.js';
-import { MODOS_WARP, W_NENHUM, codigoWarp, forcaWarp, faseWarp } from './dsp/warp.js';
+import { MODOS_WARP, W_NENHUM, codigoWarp, forcaWarp, faseWarp, faseFM, moduladorFM } from './dsp/warp.js';
 
 // Nomes dos modos de Warp na tela
-const NOMES_WARP = { nenhum: 'Off', sync: 'Sync', bendMais: 'Bend +', bendMenos: 'Bend −', pwm: 'PWM' };
+const NOMES_WARP = {
+  nenhum: 'Off',
+  sync: 'Sync',
+  bendMais: 'Bend +',
+  bendMenos: 'Bend −',
+  pwm: 'PWM',
+  fmA: 'FM ← A',
+  fmB: 'FM ← B',
+  fmC: 'FM ← C',
+};
 import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
@@ -563,6 +572,27 @@ const janelaWavetables = criarListaWavetables({
 // As importadas guardadas no aparelho entram no catálogo (leva alguns milissegundos).
 const wavetablesGuardadasProntas = carregarWavetablesGuardadas();
 
+// Para o desenho do FM: afinação de um oscilador em semitons (sem a modulação)...
+function afinacaoTela(osc) {
+  const { nomes } = osc;
+  return estado.opcoes[nomes.oitava] * 12 + estado.opcoes[nomes.semi] + estado.parametros[nomes.fine] / 100;
+}
+
+// ...e um ciclo da onda dele, na posição atual do WT Pos (versão mais cheia)
+function ondaModuladora(osc) {
+  const { wavetable, nomes } = osc;
+  const ultimo = wavetable.frames.length - 1;
+  const wt = modulado(estado.parametros[nomes.wtPos], nomes.wtPos) * ultimo;
+  const f0 = Math.min(Math.floor(wt), ultimo);
+  const f1 = Math.min(f0 + 1, ultimo);
+  const t = wt - f0;
+  const a = wavetable.frames[f0][0];
+  const b = wavetable.frames[f1][0];
+  if (!osc.ondaModuladora) osc.ondaModuladora = new Float32Array(a.length);
+  for (let j = 0; j < a.length; j++) osc.ondaModuladora[j] = a[j] + t * (b[j] - a[j]);
+  return osc.ondaModuladora;
+}
+
 // Monta um cartão de oscilador (liga cada peça do cartão aos controles daquele oscilador).
 function montarOscilador(osc) {
   const { cartao, nomes, letra } = osc;
@@ -698,14 +728,25 @@ function montarOscilador(osc) {
     for (let j = 0; j < ondaDesenhada.length; j++) {
       ondaDesenhada[j] = a[j] + t * (b[j] - a[j]);
     }
-    // Com Warp: a onda desenhada já deformada (mesma conta do motor, dsp/warp.js)
+    // Com Warp: a onda desenhada já deformada (mesma conta do motor, dsp/warp.js).
+    // FM: um ciclo deste oscilador, empurrado pelo som do outro (na razão entre as alturas).
     const codigo = codigoWarp(estado.opcoes[nomes.warpModo]);
     let desenho = ondaDesenhada;
     if (codigo !== W_NENHUM) {
       const forca = forcaWarp(codigo, modulado(estado.parametros[nomes.warp], nomes.warp));
       const n = ondaDesenhada.length;
+      const qual = moduladorFM(codigo);
+      const modulador = qual >= 0 ? ondaModuladora(OSCILADORES[qual]) : null;
+      const razao = qual >= 0 ? Math.pow(2, (afinacaoTela(OSCILADORES[qual]) - afinacaoTela(osc)) / 12) : 1;
       for (let j = 0; j < n; j++) {
-        const lida = faseWarp(codigo, forca, j / n) * n;
+        const fase = j / n;
+        let lida;
+        if (modulador) {
+          const pm = fase * razao - Math.floor(fase * razao);
+          lida = faseFM(fase, forca, modulador[Math.floor(pm * n)]) * n;
+        } else {
+          lida = faseWarp(codigo, forca, fase) * n;
+        }
         const i0 = Math.min(Math.floor(lida), n - 1);
         const i1 = (i0 + 1) % n;
         ondaDeformada[j] = ondaDesenhada[i0] + (lida - i0) * (ondaDesenhada[i1] - ondaDesenhada[i0]);
@@ -821,9 +862,11 @@ function montarOscilador(osc) {
     nomeWarp.textContent = NOMES_WARP[estado.opcoes[nomes.warpModo]] || 'Off';
     cartao.classList.toggle('com-warp', estado.opcoes[nomes.warpModo] !== 'nenhum');
   }
+  // Os modos deste oscilador: todos, menos o FM dele mesmo (o A não modula o A)
+  const modosDeste = MODOS_WARP.filter((m) => m !== 'fm' + letra);
   const andarWarp = (passo) => {
-    const i = MODOS_WARP.indexOf(estado.opcoes[nomes.warpModo]);
-    definirOpcao(nomes.warpModo, MODOS_WARP[(i + passo + MODOS_WARP.length) % MODOS_WARP.length]);
+    const i = modosDeste.indexOf(estado.opcoes[nomes.warpModo]);
+    definirOpcao(nomes.warpModo, modosDeste[(i + passo + modosDeste.length) % modosDeste.length]);
     mostrarWarp();
   };
   warpAnterior.addEventListener('click', () => andarWarp(-1));

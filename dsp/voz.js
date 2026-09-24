@@ -295,7 +295,7 @@ export class Voz {
       // 2) Osciladores A, B, C (unison, WT Pos, nível; tudo com modulação).
       // Desligado e já em silêncio: não calcula nada.
       for (let k = 0; k < oscs.length; k++) {
-        oscs[k].processarPedaco(inicio, fim, this.frequencia, ajustesOscs[k], this.mod, this.modAnterior);
+        oscs[k].processarPedaco(inicio, fim, this.frequencia, ajustesOscs[k], this.mod, this.modAnterior, ajustesOscs);
         if (!oscs[k].calado) this.tocou[k] = true;
       }
 

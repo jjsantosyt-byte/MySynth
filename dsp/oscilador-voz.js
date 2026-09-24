@@ -10,8 +10,9 @@
 // Quem usa (a voz) manda cada pedaço de modulação (32 amostras) com processarPedaco().
 
 import { escolherNiveis, lerAmostra } from './oscilador.js';
-import { W_NENHUM, forcaWarp, aceleracaoWarp, faseWarp } from './warp.js';
+import { W_NENHUM, forcaWarp, aceleracaoWarp, faseWarp, moduladorFM, aceleracaoFM, faseFM } from './warp.js';
 import { Decimador } from './meia-banda.js';
+import { DESTINOS_OSC } from './modulacao.js';
 
 export const MAX_UNISON = 16;
 
@@ -24,6 +25,20 @@ const DETUNE_MAXIMO = 1;
 const FREQUENCIA_MAXIMA = 0.45;
 
 const limitar01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+
+// Afinação de um oscilador (ajustes + índices de modulação dele), em semitons.
+// Também usada pelo FM para saber a altura do oscilador que modula.
+function afinacaoDe(ajustes, destinos, mod) {
+  const { oitava, semi, fine } = ajustes;
+  const mOitava = mod[destinos.oitava];
+  const mSemi = mod[destinos.semi];
+  const mFine = mod[destinos.fine];
+  if (mOitava === 0 && mSemi === 0 && mFine === 0) return oitava * 12 + semi + fine / 100;
+  const o = Math.min(3, Math.max(-3, Math.round(oitava + mOitava * 6)));
+  const s = Math.min(12, Math.max(-12, Math.round(semi + mSemi * 24)));
+  const f = Math.min(100, Math.max(-100, fine + mFine * 200));
+  return o * 12 + s + f / 100;
+}
 
 // Com Warp, quantas leituras da onda por amostra de saída (oversampling).
 // Medido: 4× não melhorava a faixa audível em relação a 2× e pesava o dobro.
@@ -68,6 +83,12 @@ export class OsciladorVoz {
     this.decimadorD = new Decimador();
     this.usouWarp = false; // o pedaço anterior passou pelo Warp? (senão, limpa os filtros)
 
+    // FM: o som do oscilador que modula, na taxa dobrada (um para todas as cópias de
+    // unison desta nota), e a fase dele
+    this.fmBloco = new Float64Array(FATOR_WARP * tamanhoBloco);
+    this.fmFase = 0;
+    this.escolhaFM = { nivel: 0, nivelB: 0, mistura: 0 };
+
     this.suavizar = 1 - Math.exp(-1 / (0.005 * taxaAmostragem));
     this.escolha = { nivel: 0, nivelB: 0, mistura: 0 };
   }
@@ -87,6 +108,7 @@ export class OsciladorVoz {
     this.volumesDireto = true;
     this.nivelDireto = true;
     this.usouWarp = false;
+    this.fmFase = 0; // FM: o modulador começa sempre do mesmo ponto (ataque igual)
   }
 
   // Zera as somas no começo de cada bloco.
@@ -140,15 +162,7 @@ export class OsciladorVoz {
   // Oct e Semi andam em DEGRAUS (arredondados: saltos de nota inteira, bom para arpejos
   // e trills); Fine é contínuo (vibrato). A onda continua de onde estava: sem estalo.
   afinacao(ajustes, mod) {
-    const { oitava, semi, fine } = ajustes;
-    const mOitava = mod[this.destinos.oitava];
-    const mSemi = mod[this.destinos.semi];
-    const mFine = mod[this.destinos.fine];
-    if (mOitava === 0 && mSemi === 0 && mFine === 0) return oitava * 12 + semi + fine / 100;
-    const o = Math.min(3, Math.max(-3, Math.round(oitava + mOitava * 6)));
-    const s = Math.min(12, Math.max(-12, Math.round(semi + mSemi * 24)));
-    const f = Math.min(100, Math.max(-100, fine + mFine * 200));
-    return o * 12 + s + f / 100;
+    return afinacaoDe(ajustes, this.destinos, mod);
   }
 
   // Calcula um pedaço (amostras "inicio" até "fim") e soma em somaE/somaD.
@@ -157,7 +171,8 @@ export class OsciladorVoz {
   //   ganho = 1 normalmente; 0 enquanto a wavetable deste oscilador está sendo trocada
   //   (o som abaixa suavemente, troca no silêncio e volta: sem estalo).
   // mod / modAnterior: modulação da voz (fim deste pedaço / fim do pedaço anterior)
-  processarPedaco(inicio, fim, frequencia, ajustes, mod, modAnterior) {
+  // todosAjustes: ajustes dos 3 osciladores (o FM lê o do oscilador que modula)
+  processarPedaco(inicio, fim, frequencia, ajustes, mod, modAnterior, todosAjustes) {
     const { tabela, posicoesWT, unison } = ajustes;
     const destinos = this.destinos;
     const qtd = fim - inicio;
@@ -184,8 +199,18 @@ export class OsciladorVoz {
 
     // Cópias de unison com Detune/Width modulados, na altura da nota + afinação do oscilador
     const transposicao = this.afinacao(ajustes, mod);
+    const freqOsc = transposicao === 0 ? frequencia : frequencia * Math.pow(2, transposicao / 12);
+
+    // FM: prepara o som do oscilador que modula (e quanto a onda vai "correr")
+    const qualModula = moduladorFM(modoWarp);
+    let aceleracao = modoWarp === W_NENHUM ? 1 : aceleracaoWarp(modoWarp, forca);
+    if (qualModula >= 0) {
+      const razao = this.prepararModulador(inicio, fim, frequencia, freqOsc, todosAjustes[qualModula], DESTINOS_OSC[qualModula], mod);
+      aceleracao = aceleracaoFM(forca, razao);
+    }
+
     this.ajustarCopias(
-      transposicao === 0 ? frequencia : frequencia * Math.pow(2, transposicao / 12),
+      freqOsc,
       unison,
       limitar01(ajustes.detune + mod[destinos.detune]),
       limitar01(ajustes.width + mod[destinos.width]),
@@ -194,7 +219,7 @@ export class OsciladorVoz {
       // Com Warp a onda corre até N× mais rápido: a versão da onda (com menos agudos) é
       // escolhida para caber no limite NORMAL mesmo assim. (Testado: aproveitar o limite da
       // taxa 4× deixa o som mais brilhante, mas o filtro de volta não segura e chia.)
-      modoWarp === W_NENHUM ? 1 : aceleracaoWarp(modoWarp, forca)
+      aceleracao
     );
 
     // Volume de cada cópia. Blend: as cópias "de fora" do unison tocam com Blend × o
@@ -322,6 +347,39 @@ export class OsciladorVoz {
     }
   }
 
+  // FM: calcula o som do oscilador que modula neste pedaço, em taxa dobrada, e guarda em
+  // fmBloco. Usa a wavetable, o WT Pos e a afinação DELE (mesmo desligado: modular não
+  // depende de ele ser ouvido). Uma cópia só, sem unison. Devolve a razão entre as alturas
+  // (modulador / este oscilador).
+  prepararModulador(inicio, fim, frequenciaNota, freqOsc, ajM, destM, mod) {
+    const F = FATOR_WARP;
+    const tabela = ajM.tabela;
+    if (!tabela) {
+      this.fmBloco.fill(0, F * inicio, F * fim);
+      return 0;
+    }
+    const transpM = afinacaoDe(ajM, destM, mod);
+    const freqM = frequenciaNota * Math.pow(2, transpM / 12);
+    const frames = tabela.frames;
+    const ultimoFrame = frames.length - 1;
+    const wt = limitar01(ajM.posicoesWT[0] + mod[destM.wtPos]) * ultimoFrame;
+    const f0 = Math.min(wt | 0, ultimoFrame);
+    const t = wt - f0;
+    const frameA = frames[f0];
+    const frameB = frames[Math.min(f0 + 1, ultimoFrame)];
+    const e = this.escolhaFM;
+    escolherNiveis(tabela.harmonicos, freqM, this.taxa, e);
+    const passo = Math.min(freqM / this.taxa, FREQUENCIA_MAXIMA) / F;
+    let fase = this.fmFase;
+    for (let j = F * inicio; j < F * fim; j++) {
+      this.fmBloco[j] = lerAmostra(frameA, frameB, t, e.nivel, e.nivelB, e.mistura, fase, tabela.tamanho, tabela.tamanho - 1);
+      fase += passo;
+      if (fase >= 1) fase -= 1;
+    }
+    this.fmFase = fase;
+    return freqM / freqOsc;
+  }
+
   // Cópias de unison com Warp, em taxa dobrada: cada amostra de saída = 2 leituras da
   // onda deformada (meio passo cada), somadas em warpE/warpD e depois filtradas e
   // trazidas de volta à taxa normal em somaE/somaD.
@@ -334,6 +392,7 @@ export class OsciladorVoz {
     const warpE = this.warpE;
     const warpD = this.warpD;
     const F = FATOR_WARP;
+    const fm = moduladorFM(modoWarp) >= 0; // FM: usa o som do modulador (fmBloco)
     // Vindo de um pedaço sem Warp (ou calado): os filtros de volta começam limpos
     if (!this.usouWarp) {
       this.decimadorE.limpar();
@@ -363,7 +422,7 @@ export class OsciladorVoz {
         const frameA = frames[f0];
         const frameB = frames[Math.min(f0 + 1, ultimoFrame)];
         for (let sub = 0; sub < F; sub++) {
-          let lida = faseWarp(modoWarp, forca, fase);
+          let lida = fm ? faseFM(fase, forca, this.fmBloco[F * i + sub]) : faseWarp(modoWarp, forca, fase);
           if (lida >= 1) lida = 0; // (arredondamento: o fim do ciclo é o começo)
           const amostra = lerAmostra(frameA, frameB, t, nivel, nivelB, mistura, lida, tamanho, mascara) * volume;
           const j = F * i + sub;
