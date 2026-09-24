@@ -1876,3 +1876,70 @@ h1 {
     line-height: 1.05;
   }
 }
+
+/* ---------- Aba FX: 5 efeitos lado a lado ---------- */
+.modulos.modulos-fx {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .modulos.modulos-fx {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Medidor do compressor: barra laranja = quanto está abaixando (0 a 20 dB) */
+.medidor-compressor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.medidor-trilho {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--botao);
+}
+
+.medidor-barra {
+  width: 0;
+  height: 100%;
+  background: var(--cor-env2);
+  transition: width 60ms linear;
+}
+
+.medidor-numero {
+  min-width: 48px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-suave);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* 5 cartões de efeito estreitos: botões e espaços mais justos */
+  .modulos-fx .cartao {
+    row-gap: 3px;
+  }
+
+  .modulos-fx .grupo-botoes {
+    gap: 3px;
+  }
+
+  .modulos-fx .grupo-botoes .botao {
+    padding: 0 3px;
+    font-size: 11px;
+  }
+
+  .modulos-fx .linha-opcao {
+    margin: 0;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .modulos-fx .linha-opcao .chave {
+    min-height: 22px;
+  }
+}

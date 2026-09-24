@@ -22,6 +22,7 @@ import { CoeficientesFiltro } from './dsp/filtro.js';
 import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
+import { Compressor } from './dsp/efeitos/compressor.js';
 import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
@@ -158,12 +159,20 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
-    // Efeitos (depois das notas somadas): Distorção → Chorus → Delay → Reverb
+    // Efeitos (depois das notas somadas): Distorção → Compressor → Chorus → Delay → Reverb
     this.distorcao = new Distorcao(sampleRate);
     this.chorus = new Chorus(sampleRate);
     this.delay = new Delay(sampleRate);
     this.reverb = new Reverb(sampleRate);
-    this.efeitos = { distorcao: this.distorcao, chorus: this.chorus, delay: this.delay, reverb: this.reverb };
+    this.compressor = new Compressor(sampleRate);
+    this.enviouCompressor = false;
+    this.efeitos = {
+      distorcao: this.distorcao,
+      compressor: this.compressor,
+      chorus: this.chorus,
+      delay: this.delay,
+      reverb: this.reverb,
+    };
 
     this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
     this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
@@ -472,6 +481,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
     this.distorcao.processar(saidaE, saidaD, tamanhoBloco);
+    this.compressor.processar(saidaE, saidaD, tamanhoBloco);
     this.chorus.processar(saidaE, saidaD, tamanhoBloco);
     this.delay.processar(saidaE, saidaD, tamanhoBloco);
     this.reverb.processar(saidaE, saidaD, tamanhoBloco);
@@ -537,6 +547,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   enviarAoVivo() {
     if (++this.blocosDesdeEnvio < BLOCOS_ENTRE_ENVIOS) return;
     this.blocosDesdeEnvio = 0;
+
+    // Medidor do compressor (quanto está abaixando, em dB). Dormindo: avisa 0 uma vez.
+    if (!this.compressor.dormindo || this.enviouCompressor) {
+      const dormindo = this.compressor.dormindo;
+      const reducao = this.compressor.lerReducao();
+      this.port.postMessage({ tipo: 'compressor', reducao: dormindo ? 0 : reducao });
+      this.enviouCompressor = !dormindo;
+    }
 
     let voz = null;
     for (const v of this.vozes) {

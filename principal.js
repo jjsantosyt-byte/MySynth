@@ -189,6 +189,7 @@ const estado = {
   efeitos: {
     // Os valores iniciais dos knobs novos reproduzem o som de antes (presets antigos iguais)
     distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 },
+    compressor: { ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1 },
     chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5, atraso: 0.012, feedback: 0, width: 1 },
     delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false, lowcut: 20, highcut: 6000, width: 1 },
     reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 },
@@ -339,6 +340,10 @@ async function ligarSom() {
 
     // Valores ao vivo vindos do motor: atualizam os pontinhos e os desenhos.
     synth.port.onmessage = (evento) => {
+      if (evento.data.tipo === 'compressor') {
+        mostrarReducaoCompressor(evento.data.reducao);
+        return;
+      }
       if (evento.data.tipo !== 'aoVivo') return;
       estado.aoVivo = evento.data;
       telaModulacao.atualizarAoVivo(evento.data.mod);
@@ -1030,7 +1035,8 @@ document.querySelectorAll('[data-ligar-efeito]').forEach((botao) => {
   const mostrar = () => {
     const ligado = estado.efeitos[id].ligado;
     botao.setAttribute('aria-pressed', ligado);
-    botao.textContent = ligado ? 'Ligado' : 'Desligado';
+    botao.textContent = ligado ? 'On' : 'Off'; // curto: 5 efeitos lado a lado
+    botao.setAttribute('aria-label', `${ligado ? 'Ligado' : 'Desligado'}: toque para ${ligado ? 'desligar' : 'ligar'}`);
   };
   botao.addEventListener('click', () => {
     definirEfeito(id, 'ligado', !estado.efeitos[id].ligado);
@@ -1081,6 +1087,23 @@ document.querySelector('[data-knobs-efeito="distorcao"]').append(
   knobEfeito('distorcao', 'Low Cut', 'lowcut', escalaExponencial(20, 1000), formatarCorte),
   knobEfeito('distorcao', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
+
+// Compressor: 6 knobs + medidor de quanto está abaixando
+document.querySelector('[data-knobs-efeito="compressor"]').append(
+  knobEfeito('compressor', 'Threshold', 'threshold', escalaLinear(-40, 0), (v) => Math.round(v) + ' dB'),
+  knobEfeito('compressor', 'Ratio', 'ratio', escalaExponencial(1, 20), (v) => (v < 9.95 ? v.toFixed(1).replace('.', ',') : Math.round(v)) + ':1'),
+  knobEfeito('compressor', 'Attack', 'attack', escalaExponencial(0.0001, 0.1), formatarTempo),
+  knobEfeito('compressor', 'Release', 'release', escalaExponencial(0.01, 1), formatarTempo),
+  knobEfeito('compressor', 'Ganho', 'ganho', escalaLinear(-12, 24), (v) => (v > 0.05 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' dB'),
+  knobEfeito('compressor', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+const barraReducao = document.getElementById('compressor-reducao');
+const numeroReducao = document.getElementById('compressor-reducao-db');
+// Medidor: barra de 0 a 20 dB de redução + o número
+function mostrarReducaoCompressor(db) {
+  barraReducao.style.width = Math.min(100, (db / 20) * 100) + '%';
+  numeroReducao.textContent = db < 0.1 ? '0 dB' : '-' + db.toFixed(1).replace('.', ',') + ' dB';
+}
 
 document.querySelector('[data-knobs-efeito="chorus"]').append(
   knobEfeito('chorus', 'Rate', 'rate', escalaExponencial(0.05, 5), formatarRate),

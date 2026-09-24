@@ -70,8 +70,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 1. **Upgrade dos efeitos** → objetivo: uma versão BETA bem funcional do sintetizador.
    Decidido: entram Saturação, Compressor, EQ, Phaser e Flanger (além dos 4 atuais).
    - E1: knobs novos nos efeitos atuais — FEITO (ver "Efeitos E1" no Estado atual).
-   - E2: Compressor (Threshold, Ratio, Attack, Release, Ganho automático, Mix + medidor)
-     + páginas na aba FX (com mais de 4 efeitos não cabe numa página só).
+   - E2: Compressor — FEITO (ver "Efeitos E2"). Páginas na aba FX ficam para quando passar de
+     5 efeitos (hoje: 5 cartões lado a lado cabem).
    - E3: Saturação (Fita / Válvula / Transistor, Drive, Tom, Mix; oversampling).
    - E4: EQ 3 bandas, Phaser e Flanger.
    - Ordem fixa proposta: Saturação → Distorção → EQ → Compressor → Chorus/Phaser → Delay → Reverb
@@ -331,6 +331,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Efeitos E2 (Compressor) — feito, em teste:**
+- `dsp/efeitos/compressor.js`: estéreo ligado (mesma redução nos 2 lados), detector de pico,
+  joelho suave de 6 dB. Threshold (-40–0 dB, padrão -18), Ratio (1–20, padrão 4), Attack
+  (0,1–100 ms), Release (10 ms–1 s), Ganho (-12 a +24 dB) por cima da compensação automática
+  (metade da redução que um som em 0 dB teria), Mix (paralelo, `ganhosMix`). Dorme desligado.
+- Cadeia: Distorção → Compressor → Chorus → Delay → Reverb.
+- Medidor: o motor manda `{ tipo: 'compressor', reducao }` ~30×/s enquanto ele está acordado
+  (maior redução do período) e 0 quando dorme; a tela mostra barra laranja (0–20 dB) + número.
+- Aba FX: 5 cartões lado a lado (`.modulos-fx`, 160 px cada a 852 px); chaves On/Off (antes
+  "Ligado/Desligado"), botões e espaços mais justos no celular deitado. Em pé: 1 coluna.
+- Medido: 0 dB de entrada, -18 dB/4:1 → -13,2 dB sem compensação (conta: -13,5) e -6,5 dB com
+  a compensação automática; medidor mostra ~-12 a -15 dB tocando e volta a 0 ao desligar;
+  852×340/393 e em pé sem cortes.
 
 **Efeitos E1 (knobs novos nos 4 efeitos) — feito, em teste:**
 - Distorção: Tom (`tom`, 1 = aberto; menos = passa-baixas até ~800 Hz no distorcido) e Low Cut

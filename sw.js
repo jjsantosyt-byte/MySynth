@@ -36,6 +36,7 @@ const ARQUIVOS = [
   'dsp/voz.js',
   'dsp/warp.js',
   'dsp/efeitos/comum.js',
+  'dsp/efeitos/compressor.js',
   'dsp/efeitos/chorus.js',
   'dsp/efeitos/delay.js',
   'dsp/efeitos/distorcao.js',

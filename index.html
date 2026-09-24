@@ -289,11 +289,11 @@
       </section>
       <!-- Aba FX: efeitos na ordem do caminho do som (Distorção → Chorus → Delay → Reverb) -->
       <section class="conteudo-aba" data-painel="fx" hidden>
-        <div class="modulos modulos-4">
+        <div class="modulos modulos-4 modulos-fx">
           <article class="cartao">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Distorção</h2>
-              <button class="chave" data-ligar-efeito="distorcao" aria-pressed="false">Desligado</button>
+              <button class="chave" data-ligar-efeito="distorcao" aria-pressed="false">Off</button>
             </div>
             <!-- Tipo: Suave (arredonda), Dura (corta), Válvula (assimétrica) -->
             <div id="tipos-distorcao" class="grupo-botoes"></div>
@@ -302,8 +302,21 @@
 
           <article class="cartao">
             <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Compressor</h2>
+              <button class="chave" data-ligar-efeito="compressor" aria-pressed="false">Off</button>
+            </div>
+            <!-- Medidor: quanto o compressor está abaixando o volume agora -->
+            <div class="medidor-compressor" title="Quanto o compressor está abaixando o volume">
+              <div class="medidor-trilho"><div id="compressor-reducao" class="medidor-barra"></div></div>
+              <span id="compressor-reducao-db" class="medidor-numero">0 dB</span>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="compressor"></div>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Chorus</h2>
-              <button class="chave" data-ligar-efeito="chorus" aria-pressed="false">Desligado</button>
+              <button class="chave" data-ligar-efeito="chorus" aria-pressed="false">Off</button>
             </div>
             <div class="linha-knobs" data-knobs-efeito="chorus"></div>
           </article>
@@ -311,7 +324,7 @@
           <article class="cartao">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Delay</h2>
-              <button class="chave" data-ligar-efeito="delay" aria-pressed="false">Desligado</button>
+              <button class="chave" data-ligar-efeito="delay" aria-pressed="false">Off</button>
             </div>
             <div class="linha-knobs" data-knobs-efeito="delay"></div>
             <div class="linha-opcao">
@@ -323,7 +336,7 @@
           <article class="cartao">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Reverb</h2>
-              <button class="chave" data-ligar-efeito="reverb" aria-pressed="false">Desligado</button>
+              <button class="chave" data-ligar-efeito="reverb" aria-pressed="false">Off</button>
             </div>
             <div class="linha-knobs" data-knobs-efeito="reverb"></div>
           </article>
