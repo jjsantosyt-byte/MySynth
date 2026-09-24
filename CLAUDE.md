@@ -110,7 +110,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
     instrumentos de sample em outros apps.
 
 ## Aparelhos de teste
-- Android: do dono do projeto (é onde o APK vai ser testado).
+- Android: do dono do projeto. FUNCIONA: Chrome → ⋮ → "Instalar app" (o Chrome cria o app,
+  com ícone, tela cheia e sem internet) — aprovado pelo dono ("bem legal", 24/09/2026).
+  APK do PWABuilder (TWA, opção A com barrinha): instala mas fica parado no ícone (splash) e
+  nunca carrega. Próxima tentativa: gerar de novo com "Fallback behavior: WebView" e conferir
+  Chrome como navegador padrão/atualizado.
 - iPhone 15 Pro: de um amigo que testa junto (o layout "celular deitado" foi feito para ele;
   no iPhone o app é usado pelo Safari / "Adicionar à Tela de Início", não por APK).
 
@@ -344,7 +348,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Width 0 = cauda mono; Pre-delay 150 ms = silêncio até ~150 ms; Delay Low Cut 800 Hz: 2º eco
   -8 dB, 3º -10 dB; Chorus Feedback 90% estável; Tom 0 escurece a Distorção.
 
-**PWA completo (funciona sem internet) — feito, em teste:**
+**PWA completo (funciona sem internet) — feito e aprovado (Android, app instalado pelo Chrome):**
 - `sw.js` (service worker, registrado no principal.js): na instalação guarda os arquivos do app
   (lista ARQUIVOS) + todos os presets de `presets/lista.json`. A cada pedido: REDE PRIMEIRO
   (até 3 s) e atualiza a cópia; sem rede, usa a cópia. Assim, com internet sempre vem a versão
