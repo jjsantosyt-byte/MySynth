@@ -1023,6 +1023,27 @@ h1 {
   background: var(--botao-apertado);
 }
 
+/* Recado rápido (some sozinho; tocar fecha) */
+.recado {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 300;
+  max-width: min(90vw, 480px);
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid var(--destaque);
+  border-radius: 10px;
+  background: var(--cartao);
+  color: var(--texto);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.recado[hidden] {
+  display: none;
+}
+
 .wavetables-dica {
   margin: 4px 0;
   font-size: 13px;

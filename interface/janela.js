@@ -9,6 +9,23 @@ export function criar(tag, classe, texto) {
   return el;
 }
 
+// Recado rápido: uma bolha por cima da tela que some sozinha depois de alguns segundos.
+// Não empurra nada do layout (bom para o celular deitado, sem rolagem).
+let bolha = null;
+let temporizador = 0;
+export function mostrarRecado(texto, segundos = 4) {
+  if (!bolha) {
+    bolha = criar('div', 'recado');
+    bolha.setAttribute('role', 'status');
+    bolha.addEventListener('click', () => (bolha.hidden = true));
+    document.body.appendChild(bolha);
+  }
+  bolha.textContent = texto;
+  bolha.hidden = false;
+  clearTimeout(temporizador);
+  temporizador = setTimeout(() => (bolha.hidden = true), segundos * 1000);
+}
+
 // Fecha no ✕, tocando fora ou com Esc.
 export function criarJanela(titulo) {
   const fundo = criar('div', 'janela-fundo');

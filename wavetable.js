@@ -322,7 +322,7 @@ export function listaWavetables() {
 }
 
 // Escolhe no máximo "maximo" ciclos, espalhados por igual (sempre com o 1º e o último).
-function escolherCiclos(ciclos, maximo) {
+export function escolherCiclos(ciclos, maximo = MAX_FRAMES_IMPORTADOS) {
   if (ciclos.length <= maximo) return ciclos;
   return Array.from({ length: maximo }, (_, k) => ciclos[Math.round((k * (ciclos.length - 1)) / (maximo - 1))]);
 }
@@ -331,7 +331,7 @@ function escolherCiclos(ciclos, maximo) {
 // O volume é ajustado para a tabela TODA: o frame mais alto fica com pico 1 e os outros
 // mantêm o volume relativo que tinham no arquivo.
 export function criarWavetableDeCiclos(id, nome, ciclos) {
-  const escolhidos = escolherCiclos(ciclos, MAX_FRAMES_IMPORTADOS);
+  const escolhidos = escolherCiclos(ciclos);
   const frames = escolhidos.map((ciclo) => montarFrame(harmonicosDeCiclo(ciclo), false));
   let pico = 0;
   for (const niveis of frames) for (const v of niveis[0]) pico = Math.max(pico, Math.abs(v));
@@ -353,19 +353,28 @@ export function criarWavetableDeCiclos(id, nome, ciclos) {
     nomesFrames: null,
     atalhos,
     importada: true,
-    framesNoArquivo: ciclos.length,
   };
 }
 
+export const idImportada = (nome) => 'wav:' + nome;
+
 // Coloca (ou substitui, se o nome já existe) uma importada no catálogo.
-// Devolve a wavetable montada.
+// Ela só é montada na primeira vez que for escolhida. Devolve o id.
 export function registrarImportada(nome, ciclos) {
-  const id = 'wav:' + nome;
-  const tabela = criarWavetableDeCiclos(id, nome, ciclos);
-  const receita = { id, nome, criar: () => tabela };
+  const id = idImportada(nome);
+  const receita = { id, nome, criar: () => criarWavetableDeCiclos(id, nome, ciclos) };
   const i = IMPORTADAS.findIndex((w) => w.id === id);
   if (i >= 0) IMPORTADAS[i] = receita;
   else IMPORTADAS.push(receita);
-  prontas.set(id, tabela);
-  return tabela;
+  IMPORTADAS.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  prontas.delete(id); // se já estava montada (substituição), monta de novo
+  return id;
 }
+
+export function removerImportada(id) {
+  const i = IMPORTADAS.findIndex((w) => w.id === id);
+  if (i >= 0) IMPORTADAS.splice(i, 1);
+  prontas.delete(id);
+}
+
+export const existeWavetable = (id) => listaWavetables().some((w) => w.id === id);

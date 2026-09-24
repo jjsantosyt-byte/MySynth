@@ -185,6 +185,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `interface/presets.js` — barra de presets, lista, salvar, apagar, exportar/importar
 - `interface/janela.js` — janela por cima da tela (usada por presets e wavetables)
 - `interface/wavetables.js` — lista de wavetables e botão Importar .wav
+- `interface/armazem-wavetables.js` — guarda as wavetables importadas no aparelho (IndexedDB)
 - `importar-wav.js` — lê arquivos .wav e divide em ciclos (frames)
 - `presets-fabrica.js` — presets de fábrica e categorias
 - `dsp/efeitos/` — distorcao.js, chorus.js, delay.js, reverb.js
@@ -292,7 +293,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Item 6c-1 (importar wavetable .wav) — feito, em teste:**
+**Item 6c-2 (wavetables importadas guardadas no aparelho) — feito, em teste:**
+- `interface/armazem-wavetables.js`: IndexedDB (banco 'mysynth', gaveta 'wavetables', chave =
+  nome). Guarda só os ciclos usados (≤ 64, ~0,5 MB por tabela); montagem anti-chiado na hora
+  de usar. Pede `navigator.storage.persist()` ao guardar.
+- Ao abrir o app, `carregarWavetablesGuardadas()` põe as guardadas no catálogo (montagem
+  preguiçosa). "Minhas" em ordem alfabética. 🗑 apaga (com confirmação); se era a que estava
+  tocando, volta para a Básica.
+- Preset com importada que não existe no aparelho → abre com a Básica + recado
+  (`mostrarRecado()` em `interface/janela.js`: bolha que some sozinha, não empurra o layout).
+- Falha ao guardar (ex.: janela anônima): a tabela funciona até fechar, com aviso.
+- iPhone: o Safari pode apagar dados de sites não usados por ~7 dias; o app instalado
+  na Tela de Início não tem esse limite. Backup completo virá na 6c-3 (junto no .synth).
+
+**Item 6c-1 (importar wavetable .wav) — feito e aprovado:**
 - Tocar no nome da wavetable (OSC A) abre a lista: Fábrica, Minhas (importadas) e
   "Importar .wav". As setas ‹ › passam por todas.
 - `importar-wav.js` (só contas): lê PCM 8/16/24/32 bits e float 32/64; estéreo vira mono.

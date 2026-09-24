@@ -1,7 +1,7 @@
 // principal.js
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
-import { listaWavetables, obterWavetable } from './wavetable.js';
+import { listaWavetables, obterWavetable, existeWavetable } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
@@ -23,7 +23,8 @@ import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
-import { criarListaWavetables } from './interface/wavetables.js';
+import { criarListaWavetables, carregarWavetablesGuardadas } from './interface/wavetables.js';
+import { mostrarRecado } from './interface/janela.js';
 import { PRESETS_FABRICA, CATEGORIAS } from './presets-fabrica.js';
 
 const botaoLigar = document.getElementById('botao-ligar');
@@ -407,7 +408,11 @@ const telasFiltro = document.querySelectorAll('[data-filtro-tela]');
 const nomeWavetable = document.getElementById('wt-nome');
 
 // Troca a wavetable do oscilador: monta (se preciso), manda para o motor e ajusta a tela.
+// Importada que não está neste aparelho (apagada, ou preset vindo de outro aparelho) → Básica.
 function trocarWavetable(id) {
+  if (!existeWavetable(id)) {
+    mostrarRecado(`A wavetable "${String(id).replace(/^wav:/, '')}" não está neste aparelho: usando a Básica.`, 6);
+  }
   wavetable = obterWavetable(id);
   estado.opcoes.wavetable = wavetable.id;
   estado.synth?.port.postMessage({ tipo: 'wavetable', wavetable });
@@ -432,7 +437,14 @@ criarListaWavetables({
   botaoNome: nomeWavetable,
   idAtual: () => wavetable.id,
   escolher: (id) => definirOpcao('wavetable', id),
+  // Apagou a que está tocando → volta para a Básica
+  aoApagar: (id) => {
+    if (id === wavetable.id) definirOpcao('wavetable', 'basica');
+  },
 });
+
+// As importadas guardadas no aparelho entram no catálogo (leva alguns milissegundos).
+carregarWavetablesGuardadas();
 
 // ---------- WT Pos e desenho da onda ----------
 
