@@ -1,2 +1,5 @@
 # Configurações locais do Claude neste computador (não fazem parte do app)
 .claude/settings.local.json
+
+# Exports de presets feitos para teste (não publicar)
+mysynth-presets.synth
