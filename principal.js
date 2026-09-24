@@ -66,6 +66,10 @@ const OSCILADORES = ['A', 'B', 'C'].map((letra) => {
       oitava: 'oitavaOsc' + s,
       semi: 'semiOsc' + s,
       fine: 'fineOsc' + s,
+      pan: 'panOsc' + s,
+      blend: 'blendOsc' + s,
+      fase: 'faseOsc' + s,
+      rand: 'randOsc' + s,
     },
   };
 });
@@ -79,17 +83,23 @@ const estado = {
     width: 1, // unison: abertura no estéreo (0 a 1)
     nivelOsc: 1, // nível do oscilador A (0 a 1)
     fineOsc: 0, // afinação fina do oscilador A (centésimos de semitom, -100 a 100)
+    panOsc: 0, // posição no estéreo (-1 esquerda, 0 centro, 1 direita)
+    blendOsc: 1, // volume das cópias de fora do unison (1 = todas iguais)
     // OSC B e C: os mesmos controles, com a letra no fim
     wtPosB: 0,
     detuneB: 0.25,
     widthB: 1,
     nivelOscB: 1,
     fineOscB: 0,
+    panOscB: 0,
+    blendOscB: 1,
     wtPosC: 0,
     detuneC: 0.25,
     widthC: 1,
     nivelOscC: 1,
     fineOscC: 0,
+    panOscC: 0,
+    blendOscC: 1,
     ruido: 0.5, // nível do ruído (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
@@ -120,6 +130,8 @@ const estado = {
     ruidoTipo: 'white', // 'white', 'pink' ou 'brown'
     oitavaOsc: 0, // afinação do oscilador A: oitavas (-3 a +3)
     semiOsc: 0, // e semitons (-12 a +12)
+    faseOsc: 0, // Phase: ponto de início da onda (0 a 1 = 0° a 360°)
+    randOsc: 1, // Rand: quanto o início é sorteado a cada nota (1 = totalmente)
     // OSC B e C (começam desligados: presets antigos soam iguais)
     wavetableB: 'basica',
     oscBLigado: false,
@@ -127,12 +139,16 @@ const estado = {
     rotaOscB: 'f1',
     oitavaOscB: 0,
     semiOscB: 0,
+    faseOscB: 0,
+    randOscB: 1,
     wavetableC: 'basica',
     oscCLigado: false,
     unisonC: 1,
     rotaOscC: 'f1',
     oitavaOscC: 0,
     semiOscC: 0,
+    faseOscC: 0,
+    randOscC: 1,
   },
   // Fontes de modulação (mesmos valores iniciais do motor de som).
   fontes: {
@@ -756,6 +772,56 @@ function montarOscilador(osc) {
       ler: () => estado.parametros[nomes.fine],
     })
   );
+
+  // --- Página "Mais": Pan, Blend, Phase, Rand ---
+  const formatarPan = (v) => (Math.abs(v) < 0.005 ? 'C' : `${v < 0 ? 'L' : 'R'} ${Math.round(Math.abs(v) * 100)}`);
+  peca('pagina-mais').append(
+    criarKnob({
+      rotulo: 'Pan',
+      destino: nomes.pan, // aceita modulação (ex.: LFO = auto-pan)
+      escala: escalaLinear(-1, 1),
+      padrao: estado.parametros[nomes.pan],
+      formatar: formatarPan,
+      aoMudar: (v) => definirParametro(nomes.pan, v),
+      ler: () => estado.parametros[nomes.pan],
+    }),
+    criarKnob({
+      rotulo: 'Blend',
+      destino: nomes.blend,
+      escala: escalaLinear(0, 1),
+      padrao: estado.parametros[nomes.blend],
+      formatar: formatarPorcentagem,
+      aoMudar: (v) => definirParametro(nomes.blend, v),
+      ler: () => estado.parametros[nomes.blend],
+    }),
+    criarKnob({
+      rotulo: 'Phase',
+      escala: escalaLinear(0, 1),
+      padrao: estado.opcoes[nomes.fase],
+      formatar: (v) => Math.round(v * 360) + '°',
+      aoMudar: (v) => definirOpcao(nomes.fase, v),
+      ler: () => estado.opcoes[nomes.fase],
+    }),
+    criarKnob({
+      rotulo: 'Rand',
+      escala: escalaLinear(0, 1),
+      padrao: estado.opcoes[nomes.rand],
+      formatar: formatarPorcentagem,
+      aoMudar: (v) => definirOpcao(nomes.rand, v),
+      ler: () => estado.opcoes[nomes.rand],
+    })
+  );
+
+  // Tocar no título do cartão ("A ⋯") alterna entre a página Onda e a página Mais.
+  // (Só muda a tela: não é guardado no preset.)
+  const botaoPagina = peca('pagina-osc');
+  botaoPagina.addEventListener('click', () => {
+    const mais = cartao.classList.toggle('pagina-2');
+    botaoPagina.setAttribute('aria-pressed', mais);
+    botaoPagina.setAttribute('aria-label', `Oscilador ${letra}: ${mais ? 'voltar para a página Onda' : 'mostrar Pan, Blend, Phase e Rand'}`);
+    pedirDesenho();
+  });
+  botaoPagina.setAttribute('aria-label', `Oscilador ${letra}: mostrar Pan, Blend, Phase e Rand`);
 
   // --- Liga/desliga ---
   function mostrarLigado() {

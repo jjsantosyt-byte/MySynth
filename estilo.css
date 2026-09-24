@@ -1703,3 +1703,56 @@ h1 {
     line-height: 20px;
   }
 }
+
+/* ---------- Cartão do oscilador: 2 páginas (Onda | Mais) ----------
+   O título ("A ⋯") é um botão: aceso = página Mais (Pan, Blend, Phase, Rand).
+   A página Onda esconde a Mais e vice-versa; o desenho da onda e o cabeçalho ficam sempre. */
+.botao-pagina {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.botao-pagina .marca-pagina {
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.botao-pagina[aria-pressed='true'] {
+  border-color: var(--destaque);
+  background: var(--destaque-escuro);
+  color: #fff;
+}
+
+.pagina-mais {
+  display: none;
+}
+
+.cartao-osc.pagina-2 .linha-wt,
+.cartao-osc.pagina-2 .atalhos-wt,
+.cartao-osc.pagina-2 .linha-afinacao,
+.cartao-osc.pagina-2 [data-knobs-osc] {
+  display: none;
+}
+
+.cartao-osc.pagina-2 .pagina-mais {
+  display: flex;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao-osc .pagina-mais {
+    grid-row: 3;
+  }
+
+  .botao-pagina {
+    padding: 1px 4px;
+  }
+}

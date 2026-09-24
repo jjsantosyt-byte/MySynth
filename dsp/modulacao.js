@@ -17,6 +17,10 @@ export const DESTINOS_MOD = [
   'oitavaOsc', 'semiOsc', 'fineOsc',
   'oitavaOscB', 'semiOscB', 'fineOscB',
   'oitavaOscC', 'semiOscC', 'fineOscC',
+  // Pan (posição no estéreo) e Blend (volume das cópias de fora do unison) de cada oscilador
+  'panOsc', 'blendOsc',
+  'panOscB', 'blendOscB',
+  'panOscC', 'blendOscC',
 ];
 
 // Índices para acesso rápido
@@ -32,9 +36,9 @@ export const D_RESO2 = 8;
 
 // Destinos de cada oscilador (A, B, C), na ordem acima
 export const DESTINOS_OSC = [
-  { wtPos: 0, detune: 1, width: 2, nivel: 6, oitava: 17, semi: 18, fine: 19 },
-  { wtPos: 9, detune: 10, width: 11, nivel: 12, oitava: 20, semi: 21, fine: 22 },
-  { wtPos: 13, detune: 14, width: 15, nivel: 16, oitava: 23, semi: 24, fine: 25 },
+  { wtPos: 0, detune: 1, width: 2, nivel: 6, oitava: 17, semi: 18, fine: 19, pan: 26, blend: 27 },
+  { wtPos: 9, detune: 10, width: 11, nivel: 12, oitava: 20, semi: 21, fine: 22, pan: 28, blend: 29 },
+  { wtPos: 13, detune: 14, width: 15, nivel: 16, oitava: 23, semi: 24, fine: 25, pan: 30, blend: 31 },
 ];
 
 export class MatrizModulacao {

@@ -30,7 +30,8 @@
         </div>
         <label class="grupo-volume">
           Volume
-          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" />        </label>
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" />
+        </label>
         <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
       </header>
 
@@ -61,7 +62,7 @@
         <div class="modulos modulos-osc">
           <article class="cartao cartao-osc" data-osc="A">
             <div class="cabecalho-cartao cabecalho-osc">
-              <h2 class="titulo-cartao"><span class="nome-longo">OSC </span>A</h2>
+              <button class="titulo-cartao botao-pagina" data-pagina-osc aria-pressed="false"><span class="nome-longo">OSC </span>A<span class="marca-pagina" aria-hidden="true">⋯</span></button>
               <!-- Qual wavetable o oscilador usa: ‹ Básica › -->
               <div class="seletor-wt">
                 <button data-wt-anterior class="seletor-botao" aria-label="Wavetable anterior">‹</button>
@@ -95,11 +96,13 @@
             <div data-afinacao class="linha-afinacao"></div>
             <!-- Unison (cópias), Detune, Width e Nível -->
             <div data-knobs-osc class="linha-knobs"></div>
+            <!-- Página "Mais" (tocar no título do cartão): Pan, Blend, Phase, Rand -->
+            <div data-pagina-mais class="linha-knobs pagina-mais"></div>
           </article>
 
           <article class="cartao cartao-osc" data-osc="B">
             <div class="cabecalho-cartao cabecalho-osc">
-              <h2 class="titulo-cartao"><span class="nome-longo">OSC </span>B</h2>
+              <button class="titulo-cartao botao-pagina" data-pagina-osc aria-pressed="false"><span class="nome-longo">OSC </span>B<span class="marca-pagina" aria-hidden="true">⋯</span></button>
               <div class="seletor-wt">
                 <button data-wt-anterior class="seletor-botao" aria-label="Wavetable anterior">‹</button>
                 <button data-wt-nome class="seletor-wt-nome seletor-wt-lista" aria-haspopup="dialog">Básica</button>
@@ -125,11 +128,13 @@
             <!-- Afinação do oscilador: Oct, Semi, Fine -->
             <div data-afinacao class="linha-afinacao"></div>
             <div data-knobs-osc class="linha-knobs"></div>
+            <!-- Página "Mais" (tocar no título do cartão): Pan, Blend, Phase, Rand -->
+            <div data-pagina-mais class="linha-knobs pagina-mais"></div>
           </article>
 
           <article class="cartao cartao-osc" data-osc="C">
             <div class="cabecalho-cartao cabecalho-osc">
-              <h2 class="titulo-cartao"><span class="nome-longo">OSC </span>C</h2>
+              <button class="titulo-cartao botao-pagina" data-pagina-osc aria-pressed="false"><span class="nome-longo">OSC </span>C<span class="marca-pagina" aria-hidden="true">⋯</span></button>
               <div class="seletor-wt">
                 <button data-wt-anterior class="seletor-botao" aria-label="Wavetable anterior">‹</button>
                 <button data-wt-nome class="seletor-wt-nome seletor-wt-lista" aria-haspopup="dialog">Básica</button>
@@ -155,6 +160,8 @@
             <!-- Afinação do oscilador: Oct, Semi, Fine -->
             <div data-afinacao class="linha-afinacao"></div>
             <div data-knobs-osc class="linha-knobs"></div>
+            <!-- Página "Mais" (tocar no título do cartão): Pan, Blend, Phase, Rand -->
+            <div data-pagina-mais class="linha-knobs pagina-mais"></div>
           </article>
 
           <!-- Ruído: passa pelo mesmo filtro e envelope das notas -->

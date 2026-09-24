@@ -73,9 +73,10 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Qualidade (aba Global): escolher a taxa de amostragem (44,1/48 kHz — exige religar o
   motor de som por um instante) e/ou um modo "qualidade alta" (mais limpo, mais pesado).
 - Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).
-- Oscilador: knobs Blend (volume das cópias de fora vs. centro), Phase (ponto de início
-  da onda) e Rand (quanto esse início é sorteado). Hoje: Blend fixo (todas iguais) e
-  fase sorteada a cada nota.
+- Oscilador: Warp (Sync, Bend, PWM; depois FM entre osciladores) — próximo passo planejado,
+  precisa de oversampling (2–4×) no oscilador com Warp ligado para não chiar.
+- Efeitos: mais knobs (Distorção: Tom, Filtro antes; Chorus: Delay, Feedback, Width;
+  Delay: Low/High Cut, Width, Sync BPM; Reverb: Pre-delay, Low Cut, Width) — planejado.
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
 - Limitador próprio no motor (`dsp/`), no lugar do DynamicsCompressor do navegador: olha ~1,5 ms
@@ -299,6 +300,21 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Osciladores: Pan, Blend, Phase, Rand + página "Mais" — feito, em teste:**
+- Pan (`panOsc`, -1 a 1, parâmetro suave) e Blend (`blendOsc`, 0 a 1, padrão 1 = todas as
+  cópias iguais) + B/C; ambos destinos de modulação ("Pan A", "Blend B"...; índices 26–31).
+  Phase (`faseOsc`, 0 a 1 = 0°–360°) e Rand (`randOsc`, padrão 1) + B/C são opções (valem no
+  início da nota).
+- Motor: início de cada cópia = Phase + Rand × sorteio da voz (o sorteio é o mesmo para os 3
+  osciladores); aplicado no 1º bloco da nota (`fasesPendentes` na voz). Pan soma à posição
+  de cada cópia no estéreo (potência igual). Blend: cópias do meio (1 se Unison ímpar, 2 se
+  par) × cópias de fora com volume Blend × o do meio, potência total constante.
+- Tela: o título do cartão ("A ⋯") é um botão que alterna a página Onda / Mais (Pan, Blend,
+  Phase, Rand). Só tela, não vai no preset. Na página Mais a onda cresce (86 px a 852×340).
+- Medido: presets antigos idênticos; Pan -1 = só esquerda (L 1,0 / R 0), 0,5 = 0,38/0,92;
+  Blend 50% = cópias de fora -6 dB, 25% = -12 dB, 0% = somem, volume total igual;
+  Rand 0% = notas idênticas com sorteios diferentes; Phase 90° = onda adiantada 1/4 de ciclo.
 
 **Presets em pastas (.synth) — feito, em teste:**
 - `presets-fabrica.js` saiu; os 10 presets de fábrica viraram arquivos em `presets/fabrica/`

@@ -42,9 +42,15 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { name: 'nivelOsc', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Afinação fina do oscilador A, em centésimos de semitom (-100 a +100)
       { name: 'fineOsc', defaultValue: 0, minValue: -100, maxValue: 100, automationRate: 'k-rate' },
+      // Pan (-1 = esquerda, 0 = centro, 1 = direita) e Blend (0 = só as cópias do meio,
+      // 1 = todas as cópias de unison com o mesmo volume)
+      { name: 'panOsc', defaultValue: 0, minValue: -1, maxValue: 1, automationRate: 'k-rate' },
+      { name: 'blendOsc', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // OSC B e C: os mesmos controles, com a letra no fim
       ...['B', 'C'].flatMap((letra) => [
         { name: 'fineOsc' + letra, defaultValue: 0, minValue: -100, maxValue: 100, automationRate: 'k-rate' },
+        { name: 'panOsc' + letra, defaultValue: 0, minValue: -1, maxValue: 1, automationRate: 'k-rate' },
+        { name: 'blendOsc' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
         { name: 'wtPos' + letra, defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
         { name: 'detune' + letra, defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
         { name: 'width' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
@@ -83,6 +89,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         width: 'width' + letra,
         nivel: 'nivelOsc' + letra,
         fine: 'fineOsc' + letra,
+        pan: 'panOsc' + letra,
+        blend: 'blendOsc' + letra,
       },
       tabelaNova: null, // wavetable esperando para entrar (troca sem estalo)
       ajustes: {
@@ -98,6 +106,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         oitava: 0, // afinação: oitavas (-3 a +3), semitons (-12 a +12), centésimos (-100 a +100)
         semi: 0,
         fine: 0,
+        pan: 0,
+        blend: 1,
+        fase: 0, // ponto de início da onda (0 a 1 = 0° a 360°)
+        rand: 1, // quanto o início é sorteado a cada nota (0 a 1)
       },
     }));
     this.comum = { oscs: this.oscs.map((o) => o.ajustes) }; // dados do bloco, compartilhados por todas as vozes
@@ -204,6 +216,16 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     achado = /^semiOsc([BC]?)$/.exec(nome);
     if (achado) {
       ajustesOsc(achado[1]).semi = Math.min(12, Math.max(-12, Math.round(valor)));
+      return;
+    }
+    achado = /^faseOsc([BC]?)$/.exec(nome);
+    if (achado) {
+      ajustesOsc(achado[1]).fase = Math.min(1, Math.max(0, valor));
+      return;
+    }
+    achado = /^randOsc([BC]?)$/.exec(nome);
+    if (achado) {
+      ajustesOsc(achado[1]).rand = Math.min(1, Math.max(0, valor));
       return;
     }
     achado = /^unison([BC]?)$/.exec(nome);
@@ -412,6 +434,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const comum = this.comum;
     for (const { params, ajustes } of this.oscs) {
       ajustes.fine = parametros[params.fine][0];
+      ajustes.pan = parametros[params.pan][0];
+      ajustes.blend = parametros[params.blend][0];
       ajustes.posicoesWT = parametros[params.wtPos];
       ajustes.detune = parametros[params.detune][0];
       ajustes.width = parametros[params.width][0];

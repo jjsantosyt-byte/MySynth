@@ -44,6 +44,7 @@ export class Voz {
     this.oscs = DESTINOS_OSC.map((destinos) => new OsciladorVoz(taxaAmostragem, TAMANHO_BLOCO, destinos));
     this.tocou = [false, false, false]; // cada oscilador fez som neste bloco?
     this.fasesSorteadas = new Float64Array(MAX_UNISON); // ponto de início de cada cópia (sorteado por nota)
+    this.fasesPendentes = false; // nota nova: os osciladores ainda não receberam o ponto de início
 
     // Rotas de filtro. Cada uma tem a sua cadeia de filtros (cada etapa: qual filtro,
     // 1 ou 2, e um par [esquerdo, direito] com a memória própria daquela etapa) e uma
@@ -115,8 +116,9 @@ export class Voz {
         for (const { par } of cadeia) for (const filtro of par) filtro.reiniciar();
       }
       // Um sorteio por nota (um ponto de início por cópia de unison), igual para os 3 osciladores
+      // (Phase/Rand de cada oscilador entram no primeiro bloco de som: ver processar)
       for (let c = 0; c < this.fasesSorteadas.length; c++) this.fasesSorteadas[c] = Math.random();
-      for (const osc of this.oscs) osc.reiniciar(this.fasesSorteadas);
+      this.fasesPendentes = true;
       this.modNova = true;
       for (const f of this.filtrosMod) f.novo = true;
     }
@@ -234,6 +236,10 @@ export class Voz {
     // Ajustes de cada oscilador neste bloco (ver OsciladorVoz.processarPedaco)
     const ajustesOscs = comum.oscs;
     const oscs = this.oscs;
+    if (this.fasesPendentes) {
+      for (let k = 0; k < oscs.length; k++) oscs[k].reiniciar(this.fasesSorteadas, ajustesOscs[k]);
+      this.fasesPendentes = false;
+    }
     for (let k = 0; k < oscs.length; k++) {
       oscs[k].limpar(tamanhoBloco);
       this.tocou[k] = false;

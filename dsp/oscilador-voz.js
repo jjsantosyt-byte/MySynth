@@ -24,7 +24,7 @@ const FREQUENCIA_MAXIMA = 0.45;
 const limitar01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 export class OsciladorVoz {
-  // "destinos" = índices de modulação deste oscilador: { wtPos, detune, width, nivel }
+  // "destinos" = índices de modulação deste oscilador (ver DESTINOS_OSC em modulacao.js)
   constructor(taxaAmostragem, tamanhoBloco, destinos) {
     this.taxa = taxaAmostragem;
     this.destinos = destinos;
@@ -40,6 +40,8 @@ export class OsciladorVoz {
     this.misturas = new Float64Array(MAX_UNISON);
     this.agudaDemais = new Uint8Array(MAX_UNISON); // 1 = cópia acima do limite (fica calada)
     this.volumesDireto = false; // na primeira vez, os volumes vão direto ao valor certo
+    this.volumeMeio = 1; // volume das cópias do meio e de fora (ver calcularVolumes)
+    this.volumeFora = 1;
 
     this.nivel = 1; // nível atual (liga/desliga e knob Nível, suavizado)
     this.nivelDireto = true;
@@ -55,11 +57,18 @@ export class OsciladorVoz {
     this.escolha = { nivel: 0, nivelB: 0, mistura: 0 };
   }
 
-  // Nota começando do silêncio: cada cópia começa no ponto da onda sorteado pela voz.
-  // Os 3 osciladores recebem os MESMOS pontos: na mesma altura, eles começam juntos e
-  // somam sempre igual (com sorteios separados, cada nota saía com um volume diferente).
-  reiniciar(fasesSorteadas) {
-    this.fases.set(fasesSorteadas);
+  // Nota começando do silêncio: ponto de início de cada cópia na onda.
+  // Phase (fase, 0 a 1 = 0° a 360°) = onde começa; Rand (0 a 1) = quanto do sorteio da voz
+  // entra por cima. Rand 100% + Phase 0° = sorteio puro (o padrão); Rand 0% = toda nota
+  // começa exatamente no mesmo ponto (ataque mais "duro" e igual, bom para baixos).
+  // Os 3 osciladores recebem os MESMOS sorteios: na mesma altura, com o mesmo Phase/Rand,
+  // eles começam juntos e somam sempre igual.
+  reiniciar(fasesSorteadas, ajustes) {
+    const { fase, rand } = ajustes;
+    for (let c = 0; c < MAX_UNISON; c++) {
+      const inicio = fase + rand * fasesSorteadas[c];
+      this.fases[c] = inicio >= 1 ? inicio - 1 : inicio;
+    }
     this.volumesDireto = true;
     this.nivelDireto = true;
   }
@@ -71,7 +80,9 @@ export class OsciladorVoz {
   }
 
   // Ajusta cada cópia de unison (altura, estéreo, nível anti-aliasing).
-  ajustarCopias(frequencia, unison, detune, width, tabela) {
+  // pan: posição do oscilador no estéreo (-1 esquerda, 0 centro, 1 direita), somada à
+  // abertura do unison (Width).
+  ajustarCopias(frequencia, unison, detune, width, pan, tabela) {
     for (let c = 0; c < unison; c++) {
       // Posição da cópia de -1 (ponta de baixo/esquerda) a +1 (ponta de cima/direita).
       const posicao = unison === 1 ? 0 : (c / (unison - 1)) * 2 - 1;
@@ -84,13 +95,27 @@ export class OsciladorVoz {
       this.niveisB[c] = this.escolha.nivelB;
       this.misturas[c] = this.escolha.mistura;
       // Estéreo "de potência igual": no centro, os dois lados com o mesmo volume.
-      const angulo = ((1 + posicao * width) * Math.PI) / 4;
+      const lugar = Math.min(1, Math.max(-1, posicao * width + pan));
+      const angulo = ((1 + lugar) * Math.PI) / 4;
       this.ganhosE[c] = Math.cos(angulo) * Math.SQRT2;
       this.ganhosD[c] = Math.sin(angulo) * Math.SQRT2;
     }
   }
 
-  // Calcula um pedaço (amostras "inicio" até "fim") e soma em somaE/somaD.
+  // Volumes das cópias "do meio" e "de fora" do unison, para este Blend (0 a 1).
+  calcularVolumes(unison, blend) {
+    const qtdMeio = Math.min(unison, unison % 2 === 1 ? 1 : 2);
+    const qtdFora = unison - qtdMeio;
+    this.volumeMeio = 1 / Math.sqrt(qtdMeio + qtdFora * blend * blend);
+    this.volumeFora = blend * this.volumeMeio;
+  }
+
+  // Volume de uma cópia (0 se ela está acima do Unison atual ou aguda demais).
+  volumeDaCopia(c, unison) {
+    if (c >= unison || this.agudaDemais[c]) return 0;
+    return Math.abs(c - (unison - 1) / 2) <= 0.5 ? this.volumeMeio : this.volumeFora;
+  }
+
   // Afinação deste pedaço, em semitons: Oct × 12 + Semi + Fine / 100, com a modulação.
   // A modulação anda na faixa de cada controle (como nos knobs): 100% = a faixa toda
   // (Oct: 6 oitavas, Semi: 24 semitons, Fine: 200 centésimos).
@@ -108,7 +133,9 @@ export class OsciladorVoz {
     return o * 12 + s + f / 100;
   }
 
-  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho, oitava, semi, fine }
+  // Calcula um pedaço (amostras "inicio" até "fim") e soma em somaE/somaD.
+  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho, oitava, semi,
+  //            fine, pan, blend, fase, rand }
   //   ganho = 1 normalmente; 0 enquanto a wavetable deste oscilador está sendo trocada
   //   (o som abaixa suavemente, troca no silêncio e volta: sem estalo).
   // mod / modAnterior: modulação da voz (fim deste pedaço / fim do pedaço anterior)
@@ -139,13 +166,17 @@ export class OsciladorVoz {
       unison,
       limitar01(ajustes.detune + mod[destinos.detune]),
       limitar01(ajustes.width + mod[destinos.width]),
+      Math.min(1, Math.max(-1, ajustes.pan + mod[destinos.pan] * 2)), // faixa do Pan = 2 (de -1 a 1)
       tabela
     );
 
-    // Volume de cada cópia: 1/√N, para o som não ficar N vezes mais alto.
-    const volumeCopia = 1 / Math.sqrt(unison);
+    // Volume de cada cópia. Blend: as cópias "de fora" do unison tocam com Blend × o
+    // volume das "do meio" (1 do meio se o Unison é ímpar, 2 se é par). Tudo junto soma
+    // sempre a mesma potência, para o volume não mudar ao mexer no Unison ou no Blend.
+    // Blend 100% = todas iguais (1/√N cada), como antes.
+    this.calcularVolumes(unison, limitar01(ajustes.blend + mod[destinos.blend]));
     if (this.volumesDireto) {
-      for (let c = 0; c < MAX_UNISON; c++) this.volumes[c] = c < unison && !this.agudaDemais[c] ? volumeCopia : 0;
+      for (let c = 0; c < MAX_UNISON; c++) this.volumes[c] = this.volumeDaCopia(c, unison);
       this.volumesDireto = false;
     }
     // Cópias acima do Unison atual continuam só até sumirem (se o Unison diminuiu).
@@ -191,7 +222,7 @@ export class OsciladorVoz {
 
       // Volume da cópia: só suaviza se ainda não chegou no valor certo.
       // Cópia aguda demais (acima do limite) vai a zero.
-      const alvo = c < unison && !this.agudaDemais[c] ? volumeCopia : 0;
+      const alvo = this.volumeDaCopia(c, unison);
       let volume = this.volumes[c];
       const suavizando = Math.abs(volume - alvo) > 1e-4;
       if (!suavizando) volume = alvo;
