@@ -40,8 +40,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { name: 'width', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
       // Oscilador: nível de 0 a 1
       { name: 'nivelOsc', defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
+      // Afinação fina do oscilador A, em centésimos de semitom (-100 a +100)
+      { name: 'fineOsc', defaultValue: 0, minValue: -100, maxValue: 100, automationRate: 'k-rate' },
       // OSC B e C: os mesmos controles, com a letra no fim
       ...['B', 'C'].flatMap((letra) => [
+        { name: 'fineOsc' + letra, defaultValue: 0, minValue: -100, maxValue: 100, automationRate: 'k-rate' },
         { name: 'wtPos' + letra, defaultValue: 0, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
         { name: 'detune' + letra, defaultValue: 0.25, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
         { name: 'width' + letra, defaultValue: 1, minValue: 0, maxValue: 1, automationRate: 'k-rate' },
@@ -74,8 +77,16 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Osciladores A, B, C. "ajustes" vai para as vozes a cada bloco (ver OsciladorVoz).
     // Nomes dos parâmetros: os do A sem letra (wtPos...), os do B e C com (wtPosB...).
     this.oscs = ['', 'B', 'C'].map((letra) => ({
-      params: { wtPos: 'wtPos' + letra, detune: 'detune' + letra, width: 'width' + letra, nivel: 'nivelOsc' + letra },
+      params: {
+        wtPos: 'wtPos' + letra,
+        detune: 'detune' + letra,
+        width: 'width' + letra,
+        nivel: 'nivelOsc' + letra,
+        fine: 'fineOsc' + letra,
+      },
       tabelaNova: null, // wavetable esperando para entrar (troca sem estalo)
+      oitava: 0, // afinação: oitavas (-3 a +3) e semitons (-12 a +12); o Fine é parâmetro
+      semi: 0,
       ajustes: {
         tabela: null, // wavetable recebida da página
         posicoesWT: null,
@@ -86,6 +97,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         nivel: 1,
         ganho: 1, // 0 durante a troca de wavetable
         rota: 'f1',
+        transposicao: 0, // afinação total em semitons (Oct × 12 + Semi + Fine / 100)
       },
     }));
     this.comum = { oscs: this.oscs.map((o) => o.ajustes) }; // dados do bloco, compartilhados por todas as vozes
@@ -183,8 +195,19 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   definirOpcao(nome, valor) {
     // Opções dos osciladores: A sem letra (unison, oscLigado, rotaOsc),
     // B e C com a letra (unisonB, oscBLigado, rotaOscB...)
-    const ajustesOsc = (letra) => this.oscs[{ '': 0, B: 1, C: 2 }[letra]].ajustes;
-    let achado = /^unison([BC]?)$/.exec(nome);
+    const osc = (letra) => this.oscs[{ '': 0, B: 1, C: 2 }[letra]];
+    const ajustesOsc = (letra) => osc(letra).ajustes;
+    let achado = /^oitavaOsc([BC]?)$/.exec(nome);
+    if (achado) {
+      osc(achado[1]).oitava = Math.min(3, Math.max(-3, Math.round(valor)));
+      return;
+    }
+    achado = /^semiOsc([BC]?)$/.exec(nome);
+    if (achado) {
+      osc(achado[1]).semi = Math.min(12, Math.max(-12, Math.round(valor)));
+      return;
+    }
+    achado = /^unison([BC]?)$/.exec(nome);
     if (achado) {
       ajustesOsc(achado[1]).unison = Math.min(16, Math.max(1, valor));
       return;
@@ -388,7 +411,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
     this.coef2.calcular(parametros.cutoff2, parametros.resonancia2, tamanhoBloco);
     const comum = this.comum;
-    for (const { params, ajustes } of this.oscs) {
+    for (const { params, ajustes, oitava, semi } of this.oscs) {
+      ajustes.transposicao = oitava * 12 + semi + parametros[params.fine][0] / 100;
       ajustes.posicoesWT = parametros[params.wtPos];
       ajustes.detune = parametros[params.detune][0];
       ajustes.width = parametros[params.width][0];

@@ -16,6 +16,11 @@ export const MAX_UNISON = 16;
 // Com Detune em 100%, as cópias das pontas ficam ±1 semitom da nota.
 const DETUNE_MAXIMO = 1;
 
+// Cópia afinada acima deste ponto (fração da taxa de amostragem; 0,45 ≈ 21,6 kHz a 48 kHz)
+// não dá para tocar sem chiado (aliasing): ela some suavemente em vez de chiar.
+// Acontece com Oct/Semi para cima em notas muito agudas (acima do que o ouvido escuta).
+const FREQUENCIA_MAXIMA = 0.45;
+
 const limitar01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
 export class OsciladorVoz {
@@ -33,6 +38,7 @@ export class OsciladorVoz {
     this.niveis = new Int32Array(MAX_UNISON);
     this.niveisB = new Int32Array(MAX_UNISON);
     this.misturas = new Float64Array(MAX_UNISON);
+    this.agudaDemais = new Uint8Array(MAX_UNISON); // 1 = cópia acima do limite (fica calada)
     this.volumesDireto = false; // na primeira vez, os volumes vão direto ao valor certo
 
     this.nivel = 1; // nível atual (liga/desliga e knob Nível, suavizado)
@@ -70,7 +76,9 @@ export class OsciladorVoz {
       // Posição da cópia de -1 (ponta de baixo/esquerda) a +1 (ponta de cima/direita).
       const posicao = unison === 1 ? 0 : (c / (unison - 1)) * 2 - 1;
       const freq = frequencia * Math.pow(2, (posicao * detune * DETUNE_MAXIMO) / 12);
-      this.passos[c] = freq / this.taxa;
+      const passo = freq / this.taxa;
+      this.agudaDemais[c] = passo > FREQUENCIA_MAXIMA ? 1 : 0;
+      this.passos[c] = Math.min(passo, FREQUENCIA_MAXIMA); // a leitura da onda nunca "pula" um ciclo
       escolherNiveis(tabela.harmonicos, freq, this.taxa, this.escolha);
       this.niveis[c] = this.escolha.nivel;
       this.niveisB[c] = this.escolha.nivelB;
@@ -83,7 +91,8 @@ export class OsciladorVoz {
   }
 
   // Calcula um pedaço (amostras "inicio" até "fim") e soma em somaE/somaD.
-  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho }
+  // ajustes: { tabela, posicoesWT, unison, detune, width, ligado, nivel, ganho, transposicao }
+  //   transposicao = afinação do oscilador em semitons (Oct × 12 + Semi + Fine / 100)
   //   ganho = 1 normalmente; 0 enquanto a wavetable deste oscilador está sendo trocada
   //   (o som abaixa suavemente, troca no silêncio e volta: sem estalo).
   // mod / modAnterior: modulação da voz (fim deste pedaço / fim do pedaço anterior)
@@ -107,24 +116,25 @@ export class OsciladorVoz {
       return;
     }
 
-    // Volume de cada cópia: 1/√N, para o som não ficar N vezes mais alto.
-    const volumeCopia = 1 / Math.sqrt(unison);
-    if (this.volumesDireto) {
-      for (let c = 0; c < MAX_UNISON; c++) this.volumes[c] = c < unison ? volumeCopia : 0;
-      this.volumesDireto = false;
-    }
-    // Cópias acima do Unison atual continuam só até sumirem (se o Unison diminuiu).
-    let qtdCopias = unison;
-    for (let c = unison; c < MAX_UNISON; c++) if (this.volumes[c] > 1e-5) qtdCopias = c + 1;
-
-    // Cópias de unison com Detune/Width modulados
+    // Cópias de unison com Detune/Width modulados, na altura da nota + afinação do oscilador
+    const transposicao = ajustes.transposicao;
     this.ajustarCopias(
-      frequencia,
+      transposicao === 0 ? frequencia : frequencia * Math.pow(2, transposicao / 12),
       unison,
       limitar01(ajustes.detune + mod[destinos.detune]),
       limitar01(ajustes.width + mod[destinos.width]),
       tabela
     );
+
+    // Volume de cada cópia: 1/√N, para o som não ficar N vezes mais alto.
+    const volumeCopia = 1 / Math.sqrt(unison);
+    if (this.volumesDireto) {
+      for (let c = 0; c < MAX_UNISON; c++) this.volumes[c] = c < unison && !this.agudaDemais[c] ? volumeCopia : 0;
+      this.volumesDireto = false;
+    }
+    // Cópias acima do Unison atual continuam só até sumirem (se o Unison diminuiu).
+    let qtdCopias = unison;
+    for (let c = unison; c < MAX_UNISON; c++) if (this.volumes[c] > 1e-5) qtdCopias = c + 1;
 
     // Posição na wavetable: parada no pedaço ou mudando a cada amostra
     const frames = tabela.frames;
@@ -164,7 +174,8 @@ export class OsciladorVoz {
       const mistura = this.misturas[c];
 
       // Volume da cópia: só suaviza se ainda não chegou no valor certo.
-      const alvo = c < unison ? volumeCopia : 0;
+      // Cópia aguda demais (acima do limite) vai a zero.
+      const alvo = c < unison && !this.agudaDemais[c] ? volumeCopia : 0;
       let volume = this.volumes[c];
       const suavizando = Math.abs(volume - alvo) > 1e-4;
       if (!suavizando) volume = alvo;

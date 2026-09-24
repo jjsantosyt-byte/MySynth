@@ -802,6 +802,27 @@ h1 {
   cursor: ew-resize;
 }
 
+/* Afinação do oscilador: Oct ‹ 0 ›  Semi ‹ 0 ›  Fine ‹ 0 › numa linha */
+.linha-afinacao {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.linha-afinacao .seletor-linha {
+  gap: 4px;
+  min-width: 0;
+}
+
+.linha-afinacao .seletor-numero {
+  min-width: 26px;
+  font-size: 14px;
+}
+
+.linha-afinacao .seletor-botao {
+  width: 22px;
+}
+
 /* Oscilador desligado: desenho da onda apagado (os controles continuam mexíveis) */
 .cartao-osc.desligado .tela-onda {
   opacity: 0.4;
@@ -1442,7 +1463,7 @@ h1 {
   .cartao-osc {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto minmax(26px, 1fr) auto auto;
+    grid-template-rows: auto minmax(22px, 1fr) auto auto auto;
   }
 
   .cartao-osc .cabecalho-osc {
@@ -1469,6 +1490,7 @@ h1 {
   .cartao-osc .tela-onda {
     grid-row: 2;
     height: auto;
+    min-height: 20px;
   }
 
   .cartao-osc .linha-wt {
@@ -1479,8 +1501,57 @@ h1 {
     display: none;
   }
 
-  .cartao-osc [data-knobs-osc] {
+  .cartao-osc [data-afinacao] {
     grid-row: 4;
+  }
+
+  .cartao-osc [data-knobs-osc] {
+    grid-row: 5;
+  }
+
+  /* Afinação compacta: sem os botões ‹ › (arrastar no número; toque duplo = 0),
+     assim as 3 caixinhas cabem na largura do cartão */
+  .linha-afinacao {
+    gap: 2px;
+  }
+
+  .linha-afinacao .seletor-linha {
+    gap: 3px;
+  }
+
+  .linha-afinacao .seletor-botao {
+    display: none;
+  }
+
+  .linha-afinacao .seletor-numero {
+    min-width: 34px;
+    height: 22px;
+    line-height: 22px;
+    font-size: 12px;
+  }
+
+  .linha-afinacao .seletor-rotulo {
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
+
+  /* Cartão do oscilador mais justo na altura (5 linhas) */
+  .cartao-osc {
+    row-gap: 2px;
+  }
+
+  .cartao-osc .linha-wt .chave.rota {
+    min-height: 24px;
+  }
+
+  .cartao-osc .grupo-wtpos input {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .cartao-osc .knob-numero,
+  .cartao-osc .knob-rotulo {
+    line-height: 1.05;
   }
 
   .seletor-wt .seletor-botao {

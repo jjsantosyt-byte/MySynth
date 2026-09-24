@@ -7,10 +7,23 @@
 
 const PIXELS_POR_PASSO = 16;
 
-// opcoes: { rotulo, min, max, padrao, aoMudar, rotuloAoLado, ler }
+// opcoes: { rotulo, min, max, padrao, aoMudar, rotuloAoLado, ler, pixelsPorPasso, formatar }
 // Devolve o elemento; elemento.habilitar(sim/não) liga ou desliga o controle.
 // Com "ler" (função que devolve o valor atual do som), ganha elemento.sincronizar().
-export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado = false, ler }) {
+// "pixelsPorPasso": quanto arrastar para andar 1 (menor = mais rápido; ex.: Fine, -100 a 100).
+// "formatar": como mostrar o número (ex.: "+7" em vez de "7").
+// Toque duplo no número volta ao valor inicial.
+export function criarSeletor({
+  rotulo,
+  min,
+  max,
+  padrao,
+  aoMudar,
+  rotuloAoLado = false,
+  ler,
+  pixelsPorPasso = PIXELS_POR_PASSO,
+  formatar = String,
+}) {
   const elemento = document.createElement('div');
   elemento.className = 'seletor' + (rotuloAoLado ? ' seletor-linha' : '');
   elemento.innerHTML = `
@@ -38,7 +51,7 @@ export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado =
   }
 
   function mostrar() {
-    numero.textContent = valor;
+    numero.textContent = formatar(valor);
     numero.setAttribute('aria-valuenow', valor);
     botaoMenos.disabled = !habilitado || valor <= min;
     botaoMais.disabled = !habilitado || valor >= max;
@@ -47,10 +60,18 @@ export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado =
   botaoMenos.addEventListener('click', () => mudar(valor - 1));
   botaoMais.addEventListener('click', () => mudar(valor + 1));
 
-  // Arrastar em cima do número
+  // Arrastar em cima do número (toque duplo = valor inicial)
   let arraste = null;
+  let ultimoToque = 0;
   numero.addEventListener('pointerdown', (evento) => {
     evento.preventDefault();
+    const agora = Date.now();
+    if (agora - ultimoToque < 300) {
+      mudar(padrao);
+      ultimoToque = 0;
+      return;
+    }
+    ultimoToque = agora;
     try {
       numero.setPointerCapture(evento.pointerId);
     } catch {
@@ -60,7 +81,7 @@ export function criarSeletor({ rotulo, min, max, padrao, aoMudar, rotuloAoLado =
   });
   numero.addEventListener('pointermove', (evento) => {
     if (!arraste || evento.pointerId !== arraste.id) return;
-    mudar(arraste.inicio + (arraste.y - evento.clientY) / PIXELS_POR_PASSO);
+    mudar(arraste.inicio + (arraste.y - evento.clientY) / pixelsPorPasso);
   });
   const terminar = (evento) => {
     if (arraste && evento.pointerId === arraste.id) arraste = null;

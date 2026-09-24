@@ -63,6 +63,9 @@ const OSCILADORES = ['A', 'B', 'C'].map((letra) => {
       detune: 'detune' + s,
       width: 'width' + s,
       nivel: 'nivelOsc' + s,
+      oitava: 'oitavaOsc' + s,
+      semi: 'semiOsc' + s,
+      fine: 'fineOsc' + s,
     },
   };
 });
@@ -75,15 +78,18 @@ const estado = {
     detune: 0.25, // unison: quanto as cópias desafinam (0 a 1)
     width: 1, // unison: abertura no estéreo (0 a 1)
     nivelOsc: 1, // nível do oscilador A (0 a 1)
+    fineOsc: 0, // afinação fina do oscilador A (centésimos de semitom, -100 a 100)
     // OSC B e C: os mesmos controles, com a letra no fim
     wtPosB: 0,
     detuneB: 0.25,
     widthB: 1,
     nivelOscB: 1,
+    fineOscB: 0,
     wtPosC: 0,
     detuneC: 0.25,
     widthC: 1,
     nivelOscC: 1,
+    fineOscC: 0,
     ruido: 0.5, // nível do ruído (0 a 1)
     cutoff: 2000, // Hz
     resonancia: 0.1, // 0 a 1
@@ -112,15 +118,21 @@ const estado = {
     glideSempre: false, // escorregar mesmo sem emendar as notas
     ruidoLigado: false, // ruído somado ao oscilador
     ruidoTipo: 'white', // 'white', 'pink' ou 'brown'
+    oitavaOsc: 0, // afinação do oscilador A: oitavas (-3 a +3)
+    semiOsc: 0, // e semitons (-12 a +12)
     // OSC B e C (começam desligados: presets antigos soam iguais)
     wavetableB: 'basica',
     oscBLigado: false,
     unisonB: 1,
     rotaOscB: 'f1',
+    oitavaOscB: 0,
+    semiOscB: 0,
     wavetableC: 'basica',
     oscCLigado: false,
     unisonC: 1,
     rotaOscC: 'f1',
+    oitavaOscC: 0,
+    semiOscC: 0,
   },
   // Fontes de modulação (mesmos valores iniciais do motor de som).
   fontes: {
@@ -664,6 +676,42 @@ function montarOscilador(osc) {
       formatar: formatarPorcentagem,
       aoMudar: (v) => definirParametro(nomes.nivel, v),
       ler: () => estado.parametros[nomes.nivel],
+    })
+  );
+
+  // --- Afinação: Oct, Semi (‹ N ›) e Fine (centésimos; arrastar no número anda rápido) ---
+  const comSinal = (v) => (v > 0 ? '+' + v : String(v));
+  peca('afinacao').append(
+    criarSeletor({
+      rotulo: 'Oct',
+      min: -3,
+      max: 3,
+      padrao: estado.opcoes[nomes.oitava],
+      rotuloAoLado: true,
+      formatar: comSinal,
+      aoMudar: (v) => definirOpcao(nomes.oitava, v),
+      ler: () => estado.opcoes[nomes.oitava],
+    }),
+    criarSeletor({
+      rotulo: 'Semi',
+      min: -12,
+      max: 12,
+      padrao: estado.opcoes[nomes.semi],
+      rotuloAoLado: true,
+      formatar: comSinal,
+      aoMudar: (v) => definirOpcao(nomes.semi, v),
+      ler: () => estado.opcoes[nomes.semi],
+    }),
+    criarSeletor({
+      rotulo: 'Fine',
+      min: -100,
+      max: 100,
+      padrao: estado.parametros[nomes.fine],
+      rotuloAoLado: true,
+      pixelsPorPasso: 2,
+      formatar: comSinal,
+      aoMudar: (v) => definirParametro(nomes.fine, v),
+      ler: () => estado.parametros[nomes.fine],
     })
   );
 

@@ -294,7 +294,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Item 6d-2 (OSC B e C funcionando) — feito, em teste:**
+**Item 6d-3 (afinação por oscilador) — feito, em teste:**
+- Oct (-3 a +3) e Semi (-12 a +12) são opções (`oitavaOsc`, `semiOsc`, + B/C); Fine é parâmetro
+  suave em centésimos (`fineOsc`, + B/C, -100 a +100). Motor: `ajustes.transposicao` =
+  Oct×12 + Semi + Fine/100 (semitons), aplicada na frequência de cada oscilador.
+- Proteção: cópia acima de 0,45 × taxa (~21,6 kHz) some suavemente (em vez de chiar) e o passo
+  de leitura é limitado (nunca pula um ciclo). Ex.: C8 com Oct +3 = silêncio, sem chiado.
+- Tela: linha "Oct ‹ 0 › Semi ‹ 0 › Fine ‹ 0 ›" em cada oscilador (números com sinal, ex.: +7).
+  Seletor ganhou `pixelsPorPasso` (Fine: 2 px) e `formatar`, e toque duplo = valor inicial.
+  Celular deitado: sem os botões ‹ › (arrastar no número); cartão com 5 linhas bem justo
+  (onda 22 px a 852×340, 64 px a 852×393).
+- Medido: A4 com Oct -1 = 220 Hz; Semi +7 = 659,2 Hz; Fine +50 = 452,9 Hz; presets antigos
+  idênticos; 852×340, 852×393 e em pé sem cortes.
+
+**Item 6d-2 (OSC B e C funcionando) — feito e aprovado:**
 - Os 3 osciladores são iguais: wavetable (fábrica ou importada), On/Off, Nível, WT Pos, rota
   de filtro, Unison/Detune/Width. B e C começam desligados (presets antigos soam iguais).
 - Nomes: A sem letra (wtPos, detune, width, nivelOsc, wavetable, oscLigado, unison, rotaOsc);
