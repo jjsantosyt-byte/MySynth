@@ -66,6 +66,24 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 6. Presets e wavetables próprias
 7. Depois: gravação, sequenciador, exportação (o "DAW")
 
+## Próximos passos (ordem combinada em 24/09/2026)
+1. **Upgrade dos efeitos** → objetivo: uma versão BETA bem funcional do sintetizador.
+   Plano proposto (falta decidir: quais efeitos novos entram, se a ordem fixa serve):
+   - E1: páginas na aba FX ([1] Saturação · Distorção · EQ · Compressor / [2] Chorus ·
+     Phaser · Delay · Reverb) + knobs novos nos efeitos atuais (Distorção: Tom, Filtro antes;
+     Chorus: Delay, Feedback, Width; Delay: Low/High Cut, Width; Reverb: Pre-delay, Low Cut, Width).
+   - E2: Compressor (Threshold, Ratio, Attack, Release, Ganho automático, Mix + medidor).
+   - E3: Saturação (Fita / Válvula / Transistor, Drive, Tom, Mix; oversampling).
+   - E4 (opcional): EQ 3 bandas e Phaser/Flanger.
+   - Ordem fixa proposta: Saturação → Distorção → EQ → Compressor → Chorus/Phaser → Delay → Reverb
+     (reordenar arrastando fica para depois).
+2. **Ajustes visuais e de espaço** — o dono decide cada um, aos poucos.
+3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
+   outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
+   restaurar tudo).
+4. Depois: item 7 (o "DAW"): 7a Gravar .wav → 7b sequenciador (piano roll) → 7c gravar no
+   sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
+
 ## Ideias para o futuro (sem data)
 - Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais
   (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
