@@ -79,8 +79,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
 - Exportar som como .wav:
-  - Salvar uma nota do som como "one shot" (escolher a nota e a duração; a cauda dos
-    efeitos entra no arquivo).
+  - Salvar uma nota do som como "one shot" .wav para usar no FL Studio e em outras DAWs.
+    Nota padrão: Dó (C) — o FL usa C5 como nota base do sampler, então a amostra já
+    entra afinada. Escolher a duração; a cauda dos efeitos entra no arquivo.
   - Salvar uma escala específica como .wav (ex.: todas as notas de Dó maior numa
     faixa de oitavas), em um arquivo por nota ou num arquivo só. Serve para montar
     instrumentos de sample em outros apps.
