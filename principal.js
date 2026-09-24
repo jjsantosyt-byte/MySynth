@@ -272,6 +272,13 @@ function aplicarSom(som) {
   carregandoPreset = false;
 }
 
+// ---------- Funcionar sem internet (sw.js) ----------
+// O "service worker" guarda os arquivos do app no aparelho: depois da primeira vez,
+// o app abre mesmo sem internet (com internet, sempre busca a versão nova).
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('sw.js').catch((erro) => console.warn('Não consegui ativar o modo sem internet:', erro));
+}
+
 // ---------- Ligar o som ----------
 
 async function ligarSom() {

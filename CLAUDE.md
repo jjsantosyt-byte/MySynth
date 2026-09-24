@@ -99,7 +99,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 
 ## Distribuição (caminho combinado)
 1. Colocar online (https, ex.: GitHub Pages) e testar no celular. ✔ online (falta o teste no celular)
-2. PWA: ícone na tela inicial, tela cheia, funciona sem internet.
+2. PWA: ícone na tela inicial, tela cheia, funciona sem internet. ✔ (`sw.js`, 24/09/2026)
 3. APK/AAB para a Play Store via TWA (PWABuilder/Bubblewrap). Conta Google: US$ 25 uma vez.
 4. Só se a latência no celular incomodar: motor de som em C++ (Oboe no Android),
    tela continua em HTML/JS dentro do Capacitor. Alternativa radical: JUCE (tela + motor
@@ -208,6 +208,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - `dsp/efeitos/` — distorcao.js, chorus.js, delay.js, reverb.js
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
+- `sw.js` + `manifest.json` — app instalável que funciona sem internet (PWA)
 - `servidor.ps1` + `Iniciar.bat` — servidor local para testar no computador (http://localhost:8080)
 
 **Visual para celular deitado (iPhone 15 Pro) — feito e aprovado no aparelho:**
@@ -310,7 +311,17 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
 
-**Warp W2 (FM entre osciladores) — feito, em teste:**
+**PWA completo (funciona sem internet) — feito, em teste:**
+- `sw.js` (service worker, registrado no principal.js): na instalação guarda os arquivos do app
+  (lista ARQUIVOS) + todos os presets de `presets/lista.json`. A cada pedido: REDE PRIMEIRO
+  (até 3 s) e atualiza a cópia; sem rede, usa a cópia. Assim, com internet sempre vem a versão
+  nova (bom para a fase de testes); sem internet abre a última versão aberta.
+  Arquivo novo no app: colocar na lista ARQUIVOS do sw.js (senão só é guardado quando usado).
+  Mudança grande de guardar: trocar o nome da GAVETA ('mysynth-arquivos-v1' → v2).
+- `manifest.json` ganhou "id". Ícones 192 e 512 (512 também "maskable").
+- Medido (servidor desligado): app abre, 11 presets na lista, motor de som liga.
+
+**Warp W2 (FM entre osciladores) — feito e aprovado:**
 - Modos novos no Warp: 'fmA', 'fmB', 'fmC' (cada oscilador mostra só os outros dois: "FM ← B").
   Modulação de FASE (como DX7/Serum): leitura = fase + índice × som do modulador; índice =
   Warp × 2 ciclos (`INDICE_FM_MAXIMO`). O knob Warp (e o destino "Warp A/B/C") é a força.
