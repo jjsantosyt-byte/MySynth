@@ -2,6 +2,8 @@
 // Janela por cima da tela (fundo escuro) e um ajudante para criar elementos.
 // Usada pelos presets e pela lista de wavetables.
 
+import { botaoComIcone } from './icones.js';
+
 export function criar(tag, classe, texto) {
   const el = document.createElement(tag);
   if (classe) el.className = classe;
@@ -26,7 +28,7 @@ export function mostrarRecado(texto, segundos = 4) {
   temporizador = setTimeout(() => (bolha.hidden = true), segundos * 1000);
 }
 
-// Fecha no ✕, tocando fora ou com Esc.
+// Fecha no X, tocando fora ou com Esc.
 export function criarJanela(titulo) {
   const fundo = criar('div', 'janela-fundo');
   fundo.hidden = true;
@@ -34,8 +36,7 @@ export function criarJanela(titulo) {
   janela.setAttribute('role', 'dialog');
   janela.setAttribute('aria-label', titulo);
   const topo = criar('div', 'janela-topo');
-  const fechar = criar('button', 'janela-fechar', '✕');
-  fechar.setAttribute('aria-label', 'Fechar');
+  const fechar = botaoComIcone(criar('button', 'janela-fechar'), 'fechar', 'Fechar');
   topo.append(criar('h2', 'janela-titulo', titulo), fechar);
   const corpo = criar('div', 'janela-corpo');
   const aviso = criar('p', 'janela-aviso');

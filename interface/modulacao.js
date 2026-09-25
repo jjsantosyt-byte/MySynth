@@ -8,6 +8,7 @@
 // também mostra as faixas coloridas e o valor ao vivo (ver interface/knob.js).
 
 import { DESTINOS_MOD } from '../dsp/modulacao.js';
+import { icone } from './icones.js';
 
 export const FONTES = [
   { id: 'lfo1', nome: 'LFO 1' },
@@ -377,7 +378,7 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
 
     const botaoRemover = document.createElement('button');
     botaoRemover.className = 'linha-mod-remover';
-    botaoRemover.textContent = '✕';
+    botaoRemover.innerHTML = icone('fechar');
     botaoRemover.setAttribute('aria-label', `Remover ligação com ${nome.textContent}`);
     botaoRemover.addEventListener('click', () => remover(ligacao));
 

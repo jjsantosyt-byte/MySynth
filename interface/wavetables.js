@@ -1,11 +1,12 @@
 // interface/wavetables.js
 // Janela com a lista de wavetables: Fábrica, Minhas (importadas) e o botão Importar .wav.
 // Abre ao tocar no nome da wavetable, no cabeçalho do OSC A.
-// As importadas ficam guardadas neste aparelho (armazem-wavetables.js) e podem ser apagadas (🗑).
+// As importadas ficam guardadas neste aparelho (armazem-wavetables.js) e podem ser apagadas (lixeira).
 // Exportar presets leva junto as importadas que eles usam (wavetablesDosPresets / receberWavetables).
 
 import { criar, criarJanela } from './janela.js';
 import { t } from './idioma.js';
+import { botaoComIcone } from './icones.js';
 import {
   WAVETABLES,
   IMPORTADAS,
@@ -134,7 +135,7 @@ export function criarListaWavetables({ idAtual, escolher, aoApagar }) {
       });
       linha.appendChild(item);
       if (apagavel) {
-        const apagar = criar('button', 'presets-apagar', '🗑');
+        const apagar = botaoComIcone(criar('button', 'presets-apagar'), 'lixeira');
         apagar.setAttribute('aria-label', `Apagar ${nome}`);
         apagar.addEventListener('click', () => apagarImportada(id, nome));
         linha.appendChild(apagar);

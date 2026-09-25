@@ -1,9 +1,9 @@
 // interface/presets.js
 // Presets: salvar e carregar sons.
 //
-// - Barra: [‹] Nome do preset * [›] [Salvar]  (o * aparece quando o som foi mexido)
-// - Tocar no nome abre a lista, por categoria. Presets seus podem ser apagados (🗑).
-// - ⤓ em cada preset exporta só ele (um .synth com o nome do preset).
+// - Barra: [<] Nome do preset * [>] [Salvar]  (o * aparece quando o som foi mexido)
+// - Tocar no nome abre a lista, por categoria. Presets seus podem ser apagados (lixeira).
+// - O ícone de baixar em cada preset exporta só ele (um .synth com o nome do preset).
 // - Presets que vêm com o app (pastas presets/fabrica e presets/usuario do projeto)
 //   não podem ser apagados nem substituídos.
 // - Os seus presets ficam guardados NESTE aparelho (no navegador / no app instalado).
@@ -12,6 +12,7 @@
 
 import { criar, criarJanela } from './janela.js';
 import { t } from './idioma.js';
+import { botaoComIcone } from './icones.js';
 
 const CHAVE_GUARDADOS = 'mysynth.presets.v1';
 const TAMANHO_MAXIMO_NOME = 40;
@@ -77,7 +78,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
 
   // ---------- Barra ----------
   const barra = criar('div', 'presets');
-  const setaAnterior = criar('button', 'botao presets-seta', '‹');
+  const setaAnterior = botaoComIcone(criar('button', 'botao presets-seta'), 'esquerda');
   setaAnterior.setAttribute('aria-label', 'Preset anterior');
   // O nome fica num "visor" (estilo LCD): em cima a categoria e o número ("PAD · 07/20"),
   // embaixo o nome. (Categoria num span só dela: o tradutor da tela troca "Baixo" → "Bass".)
@@ -93,7 +94,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   marcaMudou.title = 'Som modificado (não salvo)';
   linhaNome.append(textoNome, marcaMudou);
   botaoNome.append(topo, linhaNome);
-  const setaProxima = criar('button', 'botao presets-seta', '›');
+  const setaProxima = botaoComIcone(criar('button', 'botao presets-seta'), 'direita');
   setaProxima.setAttribute('aria-label', 'Próximo preset');
   const botaoSalvar = criar('button', 'botao presets-salvar', 'Salvar');
   barra.append(setaAnterior, botaoNome, setaProxima, botaoSalvar);
@@ -160,13 +161,13 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
         });
         linha.appendChild(item);
         // ⤓ = exportar só este preset (qualquer um, inclusive os de fábrica)
-        const exportar = criar('button', 'presets-apagar presets-exportar', '⤓');
+        const exportar = botaoComIcone(criar('button', 'presets-apagar presets-exportar'), 'baixar');
         exportar.setAttribute('aria-label', `Exportar ${preset.nome}`);
         exportar.title = 'Exportar só este preset (.synth)';
         exportar.addEventListener('click', () => exportarUm(preset));
         linha.appendChild(exportar);
         if (!preset.fabrica) {
-          const apagar = criar('button', 'presets-apagar', '🗑');
+          const apagar = botaoComIcone(criar('button', 'presets-apagar'), 'lixeira');
           apagar.setAttribute('aria-label', `Apagar ${preset.nome}`);
           apagar.addEventListener('click', () => apagarPreset(preset));
           linha.appendChild(apagar);

@@ -22,6 +22,7 @@ import {
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
 import { envelopeArrastavel } from './interface/envelope-arrastar.js';
+import { icone } from './interface/icones.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
@@ -937,9 +938,9 @@ function montarOscilador(osc) {
   linhaWarp.innerHTML = `
     <span class="rotulo-warp">Warp</span>
     <div class="seletor-wt">
-      <button class="seletor-botao" aria-label="Modo de Warp anterior">‹</button>
+      <button class="seletor-botao" aria-label="Modo de Warp anterior">${icone('esquerda')}</button>
       <span class="seletor-wt-nome"></span>
-      <button class="seletor-botao" aria-label="Próximo modo de Warp">›</button>
+      <button class="seletor-botao" aria-label="Próximo modo de Warp">${icone('direita')}</button>
     </div>`;
   const [warpAnterior, warpProximo] = linhaWarp.querySelectorAll('.seletor-botao');
   const nomeWarp = linhaWarp.querySelector('.seletor-wt-nome');
