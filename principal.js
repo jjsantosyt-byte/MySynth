@@ -368,6 +368,12 @@ async function ligarSom() {
         avisarClipper(evento.data.pico);
         return;
       }
+      if (evento.data.tipo === 'consertado') {
+        // O motor achou uma conta inválida e limpou a peça (o som seguiu). Fica registrado
+        // para achar a causa (no Android: logcat "Capacitor/Console").
+        console.warn(`MySynth: valores inválidos consertados em "${evento.data.origem}"`);
+        return;
+      }
       if (evento.data.tipo !== 'aoVivo') return;
       // Sem nenhuma ligação, nada na tela muda com os valores ao vivo (a modulação é zero):
       // só redesenha se a aba LFO estiver aberta (o pontinho andando no desenho do LFO).
