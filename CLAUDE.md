@@ -123,6 +123,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      que acompanha a diagonal (polígono "evenodd", cor `--contorno`). Círculos (bolinhas, pontos
      ao vivo, knobs) continuam redondos. Obs.: clip-path corta sombras (o menu da logo perdeu a
      sombra). Novo elemento com canto/borda: incluir nas listas desse bloco.
+   - V6 (25/09/2026, em teste; escolhido nas maquetes): bloco "Escolhas visuais de 25/09/2026" no
+     fim do estilo.css. Tecla tocando (`.tecla.ativa`): azul, desce 3 px (preta 2 px) e brilha em
+     azul. Aba escolhida: azul cheio com texto escuro. Knobs: arco fino (2,2) no raio 18 + 11
+     marcas em volta (`MARCAS` no knob.js) + corpo redondo (`.knob-corpo`). Chaves On/Off
+     (`.chave[aria-pressed]`): LED (`::before`) apagado cinza / aceso azul com brilho. Títulos
+     dos cartões iguais. 852×340, 852×393 e em pé sem cortes.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

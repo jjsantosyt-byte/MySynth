@@ -2487,3 +2487,97 @@ h1 {
     --c: 4px;
   }
 }
+
+/* =====================================================================================
+   Escolhas visuais de 25/09/2026 (maquetes aprovadas pelo dono)
+   ===================================================================================== */
+
+/* 1) Tecla tocando: azul, "afunda" (desce um pouco e escurece) e brilha em azul */
+.tecla.branca.ativa {
+  background: linear-gradient(to bottom, #b9e4ff 0%, #8fd3ff 55%, var(--destaque) 100%);
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 -5px 0 var(--destaque),
+    inset 0 0 14px rgba(63, 184, 255, 0.55);
+}
+
+.tecla.preta.ativa {
+  background: var(--destaque-escuro);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 -4px 0 var(--destaque),
+    inset 0 0 10px rgba(63, 184, 255, 0.8);
+}
+
+/* 2) Aba escolhida: azul cheia (texto escuro) */
+.aba.ativa {
+  background: var(--destaque);
+  color: #07121b;
+  box-shadow: none;
+}
+
+/* 3) Knobs: arco fino com marcas em volta, corpo e ponteiro (tudo no mesmo azul) */
+.knob-trilho,
+.knob-valor {
+  stroke-width: 2.2;
+}
+
+.knob-marcas line {
+  stroke: var(--texto-suave);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+.knob-corpo {
+  fill: var(--botao);
+  stroke: var(--cartao-borda);
+  stroke-width: 1;
+}
+
+.knob-ponteiro {
+  stroke-width: 2.4;
+}
+
+/* 4) Chaves On/Off: LED que acende em azul (só nas chaves liga/desliga, que têm aria-pressed) */
+.chave[aria-pressed] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--botao);
+  color: var(--texto-suave);
+}
+
+.chave[aria-pressed]::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3a3f4c;
+  transition:
+    background 0.12s,
+    box-shadow 0.12s;
+}
+
+.chave[aria-pressed='true'] {
+  --contorno: var(--cartao-borda); /* o LED mostra que está ligado: o contorno fica neutro */
+  background: var(--botao);
+  color: var(--texto);
+}
+
+.chave[aria-pressed='true']::before {
+  background: var(--destaque);
+  box-shadow: 0 0 6px var(--destaque);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .chave[aria-pressed] {
+    gap: 4px;
+  }
+  .chave[aria-pressed]::before {
+    width: 6px;
+    height: 6px;
+  }
+}

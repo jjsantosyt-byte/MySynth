@@ -81,6 +81,15 @@ function arco(anguloInicio, anguloFim, raio) {
   return `M ${x1} ${y1} A ${raio} ${raio} 0 ${arcoGrande} 1 ${x2} ${y2}`;
 }
 
+// Marcas em volta do knob (11 risquinhos, de ponta a ponta), como num aparelho de verdade.
+// Iguais para todos os knobs: montadas uma vez só.
+const MARCAS = Array.from({ length: 11 }, (_, k) => {
+  const angulo = INICIO + (GIRO_TOTAL * k) / 10;
+  const [x1, y1] = ponto(angulo, 21.2);
+  const [x2, y2] = ponto(angulo, 23.4);
+  return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" />`;
+}).join('');
+
 // ---------- Faixa de modulação ----------
 
 // Até onde uma ligação leva o controle, a partir da posição "base" (0 a 1).
@@ -107,10 +116,12 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino, 
   elemento.setAttribute('aria-label', rotulo);
   elemento.innerHTML = `
     <svg class="knob-desenho" viewBox="0 0 48 48" aria-hidden="true">
+      <g class="knob-marcas">${MARCAS}</g>
       <g class="knob-faixas"></g>
-      <path class="knob-trilho" d="${arco(INICIO, INICIO + GIRO_TOTAL, 19)}" />
+      <path class="knob-trilho" d="${arco(INICIO, INICIO + GIRO_TOTAL, 18)}" />
       <path class="knob-valor" />
-      <line class="knob-ponteiro" x1="24" y1="24" x2="24" y2="10" />
+      <circle class="knob-corpo" cx="24" cy="24" r="13" />
+      <line class="knob-ponteiro" x1="24" y1="24" x2="24" y2="12.5" />
       <circle class="knob-aovivo" r="3" cx="24" cy="5" style="display: none" />
     </svg>
     <span class="knob-numero"></span>
@@ -169,7 +180,7 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino, 
   function mostrar() {
     const valor = escala.paraValor(posicao);
     const angulo = INICIO + posicao * GIRO_TOTAL;
-    caminhoValor.setAttribute('d', posicao > 0.001 ? arco(INICIO, angulo, 19) : '');
+    caminhoValor.setAttribute('d', posicao > 0.001 ? arco(INICIO, angulo, 18) : '');
     ponteiro.setAttribute('transform', `rotate(${angulo} 24 24)`);
     numero.textContent = formatar(valor);
     elemento.setAttribute('aria-valuetext', numero.textContent);
