@@ -91,8 +91,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
 
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
-(o dono decide o que entra). Ainda abertos (menores): 8 notas × Unison 8 ainda estoura no volume
-padrão; detalhes da tela (sombras nos desenhos, JSON nos knobs); FM com troca da wavetable do
+(o dono decide o que entra). Ainda abertos (menores):
+detalhes da tela (sombras nos desenhos, JSON nos knobs); FM com troca da wavetable do
 modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no motor.
 **Revisão, 3ª rodada (25/09/2026) — feita, em teste:**
 - Distorção/Saturação: `Interpolador` em dsp/meia-banda.js sobe a taxa sem multiplicar zeros (16
@@ -570,7 +570,25 @@ modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no
 - Medido: Semi com LFO quadrado ±7 pula direto 659 ↔ 294 Hz (nada parado em 440); Fine com
   LFO ±50 = 427,5 a 452,9 Hz; Oct com ENV 2 começa uma oitava acima e volta; presets idênticos.
 
-**Limitador automático REMOVIDO (24/09/2026, pedido do dono) — em teste:**
+**Soft clipper na saída, SEMPRE ligado (25/09/2026, pedido do dono) — em teste:**
+- `dsp/clipper.js`, último passo do motor: volume geral (agora parâmetro `volume` do motor, a-rate,
+  = barra² × 0,5; o GainNode e o AnalyserNode da tela saíram) → clipper → alto-falante.
+- Curva: igual até -1 dB (0,891); acima, 0,891 + 0,109·tanh(excesso/0,109) (encosta em 0 dB).
+  Taxa dobrada (`Interpolador`) + ADAA, mas só a CORREÇÃO (curva − reta) passa pelo caminho de volta;
+  o som segue direto atrasado 15 amostras (0,3 ms). Abaixo de -1 dB: saída = entrada atrasada
+  (medido: diferença zero). Trava final em ±1 (o filtro de volta "ondula" nas quinas: com serra
+  +6 dB a correção passaria até +3,6 dB; a trava corta essa sobra). Chave interna `ligado` com rampa
+  (só para testes; na tela não há chave — decisão do dono).
+- Testado e descartado: ADAA na taxa normal (menos chiado e sem passar do teto, mas abafa o som
+  todo: -2 dB em 10 kHz, média de 2 amostras); ADAA normal "só correção" (passava até +5,7 dB).
+- Medido (chiado até 15 kHz, clipper × corte seco antigo): seno 440 +3 dB -107 × -91; seno 2637
+  +10 dB -43 × -37; serra 880 +6 dB -43 × -39; serra 1760 +3 dB -39 × -35. Acorde 8 notas × U8
+  no volume máximo: antes pico +9,3 dB (estourava), agora 0 dB. Peso: +2–3% (8×U8: 15,2% → 17,2%).
+- Tela: o motor manda `{ tipo: 'clipper', pico }` ~30×/s enquanto passa de -1 dB; recado
+  "Soft clipper segurando picos ~X dB acima do máximo..." quando passa 2 dB (no máximo a cada 6 s).
+  Silêncio na saída por 4 blocos: o clipper nem roda.
+
+**Limitador automático REMOVIDO (24/09/2026, pedido do dono) — substituído pelo soft clipper acima:**
 - Caminho agora: motor → volume geral → saída (sem DynamicsCompressor e sem o ganho que
   desfazia o "makeup"). O volume nunca muda sozinho; passar de 0 dB distorce.
 - O aviso ficou, mas mudou: "Som estourando: passou do máximo em ~X dB e pode distorcer..."

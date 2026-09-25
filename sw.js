@@ -25,6 +25,7 @@ const ARQUIVOS = [
   'icones/icone-180.png',
   'icones/icone-192.png',
   'icones/icone-512.png',
+  'dsp/clipper.js',
   'dsp/envelope.js',
   'dsp/filtro.js',
   'dsp/lfo.js',

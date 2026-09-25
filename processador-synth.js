@@ -30,6 +30,7 @@ import { Flanger } from './dsp/efeitos/flanger.js';
 import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
+import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
 
 const MAX_VOZES = 16;
 const PEDACO = 32; // amostras por pedaço de modulação (igual ao da voz)
@@ -92,6 +93,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       // Filtro 2
       { name: 'cutoff2', defaultValue: 2000, minValue: 20, maxValue: 20000, automationRate: 'a-rate' },
       { name: 'resonancia2', defaultValue: 0.1, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
+      // Volume geral (ganho, já com a curva da barra), aplicado antes do soft clipper
+      { name: 'volume', defaultValue: 0.174, minValue: 0, maxValue: 1, automationRate: 'a-rate' },
       // Envelope de volume (tempos em segundos)
       { name: 'ataque', defaultValue: 0.005, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
       { name: 'decaimento', defaultValue: 0.5, minValue: 0, maxValue: 10, automationRate: 'k-rate' },
@@ -210,6 +213,13 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       (id) => ({ efeito: this.efeitos[id], silencio: 0, parado: false })
     );
     this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
+
+    // Saída: volume geral → soft clipper, SEMPRE ligado (proteção fixa: nunca passa de 0 dB).
+    // O motor avisa a tela do maior pico (antes de arredondar) para ela mostrar um recado
+    // quando o clipper está segurando bastante.
+    this.clipper = new Clipper(sampleRate);
+    this.silencioSaida = 0; // amostras seguidas de silêncio na saída (clipper descansa)
+    this.enviouPico = false;
 
     this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
     this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
@@ -549,6 +559,24 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       if (item.silencio > this.esperaSilencio) item.parado = true;
     }
 
+    // Volume geral (suave: a barra usa rampas) e soft clipper
+    const volume = parametros.volume;
+    if (volume.length > 1) {
+      for (let i = 0; i < tamanhoBloco; i++) {
+        saidaE[i] *= volume[i];
+        saidaD[i] *= volume[i];
+      }
+    } else if (volume[0] !== 1) {
+      const g = volume[0];
+      for (let i = 0; i < tamanhoBloco; i++) {
+        saidaE[i] *= g;
+        saidaD[i] *= g;
+      }
+    }
+    // Silêncio há um tempo (mais que o atraso do clipper): nem passa por ele
+    this.silencioSaida = pico * (volume[0] || 1) < LIMIAR_SILENCIO ? this.silencioSaida + tamanhoBloco : 0;
+    if (this.silencioSaida < 4 * tamanhoBloco) this.clipper.processar(saidaE, saidaD, tamanhoBloco);
+
     this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
     return true;
   }
@@ -617,6 +645,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       const reducao = this.compressor.lerReducao();
       this.port.postMessage({ tipo: 'compressor', reducao: dormindo ? 0 : reducao });
       this.enviouCompressor = !dormindo;
+    }
+
+    // Soft clipper: o maior pico que chegou nele (antes de arredondar), quando passa do ponto
+    // em que ele começa a agir; e um 0 quando volta a ficar abaixo (a tela para de avisar).
+    const picoSaida = this.clipper.lerPico();
+    if (picoSaida > LIMIAR_CLIPPER || this.enviouPico) {
+      this.port.postMessage({ tipo: 'clipper', pico: picoSaida > LIMIAR_CLIPPER ? picoSaida : 0 });
+      this.enviouPico = picoSaida > LIMIAR_CLIPPER;
     }
 
     let voz = null;

@@ -315,7 +315,7 @@ async function ligarSom() {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [2], // estéreo
-      parameterData: { ...estado.parametros },
+      parameterData: { ...estado.parametros, volume: volumeDoControle() },
     });
     // Se der um erro dentro do motor, o navegador o desliga de vez (fica mudo):
     // avisa na tela em vez de deixar o app "tocando" sem som.
@@ -324,12 +324,9 @@ async function ligarSom() {
       botaoLigar.textContent = 'Som parado';
       botaoLigar.classList.remove('ligado');
     };
-    const ganho = contexto.createGain();
-    ganho.gain.value = volumeDoControle();
-
-    // Sem limitador automático (removido a pedido): o volume nunca muda sozinho.
-    // Se o som passar de 0 dB, ele distorce — o aviso na tela conta quando isso acontece.
-    synth.connect(ganho).connect(contexto.destination);
+    // O volume geral e o soft clipper (nunca passa de 0 dB) ficam DENTRO do motor
+    // (parâmetro 'volume' e dsp/clipper.js): o motor sai direto para o alto-falante.
+    synth.connect(contexto.destination);
 
     // Envia uma cópia da wavetable de cada oscilador para o motor de som (motor novo: vazio).
     tabelasNoMotor.clear();
@@ -339,6 +336,10 @@ async function ligarSom() {
     synth.port.onmessage = (evento) => {
       if (evento.data.tipo === 'compressor') {
         mostrarReducaoCompressor(evento.data.reducao);
+        return;
+      }
+      if (evento.data.tipo === 'clipper') {
+        avisarClipper(evento.data.pico);
         return;
       }
       if (evento.data.tipo !== 'aoVivo') return;
@@ -362,12 +363,6 @@ async function ligarSom() {
     };
 
     estado.synth = synth;
-    estado.ganho = ganho;
-
-    // Medidor na saída (só escuta; o som não passa por ele)
-    const medidor = new AnalyserNode(contexto, { fftSize: 4096 });
-    ganho.connect(medidor);
-    vigiarSaida(medidor);
 
     // Envia as opções atuais (tipo de filtro, legato...), as fontes e as ligações.
     for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
@@ -428,41 +423,30 @@ for (const fim of ['pointerup', 'pointercancel']) {
 }
 
 controleVolume.addEventListener('input', () => {
-  if (!estado.ganho) return;
-  // Mudança suave, para não estalar.
-  estado.ganho.gain.setTargetAtTime(volumeDoControle(), estado.contexto.currentTime, 0.02);
+  if (!estado.synth) return;
+  // Mudança suave, para não estalar (o volume é um parâmetro do motor, antes do soft clipper).
+  estado.synth.parameters.get('volume').setTargetAtTime(volumeDoControle(), estado.contexto.currentTime, 0.02);
 });
 
-// ---------- Aviso de som estourando (recado na tela) ----------
-// Não há limitador: se o som passar de 0 dB (o máximo), ele é cortado e distorce.
-// Um "medidor" escuta a saída (só mede, não muda nada) e avisa quando isso acontece.
-const LIMITE_SAIDA = 0; // dB
+// ---------- Aviso do soft clipper (recado na tela) ----------
+// O soft clipper (sempre ligado, no fim do motor) arredonda os picos acima de -1 dB e nunca
+// deixa passar de 0 dB. Um pouco de arredondamento é normal; quando o som chega bem acima do
+// máximo, ele começa a "sujar" (saturar): aí o recado avisa. O motor manda o maior pico ~30×/s.
+const AVISO_CLIPPER_DB = 2; // avisa quando o pico passa 2 dB do máximo
 const INTERVALO_AVISOS = 6000; // ms: no máximo um aviso a cada 6 s (não fica piscando)
+let ultimoAvisoClipper = -Infinity;
 
-function vigiarSaida(medidor) {
-  const amostras = new Float32Array(medidor.fftSize);
-  const limiar = Math.pow(10, LIMITE_SAIDA / 20);
-  let ultimoAviso = -Infinity;
-  // Lê a cada 50 ms um trecho de ~85 ms (4096 amostras): nenhum pico escapa.
-  setInterval(() => {
-    if (document.hidden) return; // app no fundo: nada para medir (e economiza bateria)
-    medidor.getFloatTimeDomainData(amostras);
-    let pico = 0;
-    for (let i = 0; i < amostras.length; i++) {
-      const v = Math.abs(amostras[i]);
-      if (v > pico) pico = v;
-    }
-    const passou = 20 * Math.log10(pico / limiar); // quantos dB acima do limite
-    const agora = performance.now();
-    if (passou > 0.1 && agora - ultimoAviso > INTERVALO_AVISOS) {
-      ultimoAviso = agora;
-      mostrarRecado(
-        `Som estourando: passou do máximo em ~${Math.max(1, Math.round(passou))} dB e pode distorcer. ` +
-          'Abaixe o Nível dos osciladores ou o Volume.',
-        4
-      );
-    }
-  }, 50);
+function avisarClipper(pico) {
+  const acima = 20 * Math.log10(pico || 1e-9); // dB acima de 0 dB (antes de arredondar)
+  const agora = performance.now();
+  if (acima > AVISO_CLIPPER_DB && agora - ultimoAvisoClipper > INTERVALO_AVISOS) {
+    ultimoAvisoClipper = agora;
+    mostrarRecado(
+      `Soft clipper segurando picos ~${Math.round(acima)} dB acima do máximo (o som pode ficar mais sujo). ` +
+        'Se não quiser, abaixe o Volume ou o Nível dos osciladores.',
+      4
+    );
+  }
 }
 
 // ---------- Controles de som (parâmetros e opções) ----------
