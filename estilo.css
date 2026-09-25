@@ -1997,3 +1997,82 @@ h1 {
     min-height: 22px;
   }
 }
+
+/* ---------- Volume: capotraste no lugar da bolinha ----------
+   A barra de verdade (input range) continua recebendo o dedo/mouse/teclado, mas fica
+   invisível; o trilho é desenhado no fundo dela e o capotraste (SVG) por cima, na posição
+   do valor (--pos, de 0 a 1, atualizado pelo principal.js). A "pegada" invisível tem
+   --pegada de largura: o capotraste anda de meia pegada até (100% - meia pegada), igual a ela.
+   Segurando (.segurando): o capotraste cresce e ganha sombra, como se viesse para perto da tela. */
+.volume-trilho {
+  --pos: 0.59;
+  --pegada: 26px;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.grupo-volume .volume-trilho input {
+  flex: 1;
+  width: 100%;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(
+      to right,
+      var(--destaque) calc(var(--pegada) / 2 + var(--pos) * (100% - var(--pegada))),
+      #d9dbe3 calc(var(--pegada) / 2 + var(--pos) * (100% - var(--pegada)))
+    )
+    center / 100% 6px no-repeat;
+  border-radius: 3px;
+  cursor: pointer;
+  touch-action: none; /* o dedo na barra não rola a tela */
+}
+
+.grupo-volume .volume-trilho input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--pegada);
+  height: 40px;
+  background: transparent;
+  border: none;
+}
+
+.grupo-volume .volume-trilho input::-moz-range-thumb {
+  width: var(--pegada);
+  height: 40px;
+  background: transparent;
+  border: none;
+}
+
+.grupo-volume .volume-trilho input::-moz-range-track {
+  background: transparent;
+}
+
+.capotraste {
+  position: absolute;
+  left: calc(var(--pegada) / 2 + var(--pos) * (100% - var(--pegada)));
+  top: 50%;
+  height: 100%;
+  max-height: 50px;
+  aspect-ratio: 32 / 50;
+  z-index: 2; /* segurando, ele cresce por cima do que está em volta */
+  transform: translate(-50%, -50%);
+  pointer-events: none; /* o toque passa para a barra de verdade */
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.6));
+  transition:
+    transform 0.14s ease-out,
+    filter 0.14s ease-out;
+}
+
+.volume-trilho.segurando .capotraste {
+  transform: translate(-50%, -50%) scale(1.4);
+  filter: drop-shadow(0 6px 7px rgba(0, 0, 0, 0.75));
+}
+
+.grupo-volume .volume-trilho input:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+}

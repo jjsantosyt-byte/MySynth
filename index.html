@@ -31,7 +31,30 @@
         <label class="grupo-volume">
           Volume
           <!-- Volume padrão 59% (= 3 dB abaixo dos 70% de antes: o ganho é o valor ao quadrado) -->
-          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.59" />
+          <!-- A barra funciona normal (arrastar, teclado); a "bolinha" é um capotraste desenhado
+               por cima, que acompanha o valor e cresce ao segurar (principal.js) -->
+          <span class="volume-trilho">
+            <input id="volume" type="range" min="0" max="1" step="0.01" value="0.59" />
+            <svg class="capotraste" viewBox="0 0 32 50" aria-hidden="true">
+              <defs>
+                <linearGradient id="capo-corpo" x1="0" x2="1">
+                  <stop offset="0" stop-color="#555b6a" />
+                  <stop offset="0.4" stop-color="#262930" />
+                  <stop offset="1" stop-color="#0f1014" />
+                </linearGradient>
+              </defs>
+              <!-- asa (a alavanca de apertar), inclinada para cima -->
+              <path d="M14 13 L4 4 Q1.5 2 1.5 5.5 L2 7 L11.5 16.5 Z" fill="#2b2e36" stroke="#7d869c" stroke-width="0.8" stroke-linejoin="round" />
+              <!-- corpo em "C" que abraça o braço e desce cruzando a barra -->
+              <path d="M7 10.5 Q7 6 11.5 6 L17 6 Q21.5 6 21.5 10.5 L21.5 45 Q21.5 48 18.5 48 L15 48 Q12 48 12 45 L12 14 L10.5 14 Q7 14 7 10.5 Z" fill="url(#capo-corpo)" stroke="#8a93a8" stroke-width="0.9" stroke-linejoin="round" />
+              <!-- sapata de baixo (encosta por trás do braço) -->
+              <rect x="3" y="30" width="11" height="4.5" rx="2.2" fill="#1c1e24" stroke="#7d869c" stroke-width="0.8" />
+              <!-- borracha que aperta as cordas -->
+              <rect x="15.2" y="17" width="3" height="27" rx="1.5" fill="#09090b" />
+              <!-- mola/eixo -->
+              <circle cx="13.5" cy="10.5" r="2.6" fill="#3d414d" stroke="#9aa3b8" stroke-width="0.8" />
+            </svg>
+          </span>
         </label>
         <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
       </header>

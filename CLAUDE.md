@@ -78,6 +78,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    - Ordem fixa: Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
      (reordenar arrastando fica para depois).
 2. **Ajustes visuais e de espaço** — o dono decide cada um, aos poucos.
+   - V1 (25/09/2026, em teste): barra de volume com um **capotraste** (desenho SVG no index.html:
+     corpo em "C", asa, sapata, borracha) no lugar da bolinha. A barra de verdade (input range)
+     continua recebendo o toque, com a bolinha invisível (`--pegada` 26 px); o trilho azul/cinza é
+     desenhado no fundo dela e o capotraste por cima na posição `--pos` (principal.js). Segurando
+     (`.segurando`, pointerdown → pointerup/cancel), ele cresce 1,4× com sombra maior ("vem para
+     perto da tela"), em 0,14 s. Altura = a da barra (44 px em pé, 30 deitado, 24 no Safari deitado).
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

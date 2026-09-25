@@ -417,6 +417,16 @@ function volumeDoControle() {
   return v * v * 0.5;
 }
 
+// Capotraste (a "bolinha" da barra de volume): acompanha o valor e cresce enquanto é segurado.
+const trilhoVolume = controleVolume.closest('.volume-trilho');
+const posicionarCapotraste = () => trilhoVolume.style.setProperty('--pos', controleVolume.value);
+posicionarCapotraste();
+controleVolume.addEventListener('input', posicionarCapotraste);
+controleVolume.addEventListener('pointerdown', () => trilhoVolume.classList.add('segurando'));
+for (const fim of ['pointerup', 'pointercancel']) {
+  window.addEventListener(fim, () => trilhoVolume.classList.remove('segurando'));
+}
+
 controleVolume.addEventListener('input', () => {
   if (!estado.ganho) return;
   // Mudança suave, para não estalar.
