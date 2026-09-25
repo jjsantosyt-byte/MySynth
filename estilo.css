@@ -3604,3 +3604,45 @@ html[data-tema='basico'] .tecla.preta.ativa {
   width: 6px;
   height: 6px;
 }
+
+/* ---------- Desfazer / Refazer / Hold (barra de cima) ---------- */
+.grupo-acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.botao-icone {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botao-icone .icone {
+  width: 18px;
+  height: 18px;
+}
+
+.botao-icone:disabled {
+  opacity: 0.35;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .grupo-acoes {
+    gap: 4px;
+  }
+  .botao-icone {
+    width: 30px;
+    min-width: 30px;
+  }
+  .botao-icone .icone {
+    width: 15px;
+    height: 15px;
+  }
+  .grupo-acoes .chave {
+    padding: 0 8px;
+  }
+}

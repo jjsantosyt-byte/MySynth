@@ -180,6 +180,13 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      Tela inicial (só na 1ª vez, sem `mysynth.idioma.v1`): Idioma + Tema com miniaturas; tocar só
      marca (LED); "Seguir · Continue" guarda os dois e recarrega se mudou (interface/abertura.js).
      Deitado: Idioma e Tema lado a lado. Configurações: seção Tema (trocar recarrega).
+   - DESFAZER/REFAZER + HOLD (25/09/2026, em teste), barra de cima `.grupo-acoes` [↶][↷][Hold]:
+     interface/historico.js guarda "fotos" { som, visor } (visor = preset no visor + "*"), tiradas
+     450 ms depois de parar de mexer (girar um knob = 1 passo); carregar preset também é passo; só
+     o visor mudar (salvar) não é passo. Máx. 60. `aplicarSom(som, { manterNotas: true })` não
+     solta as notas. Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y. presets.js: `lerVisor`/`definirVisor`.
+     Hold = pedal de sustain: soltar a tecla não solta a nota (fica em `sustentadas`, tecla acesa);
+     desligar o Hold solta as que não têm dedo; tocar de novo reataca. Em pé a barra tem 3 linhas.
      REGRA: elemento novo usa as peças que já existem (chave com LED, seletor com setas, ícones de
      icones.js, janela/confirmar de janela.js) — nunca <select>, confirm(), alert() nem emojis.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e

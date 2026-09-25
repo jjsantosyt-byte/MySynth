@@ -367,5 +367,15 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
       modificado = true;
       mostrarBarra();
     },
+    // Qual preset está no visor (para o Desfazer/Refazer voltar o nome junto com o som)
+    lerVisor: () => ({
+      atual: atual && { nome: atual.nome, categoria: atual.categoria, fabrica: atual.fabrica },
+      modificado,
+    }),
+    definirVisor(visor) {
+      atual = visor.atual;
+      modificado = visor.modificado;
+      mostrarBarra();
+    },
   };
 }

@@ -106,6 +106,12 @@
         </div>
         <!-- Presets: ‹ Nome › Salvar (montado pelo interface/presets.js) -->
         <div id="lugar-presets"></div>
+        <!-- Desfazer / Refazer (ícones postos pelo principal.js) e Hold (segura as notas) -->
+        <div class="grupo-acoes">
+          <button id="botao-desfazer" class="botao botao-icone" aria-label="Desfazer" title="Desfazer" disabled></button>
+          <button id="botao-refazer" class="botao botao-icone" aria-label="Refazer" title="Refazer" disabled></button>
+          <button id="botao-hold" class="chave" aria-pressed="false" title="Segura as notas depois de soltar as teclas">Hold</button>
+        </div>
         <div class="grupo-oitava">
           <!-- No celular em pé, a palavra "Oitava" some e fica só – / + -->
           <button id="oitava-menos" class="botao" aria-label="Oitava abaixo"><span class="texto-longo">Oitava </span>–</button>

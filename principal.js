@@ -22,7 +22,8 @@ import {
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
 import { envelopeArrastavel } from './interface/envelope-arrastar.js';
-import { icone } from './interface/icones.js';
+import { icone, botaoComIcone } from './interface/icones.js';
+import { criarHistorico } from './interface/historico.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
@@ -256,8 +257,11 @@ function mesclar(base, extra) {
 // Enquanto um preset é carregado, as mudanças não contam como "som modificado".
 let carregandoPreset = false;
 let avisarModificado = () => {};
+let historico = null; // Desfazer/Refazer (criado no fim, depois dos presets)
 function modificou() {
-  if (!carregandoPreset) avisarModificado();
+  if (carregandoPreset) return;
+  avisarModificado();
+  historico?.registrar();
 }
 
 // Coisas da tela que precisam ser atualizadas quando o som muda de uma vez
@@ -265,10 +269,11 @@ function modificou() {
 const sincronizadores = [];
 
 // Carrega um som (de um preset): valores → motor de som → tela.
-function aplicarSom(som) {
+// "manterNotas" (Desfazer/Refazer): não solta as notas que estão tocando.
+function aplicarSom(som, { manterNotas = false } = {}) {
   carregandoPreset = true;
   const novo = mesclar(clonar(SOM_PADRAO), som);
-  soltarTudo();
+  if (!manterNotas) soltarTudo();
 
   // Estado (as ligações são trocadas no lugar: a tela de modulação usa a mesma lista)
   Object.assign(estado.parametros, novo.parametros);
@@ -1706,10 +1711,17 @@ abas.forEach((aba) => aba.addEventListener('click', () => mostrarAba(aba.dataset
 
 // ---------- Notas ----------
 
+// Hold: com ele ligado, soltar a tecla NÃO solta a nota (como o pedal de sustain do piano).
+// As notas seguradas ficam em "sustentadas" (tecla continua acesa) até desligar o Hold.
+// Tocar de novo uma nota segurada reataca a nota.
+let hold = false;
+const sustentadas = new Set();
+
 function notaOn(nota) {
   const qtd = (estado.contagemNotas.get(nota) || 0) + 1;
   estado.contagemNotas.set(nota, qtd);
   if (qtd === 1) {
+    sustentadas.delete(nota);
     estado.synth?.port.postMessage({ tipo: 'notaOn', nota });
     marcarTecla(nota, true);
   }
@@ -1722,11 +1734,30 @@ function notaOff(nota) {
     return;
   }
   estado.contagemNotas.delete(nota);
+  if (hold) {
+    sustentadas.add(nota); // continua tocando (e a tecla acesa) até desligar o Hold
+    return;
+  }
   estado.synth?.port.postMessage({ tipo: 'notaOff', nota });
   marcarTecla(nota, false);
 }
 
+// Liga/desliga o Hold. Desligar solta as notas seguradas (as que não estão com o dedo em cima).
+function definirHold(ligado) {
+  hold = ligado;
+  botaoHold.setAttribute('aria-pressed', ligado);
+  if (ligado) return;
+  for (const nota of sustentadas) {
+    estado.synth?.port.postMessage({ tipo: 'notaOff', nota });
+    marcarTecla(nota, false);
+  }
+  sustentadas.clear();
+}
+const botaoHold = document.getElementById('botao-hold');
+botaoHold.addEventListener('click', () => definirHold(!hold));
+
 function soltarTudo() {
+  sustentadas.clear();
   estado.dedos.clear();
   estado.teclasPc.clear();
   estado.contagemNotas.clear();
@@ -1976,7 +2007,11 @@ const presets = criarPresets({
   fabrica: doProjeto.presets,
   categorias: doProjeto.categorias,
   obterSom,
-  aplicarSom,
+  // Carregar um preset também é um passo do Desfazer (dá para voltar ao som de antes)
+  aplicarSom: (som) => {
+    aplicarSom(som);
+    historico?.registrar();
+  },
   // Wavetables importadas usadas pelos presets vão junto no arquivo .synth
   extrasExportar: (lista) => {
     const wavetables = wavetablesDosPresets(lista);
@@ -1998,6 +2033,38 @@ const presets = criarPresets({
   },
 });
 avisarModificado = () => presets.marcarModificado();
+
+// ---------- Desfazer / Refazer ----------
+// Cada mudança no som (knob, botão, ligação, preset carregado) vira um passo, depois que
+// o som fica parado por um instante. Desfazer não solta as notas que estão tocando.
+const botaoDesfazer = botaoComIcone(document.getElementById('botao-desfazer'), 'desfazer');
+const botaoRefazer = botaoComIcone(document.getElementById('botao-refazer'), 'refazer');
+// Cada passo guarda o som e o que o visor mostrava (nome do preset e o "*"), para
+// desfazer uma troca de preset voltar o nome também. O "*" sozinho não conta como mudança.
+historico = criarHistorico({
+  obter: () => ({ som: obterSom(), visor: presets.lerVisor() }),
+  mesmoSom: (a, b) => JSON.stringify(a.som) === JSON.stringify(b.som),
+  aplicar: ({ som, visor }) => {
+    aplicarSom(som, { manterNotas: true });
+    presets.definirVisor(visor);
+  },
+  aoMudar: () => {
+    botaoDesfazer.disabled = !historico.podeDesfazer();
+    botaoRefazer.disabled = !historico.podeRefazer();
+  },
+});
+botaoDesfazer.addEventListener('click', () => historico.desfazer());
+botaoRefazer.addEventListener('click', () => historico.refazer());
+// Teclado do computador: Ctrl+Z desfaz; Ctrl+Shift+Z ou Ctrl+Y refaz (Cmd no Mac)
+document.addEventListener('keydown', (evento) => {
+  if (!(evento.ctrlKey || evento.metaKey) || evento.altKey) return;
+  if (evento.target.closest?.('input, textarea')) return;
+  const tecla = evento.key.toLowerCase();
+  if (tecla === 'z' && !evento.shiftKey) historico.desfazer();
+  else if ((tecla === 'z' && evento.shiftKey) || tecla === 'y') historico.refazer();
+  else return;
+  evento.preventDefault();
+});
 
 // Tudo pronto: some a tela de carregamento (e, na primeira vez, aparece a escolha de idioma)
 terminarCarregamento();
