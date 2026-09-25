@@ -560,6 +560,9 @@ Saturação mais leves (polifásico); detalhes da tela (sombras, JSON nos knobs)
   desfazia o "makeup"). O volume nunca muda sozinho; passar de 0 dB distorce.
 - O aviso ficou, mas mudou: "Som estourando: passou do máximo em ~X dB e pode distorcer..."
   quando o pico na saída passa de 0 dB (`vigiarSaida`, mesmo medidor, mesmos intervalos).
+- Volume padrão 70% → 59% (25/09/2026, pedido do dono: -3 dB; ganho = barra² × 0,5).
+  Com isso (pelos picos medidos): acorde de 4 notas com Unison 8 → pico ~0,87 (antes 1,22,
+  estourava); 8 notas × Unison 8 ainda passa (~1,4).
 - (Histórico abaixo: como era com o limitador.)
 
 **Aviso do limitador — feito e aprovado (substituído pelo aviso de estouro acima):**

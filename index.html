@@ -30,7 +30,8 @@
         </div>
         <label class="grupo-volume">
           Volume
-          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.7" />
+          <!-- Volume padrão 59% (= 3 dB abaixo dos 70% de antes: o ganho é o valor ao quadrado) -->
+          <input id="volume" type="range" min="0" max="1" step="0.01" value="0.59" />
         </label>
         <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
       </header>
