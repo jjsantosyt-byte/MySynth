@@ -143,14 +143,15 @@ export class Reverb {
       this.graveEntrada += (x - this.graveEntrada) * this.coefGrave;
       x -= this.graveEntrada;
 
-      // Pre-delay (0 = nem passa pela memória)
+      // Pre-delay. A memória é gravada SEMPRE, mesmo com Pre-delay 0: se ela parasse, ao
+      // subir o Pre-delay de novo o reverb receberia um som antigo guardado lá ("fantasma").
+      this.pre[this.posPre] = x;
       if (atrasoPre > 0) {
-        this.pre[this.posPre] = x;
         let leitura = this.posPre - atrasoPre;
         if (leitura < 0) leitura += tamanhoPre;
         x = this.pre[leitura];
-        this.posPre = this.posPre + 1 === tamanhoPre ? 0 : this.posPre + 1;
       }
+      this.posPre = this.posPre + 1 === tamanhoPre ? 0 : this.posPre + 1;
 
       // Difusores em série (espalham o som antes de entrar na sala)
       for (let d = 0; d < 4; d++) {
