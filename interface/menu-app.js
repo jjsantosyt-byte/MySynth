@@ -1,5 +1,6 @@
 // interface/menu-app.js
-// Logo do app (canto superior esquerdo): tocar abre um mini menu com
+// Logo do app (canto superior esquerdo): tocar abre um PAINEL LATERAL (sai da esquerda, altura
+// toda da tela, o resto escurece) com
 //   - Configurações (janela: idioma; as outras opções vêm depois)
 //   - Arquivo: salvar one shot, salvar escala, gravar (por enquanto só as opções: "em breve")
 //   - Sobre o MySynth
@@ -12,17 +13,26 @@ export function criarMenuApp() {
   const botao = document.getElementById('botao-logo');
   const menu = document.getElementById('menu-logo');
 
-  // ---------- Mini menu ----------
+  // ---------- Painel lateral ----------
+  // Vai para o fim da página (fica por cima de tudo, fora da barra de cima), com um fundo
+  // escurecido atrás e a logo + "MySynth" no topo.
+  const fundo = criar('div', 'menu-fundo');
+  fundo.hidden = true;
+  const cabecalho = criar('div', 'menu-cabecalho');
+  cabecalho.innerHTML = botao.innerHTML;
+  cabecalho.appendChild(criar('span', 'menu-nome', 'MySynth'));
+  menu.prepend(cabecalho);
+  document.body.append(fundo, menu);
+
   const abrir = () => {
-    // Logo abaixo da logo (em pé a barra tem 2 linhas: "embaixo da barra" ficaria longe)
-    menu.style.top = botao.offsetTop + botao.offsetHeight + 6 + 'px';
-    menu.style.left = botao.offsetLeft + 'px';
     menu.hidden = false;
+    fundo.hidden = false;
     botao.setAttribute('aria-expanded', 'true');
     botao.classList.add('aberto');
   };
   const fechar = () => {
     menu.hidden = true;
+    fundo.hidden = true;
     botao.setAttribute('aria-expanded', 'false');
     botao.classList.remove('aberto');
   };

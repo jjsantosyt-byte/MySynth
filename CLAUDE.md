@@ -154,6 +154,10 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      - Barra do WT Pos com desenho próprio: trilho escuro, preenchimento verde até a posição,
        marquinha em cada frame (`--passo`; sem marcas acima de 24 frames) e marcador em SETA
        (`pintarWTPos` no principal.js).
+   - V10 (25/09/2026, em teste; 5ª rodada — janelas, ligar modulação, etiqueta da onda, carregamento
+     e marcas de modulação iguais): menu da logo virou PAINEL LATERAL (sai da esquerda, altura toda,
+     280 px ou 82% da largura; logo + "MySynth" no topo; fundo escurecido `.menu-fundo`). O menu é
+     movido para o fim do <body> pelo menu-app.js. Fecha tocando fora, na logo ou Esc.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

@@ -2971,3 +2971,95 @@ h1 {
     height: 11px;
   }
 }
+
+/* ---------- Escolhas visuais de 25/09/2026 (5ª rodada) ---------- */
+
+/* Menu da logo como PAINEL LATERAL: sai da esquerda, altura toda da tela; o resto escurece */
+.menu-logo {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: min(280px, 82vw);
+  max-width: none;
+  min-width: 0;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+  padding-left: calc(8px + env(safe-area-inset-left));
+  overflow-y: auto;
+  z-index: 160;
+  --c: 0px; /* encosta na borda da tela: sem cantos cortados */
+  clip-path: none;
+}
+
+.menu-logo:not([hidden]) {
+  animation: menu-entrar 0.18s ease-out;
+}
+
+@keyframes menu-entrar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.menu-logo::after {
+  display: none; /* o contorno fica só na borda da direita */
+}
+
+.menu-logo {
+  border: none;
+  border-right: 1px solid var(--cartao-borda) !important;
+}
+
+.menu-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 155;
+  background: rgba(3, 5, 8, 0.6);
+}
+
+.menu-fundo[hidden] {
+  display: none;
+}
+
+.menu-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--cartao-borda);
+}
+
+.menu-cabecalho svg {
+  width: 30px;
+  height: 30px;
+}
+
+.menu-cabecalho path {
+  fill: none;
+  stroke: #46f06e;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.menu-nome {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .menu-cabecalho {
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+  .menu-cabecalho svg {
+    width: 24px;
+    height: 24px;
+  }
+}
