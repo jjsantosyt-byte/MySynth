@@ -17,9 +17,45 @@
     <link rel="stylesheet" href="estilo.css" />
   </head>
   <body>
+    <!-- Tela de carregamento: aparece na hora (só HTML e CSS) e some quando o app está pronto
+         (interface/abertura.js). A onda se desenha em loop enquanto isso. -->
+    <div id="carregando" class="tela-carregando" role="status" aria-live="polite">
+      <svg class="carregando-onda" viewBox="0 0 120 40" aria-hidden="true">
+        <path pathLength="300" d="M0 20 Q10 2 20 20 T40 20 L45 5 L45 35 L50 20 L60 20 Q65 8 70 20 Q75 32 80 20 L90 6 L100 34 L110 20 L120 20" />
+      </svg>
+      <div class="carregando-nome">MySynth</div>
+      <div class="carregando-trilho"><div id="carregando-barra" class="carregando-barra"></div></div>
+      <div id="carregando-texto" class="carregando-texto">Preparando o som…</div>
+    </div>
+
+    <!-- Escolha de idioma: só na primeira vez que o app é aberto (depois, em Configurações) -->
+    <div id="escolha-idioma" class="tela-idioma" hidden>
+      <h2 class="idioma-titulo">Escolha o idioma · Choose your language</h2>
+      <div class="idioma-opcoes">
+        <button class="idioma-botao" data-idioma="pt"><span class="idioma-nome">Português</span><span class="idioma-regiao">Brasil</span></button>
+        <button class="idioma-botao" data-idioma="en"><span class="idioma-nome">English</span><span class="idioma-regiao">United States</span></button>
+      </div>
+      <p class="idioma-dica">Dá para mudar depois em Configurações · You can change it later in Settings</p>
+    </div>
+
     <main>
       <!-- Barra de cima: controles gerais, sempre visíveis -->
       <header class="barra-topo">
+        <!-- Logo do app: abre o menu (Configurações e Arquivo) — interface/menu-app.js -->
+        <button id="botao-logo" class="botao botao-logo" aria-label="Menu do MySynth" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M3 16 Q7 5 11 16 T19 16 L21 8 L21 24 L23 16 L29 16" />
+          </svg>
+        </button>
+        <div id="menu-logo" class="menu-logo" role="menu" hidden>
+          <button class="menu-item" role="menuitem" data-acao="configuracoes">Configurações</button>
+          <div class="menu-secao">Arquivo</div>
+          <button class="menu-item" role="menuitem" data-acao="em-breve" data-nome="Salvar nota como one shot (.wav)">Salvar nota como one shot (.wav)<span class="menu-em-breve">em breve</span></button>
+          <button class="menu-item" role="menuitem" data-acao="em-breve" data-nome="Salvar escala como .wav">Salvar escala como .wav<span class="menu-em-breve">em breve</span></button>
+          <button class="menu-item" role="menuitem" data-acao="em-breve" data-nome="Gravar o que eu tocar (.wav)">Gravar o que eu tocar (.wav)<span class="menu-em-breve">em breve</span></button>
+          <div class="menu-divisor"></div>
+          <button class="menu-item" role="menuitem" data-acao="sobre">Sobre o MySynth</button>
+        </div>
         <!-- Presets: ‹ Nome › Salvar (montado pelo interface/presets.js) -->
         <div id="lugar-presets"></div>
         <div class="grupo-oitava">
@@ -456,5 +492,9 @@
     </main>
 
     <script type="module" src="principal.js"></script>
+    <!-- Segurança: se algo der errado ao abrir, a tela de carregamento não fica presa para sempre -->
+    <script>
+      setTimeout(() => document.getElementById('carregando')?.remove(), 12000);
+    </script>
   </body>
 </html>

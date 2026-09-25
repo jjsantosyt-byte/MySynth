@@ -87,6 +87,20 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    - V2 (25/09/2026, em teste): ondas dos osciladores em VERDE (rgb 70, 240, 110; linha, brilho e
      preenchimento). `linhaComBrilho(..., cor)` em visualizacao.js (AZUL/VERDE); filtro, envelopes
      e LFO continuam azuis. (O verde é parecido com a cor da ficha LFO 1.)
+   - V3 (25/09/2026, em teste): abertura + menu da logo (decidido: SEM tela inicial; idioma só
+     uma vez; opções de arquivo só como "em breve").
+     - Tela de carregamento (`#carregando` no index.html: HTML/CSS, aparece antes do JS): onda verde
+       se desenhando em loop, "MySynth", barra e etapa (`avancarCarregamento` no principal.js:
+       tela → wavetables → presets). `terminarCarregamento()` (interface/abertura.js): mínimo
+       0,9 s, some em 0,3 s. Segurança: script no fim do index.html tira a tela em 12 s se travar.
+     - Escolha de idioma (`#escolha-idioma`): só se não houver `mysynth.idioma.v1` no localStorage
+       ('pt' | 'en'). Os textos ainda são só em português: escolher English guarda e mostra um
+       recado bilíngue "tradução em breve" (`avisarIdioma`). TRADUÇÃO: etapa futura.
+     - Logo (`#botao-logo`, onda verde) no início da barra de cima → mini menu `#menu-logo`
+       (interface/menu-app.js, posicionado logo abaixo da logo): Configurações (janela: Idioma
+       PT/EN + lista "em breve": tema, teclado, oitavas, letras do PC, qualidade, vibração,
+       restaurar), ARQUIVO: Salvar nota como one shot, Salvar escala, Gravar (.wav) — "em breve"
+       (recado), Sobre. Fecha tocando fora, na logo ou Esc. 852×340/393 e em pé sem rolagem.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

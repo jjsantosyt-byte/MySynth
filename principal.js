@@ -45,6 +45,11 @@ const NOMES_WARP = {
   fmC: 'FM ← C',
 };
 import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
+import { avancarCarregamento, terminarCarregamento } from './interface/abertura.js';
+import { criarMenuApp, avisarIdioma } from './interface/menu-app.js';
+
+avancarCarregamento('Montando a tela…', 0.2);
+criarMenuApp(); // logo no canto superior esquerdo: Configurações e Arquivo
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -1827,7 +1832,9 @@ montarTeclado();
 // Criado por último: tudo que foi feito até aqui (montar a tela) não conta como "mexeu no som".
 // Os presets que vêm com o app são arquivos .synth nas pastas presets/fabrica e presets/usuario.
 // Espera as wavetables guardadas no aparelho entrarem antes (um preset do projeto pode usar uma).
+avancarCarregamento('Lendo suas wavetables…', 0.45);
 await wavetablesGuardadasProntas;
+avancarCarregamento('Carregando presets…', 0.7);
 const doProjeto = await carregarPresetsDoProjeto(receberWavetables);
 if (doProjeto.erros.length > 0) {
   mostrarRecado(`Não consegui carregar alguns presets do app (${doProjeto.erros.join(', ')}).`, 6);
@@ -1859,3 +1866,6 @@ const presets = criarPresets({
   },
 });
 avisarModificado = () => presets.marcarModificado();
+
+// Tudo pronto: some a tela de carregamento (e, na primeira vez, aparece a escolha de idioma)
+terminarCarregamento(avisarIdioma);

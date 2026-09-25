@@ -2076,3 +2076,295 @@ h1 {
   outline: 2px solid var(--destaque);
   outline-offset: 2px;
 }
+
+/* ---------- Tela de carregamento (some quando o app fica pronto) ---------- */
+.tela-carregando {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--fundo);
+  transition: opacity 0.3s ease-out;
+}
+
+.tela-carregando.saindo {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carregando-onda {
+  width: min(220px, 40vw);
+}
+
+.carregando-onda path {
+  fill: none;
+  stroke: #46f06e;
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 300;
+  animation: carregando-desenhar 2.2s ease-in-out infinite;
+}
+
+@keyframes carregando-desenhar {
+  0% {
+    stroke-dashoffset: 300;
+  }
+  60%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.carregando-nome {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.carregando-trilho {
+  width: min(260px, 45vw);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--botao);
+  overflow: hidden;
+}
+
+.carregando-barra {
+  width: 8%;
+  height: 100%;
+  border-radius: 2px;
+  background: #46f06e;
+  transition: width 0.3s ease-out;
+}
+
+.carregando-texto {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+/* ---------- Escolha de idioma (só na primeira vez) ---------- */
+.tela-idioma {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--fundo);
+}
+
+.tela-idioma[hidden] {
+  display: none;
+}
+
+.idioma-titulo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.idioma-opcoes {
+  display: flex;
+  gap: 14px;
+  width: min(460px, 100%);
+}
+
+.idioma-botao {
+  flex: 1;
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 14px;
+  background: var(--cartao);
+  color: var(--texto);
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.idioma-botao:active {
+  border-color: #46f06e;
+  background: var(--botao-apertado);
+}
+
+.idioma-nome {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.idioma-regiao,
+.idioma-dica {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.idioma-dica {
+  margin: 0;
+  text-align: center;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .tela-idioma {
+    gap: 10px;
+  }
+  .idioma-botao {
+    min-height: 64px;
+  }
+}
+
+/* ---------- Logo (canto superior esquerdo) e o mini menu ---------- */
+.barra-topo {
+  position: relative; /* o menu se posiciona a partir da barra */
+}
+
+.botao-logo {
+  flex: 0 0 auto;
+  width: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botao-logo svg {
+  width: 30px;
+  height: 30px;
+}
+
+.botao-logo path {
+  fill: none;
+  stroke: #46f06e;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.botao-logo.aberto {
+  background: var(--botao-apertado);
+  box-shadow: inset 0 0 0 1px #46f06e;
+}
+
+.menu-logo {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 150;
+  min-width: 250px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 12px;
+  background: var(--cartao);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+.menu-logo[hidden] {
+  display: none;
+}
+
+.menu-item {
+  min-height: 40px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--texto);
+  font-family: inherit;
+  font-size: 15px;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.menu-item:active {
+  background: var(--botao-apertado);
+}
+
+.menu-secao {
+  padding: 8px 10px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.menu-em-breve {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--botao);
+  font-size: 11px;
+  color: var(--texto-suave);
+}
+
+.menu-divisor {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--cartao-borda);
+}
+
+/* Janela de Configurações / Sobre */
+.config-secao + .config-secao {
+  margin-top: 14px;
+}
+
+.config-titulo {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.config-texto {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--texto-suave);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .botao-logo {
+    width: 36px;
+    min-width: 36px;
+  }
+  .botao-logo svg {
+    width: 24px;
+    height: 24px;
+  }
+  .menu-item {
+    min-height: 32px;
+    font-size: 14px;
+  }
+  .menu-secao {
+    padding-top: 4px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 360px) {
+  .botao-logo {
+    width: 30px;
+    min-width: 30px;
+  }
+  .menu-item {
+    min-height: 28px;
+    font-size: 13px;
+  }
+}
