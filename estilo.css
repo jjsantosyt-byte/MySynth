@@ -2728,3 +2728,60 @@ h1 {
     height: 10px;
   }
 }
+
+/* Quantidade das ligações: barra "do meio para os lados" na cor da fonte (zero no centro).
+   Continua sendo uma barra de arrastar de verdade; só o desenho é nosso (--ini/--fim vêm do JS). */
+.barra-quantidade {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  --trilho-q:
+    linear-gradient(to right, transparent var(--ini, 50%), var(--cor) var(--ini, 50%), var(--cor) var(--fim, 50%), transparent var(--fim, 50%)),
+    linear-gradient(to right, transparent calc(50% - 0.5px), var(--texto-suave) calc(50% - 0.5px), var(--texto-suave) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    var(--fundo);
+}
+
+.barra-quantidade::-webkit-slider-runnable-track {
+  height: 10px;
+  background: var(--trilho-q);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.barra-quantidade::-moz-range-track {
+  height: 10px;
+  background: var(--trilho-q);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.barra-quantidade::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 4px;
+  height: 18px;
+  margin-top: -4px;
+  border: none;
+  background: var(--texto);
+}
+
+.barra-quantidade::-moz-range-thumb {
+  width: 4px;
+  height: 18px;
+  border: none;
+  border-radius: 0;
+  background: var(--texto);
+}
+
+.linha-mod-valor {
+  color: var(--cor);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .barra-quantidade::-webkit-slider-runnable-track {
+    height: 8px;
+  }
+  .barra-quantidade::-webkit-slider-thumb {
+    height: 14px;
+    margin-top: -3px;
+  }
+}

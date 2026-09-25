@@ -348,6 +348,7 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
 
     const barraQuantidade = document.createElement('input');
     barraQuantidade.type = 'range';
+    barraQuantidade.className = 'barra-quantidade';
     barraQuantidade.min = -1;
     barraQuantidade.max = 1;
     // Com medida própria, a barra anda de 1 em 1 unidade (ex.: 1 semitom = 1/24)
@@ -360,6 +361,10 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
     valor.className = 'linha-mod-valor';
     const mostrar = () => {
       valor.textContent = textoQuantidade(ligacao.destino, ligacao.quantidade);
+      // Barra pintada do meio (zero) até a quantidade: para a direita (+) ou esquerda (−)
+      const q = ligacao.quantidade;
+      barraQuantidade.style.setProperty('--ini', 50 + Math.min(0, q) * 50 + '%');
+      barraQuantidade.style.setProperty('--fim', 50 + Math.max(0, q) * 50 + '%');
     };
     mostrar();
 
