@@ -48,6 +48,7 @@ const ARQUIVOS = [
   'dsp/efeitos/reverb.js',
   'interface/abertura.js',
   'interface/armazem-wavetables.js',
+  'interface/idioma.js',
   'interface/menu-app.js',
   'interface/janela.js',
   'interface/knob.js',

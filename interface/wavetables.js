@@ -5,6 +5,7 @@
 // Exportar presets leva junto as importadas que eles usam (wavetablesDosPresets / receberWavetables).
 
 import { criar, criarJanela } from './janela.js';
+import { t } from './idioma.js';
 import {
   WAVETABLES,
   IMPORTADAS,
@@ -164,7 +165,7 @@ export function criarListaWavetables({ idAtual, escolher, aoApagar }) {
   }
 
   async function apagarImportada(id, nome) {
-    if (!window.confirm(`Apagar a wavetable "${nome}" deste aparelho? Presets que usam ela passam a abrir com a Básica.`)) return;
+    if (!window.confirm(t(`Apagar a wavetable "${nome}" deste aparelho? Presets que usam ela passam a abrir com a Básica.`))) return;
     try {
       await apagarWavetable(nome);
     } catch {

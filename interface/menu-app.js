@@ -6,14 +6,7 @@
 // Fecha tocando fora, tocando na logo de novo ou com Esc.
 
 import { criar, criarJanela, mostrarRecado } from './janela.js';
-import { lerIdioma, guardarIdioma } from './abertura.js';
-
-// Recado ao escolher English (os textos ainda são todos em português)
-export function avisarIdioma(idioma) {
-  if (idioma === 'en') {
-    mostrarRecado('English translation coming soon: for now the app is in Portuguese. (Tradução para o inglês em breve.)', 7);
-  }
-}
+import { IDIOMA, mudarIdioma } from './idioma.js';
 
 export function criarMenuApp() {
   const botao = document.getElementById('botao-logo');
@@ -67,18 +60,14 @@ export function criarMenuApp() {
   ].map(([codigo, nome]) => {
     const b = criar('button', 'botao', nome);
     b.dataset.idioma = codigo;
-    b.addEventListener('click', () => {
-      guardarIdioma(codigo);
-      marcarIdioma();
-      avisarIdioma(codigo);
-    });
+    // Trocar o idioma recarrega o app já no idioma novo
+    b.addEventListener('click', () => mudarIdioma(codigo));
     grupoIdioma.appendChild(b);
     return b;
   });
   secaoIdioma.appendChild(grupoIdioma);
   const marcarIdioma = () => {
-    const atual = lerIdioma() || 'pt';
-    for (const b of botoesIdioma) b.classList.toggle('escolhido', b.dataset.idioma === atual);
+    for (const b of botoesIdioma) b.classList.toggle('escolhido', b.dataset.idioma === IDIOMA);
   };
 
   const secaoBreve = criar('section', 'config-secao');

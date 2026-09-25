@@ -46,6 +46,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Sem cliques ou estalos ao começar/soltar notas.
 - Sem aliasing (chiado agudo) nas notas altas.
 - Código simples e organizado, com comentários em português.
+- App em 2 idiomas (português e inglês): todo texto NOVO na tela precisa da tradução em
+  `interface/idioma.js` (TEXTOS, ou MODELOS se tiver partes que variam). Nomes de presets de
+  fábrica sempre em inglês (qualquer idioma).
 - O motor de som (`dsp/` e `processador-synth.js`) não pode depender de nada do navegador
   (DOM, botões, janela): só contas de áudio. Assim ele pode ser traduzido para C++
   no futuro (motor nativo), se a latência no celular exigir.
@@ -101,6 +104,17 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
        PT/EN + lista "em breve": tema, teclado, oitavas, letras do PC, qualidade, vibração,
        restaurar), ARQUIVO: Salvar nota como one shot, Salvar escala, Gravar (.wav) — "em breve"
        (recado), Sobre. Fecha tocando fora, na logo ou Esc. 852×340/393 e em pé sem rolagem.
+   - V4 (25/09/2026, em teste): TRADUÇÃO para o inglês + presets de fábrica com nome em inglês
+     (Lead Quadrado → Square Lead, Pad Suave → Soft Pad, "Reese bass " → Reese Bass; arquivos
+     renomeados). `interface/idioma.js`: idioma guardado (`mysynth.idioma.v1`), `IDIOMA`,
+     `mudarIdioma()` (guarda e RECARREGA o app), `t()` para textos fora da tela (confirm).
+     Os textos seguem em português no código; com o app em inglês, um tradutor troca os textos
+     da tela (TEXTOS exatos + MODELOS com partes variáveis + vírgula decimal → ponto em valores)
+     e um MutationObserver traduz o que aparecer/mudar depois. É o 1º import do principal.js.
+     Categorias ficam em português nos dados (Baixo...) e aparecem traduzidas (Bass...); o
+     <select> de categoria tem `value` fixo. Testado: nenhum texto em português sobrando (fora a
+     tela de idioma, bilíngue), recados, dica e lista de modulação, nome da onda, salvar preset
+     em inglês guarda a categoria certa, trocar idioma recarrega.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

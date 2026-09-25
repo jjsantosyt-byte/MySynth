@@ -11,6 +11,7 @@
 //   para mandar para alguém. Importar também aceita os .json antigos.
 
 import { criar, criarJanela } from './janela.js';
+import { t } from './idioma.js';
 
 const CHAVE_GUARDADOS = 'mysynth.presets.v1';
 const TAMANHO_MAXIMO_NOME = 40;
@@ -170,7 +171,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   });
 
   function apagarPreset(preset) {
-    if (!window.confirm(`Apagar o preset "${preset.nome}"? Isso não pode ser desfeito.`)) return;
+    if (!window.confirm(t(`Apagar o preset "${preset.nome}"? Isso não pode ser desfeito.`))) return;
     const novos = guardados.filter((p) => p.nome !== preset.nome);
     if (!gravarGuardados(novos)) {
       janelaLista.avisar('Não consegui apagar: o navegador não deixou gravar.');
@@ -272,7 +273,9 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   campoNome.placeholder = 'Nome do preset';
   const campoCategoria = criar('select', 'campo');
   for (const categoria of categorias.filter((c) => c !== 'Início')) {
-    campoCategoria.appendChild(criar('option', '', categoria));
+    const opcao = criar('option', '', categoria);
+    opcao.value = categoria; // o valor fica fixo (o texto pode aparecer traduzido)
+    campoCategoria.appendChild(opcao);
   }
   const rotuloNome = criar('label', 'campo-rotulo', 'Nome');
   rotuloNome.appendChild(campoNome);

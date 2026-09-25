@@ -1,6 +1,9 @@
 // principal.js
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
+// Primeiro de tudo: o idioma (com o app em inglês, o tradutor começa a olhar a tela antes de
+// qualquer outra parte montar os seus textos)
+import './interface/idioma.js';
 import { listaWavetables, obterWavetable, existeWavetable, esquecerMontada } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
@@ -46,7 +49,7 @@ const NOMES_WARP = {
 };
 import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
 import { avancarCarregamento, terminarCarregamento } from './interface/abertura.js';
-import { criarMenuApp, avisarIdioma } from './interface/menu-app.js';
+import { criarMenuApp } from './interface/menu-app.js';
 
 avancarCarregamento('Montando a tela…', 0.2);
 criarMenuApp(); // logo no canto superior esquerdo: Configurações e Arquivo
@@ -1868,4 +1871,4 @@ const presets = criarPresets({
 avisarModificado = () => presets.marcarModificado();
 
 // Tudo pronto: some a tela de carregamento (e, na primeira vez, aparece a escolha de idioma)
-terminarCarregamento(avisarIdioma);
+terminarCarregamento();
