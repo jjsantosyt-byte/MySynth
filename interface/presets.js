@@ -79,12 +79,20 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   const barra = criar('div', 'presets');
   const setaAnterior = criar('button', 'botao presets-seta', '‹');
   setaAnterior.setAttribute('aria-label', 'Preset anterior');
+  // O nome fica num "visor" (estilo LCD): em cima a categoria e o número ("PAD · 07/20"),
+  // embaixo o nome. (Categoria num span só dela: o tradutor da tela troca "Baixo" → "Bass".)
   const botaoNome = criar('button', 'presets-nome');
   botaoNome.setAttribute('aria-haspopup', 'dialog');
+  const topo = criar('span', 'presets-topo');
+  const textoCategoria = criar('span', 'presets-categoria-visor');
+  const textoNumero = criar('span', 'presets-numero');
+  topo.append(textoCategoria, textoNumero);
+  const linhaNome = criar('span', 'presets-linha-nome');
   const textoNome = criar('span', 'presets-texto');
   const marcaMudou = criar('span', 'presets-mudou', '*');
   marcaMudou.title = 'Som modificado (não salvo)';
-  botaoNome.append(textoNome, marcaMudou);
+  linhaNome.append(textoNome, marcaMudou);
+  botaoNome.append(topo, linhaNome);
   const setaProxima = criar('button', 'botao presets-seta', '›');
   setaProxima.setAttribute('aria-label', 'Próximo preset');
   const botaoSalvar = criar('button', 'botao presets-salvar', 'Salvar');
@@ -94,6 +102,11 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   function mostrarBarra() {
     textoNome.textContent = atual ? atual.nome : 'Sem nome';
     marcaMudou.hidden = !modificado;
+    const lista = todos();
+    const i = atual ? lista.findIndex((p) => mesmoPreset(p, atual)) : -1;
+    const doisDigitos = (n) => String(n).padStart(2, '0');
+    textoCategoria.textContent = atual ? atual.categoria : '';
+    textoNumero.textContent = i >= 0 ? `${doisDigitos(i + 1)}/${doisDigitos(lista.length)}` : '--';
     botaoNome.title = atual ? `${atual.categoria} · ${atual.nome}` : '';
   }
 
@@ -181,8 +194,8 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
     if (mesmoPreset(preset, atual)) {
       // O som continua tocando, mas agora não está salvo em lugar nenhum
       modificado = true;
-      mostrarBarra();
     }
+    mostrarBarra(); // o número "07/20" muda com um preset a menos
     montarLista();
   }
 
@@ -254,6 +267,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
       }
       if (!gravarGuardados(novos)) throw new Error('gravar');
       guardados = novos;
+      mostrarBarra(); // o total "07/20" muda
       montarLista();
       janelaLista.avisar(`${recebidos.length} preset(s) importado(s)${resumo}.`);
     } catch (erro) {

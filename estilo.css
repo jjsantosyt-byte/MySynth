@@ -2630,3 +2630,60 @@ h1 {
     height: 6px;
   }
 }
+
+/* ---------- Escolhas visuais de 25/09/2026 (2ª rodada) ---------- */
+
+/* Nome do preset num visor LCD azul: categoria e número em cima, nome embaixo */
+.presets-nome {
+  --contorno: rgba(63, 184, 255, 0.45);
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1px;
+  background: #06141c;
+  color: #8fdcff;
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  text-align: left;
+}
+
+.presets-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--destaque);
+  opacity: 0.8;
+}
+
+.presets-linha-nome {
+  display: flex;
+  min-width: 0;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(63, 184, 255, 0.45);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .presets-nome {
+    gap: 0;
+  }
+  .presets-topo {
+    font-size: 8px;
+    line-height: 1;
+  }
+  .presets-linha-nome {
+    font-size: 12px;
+    line-height: 1.05;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .presets-nome {
+    min-width: 140px; /* o visor precisa de espaço para o nome (a barra de volume encolhe) */
+  }
+}
