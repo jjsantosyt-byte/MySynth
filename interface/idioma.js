@@ -78,8 +78,12 @@ const TEXTOS = new Map(
     'Gravar o que eu tocar (.wav)': 'Record what I play (.wav)',
     'Sobre o MySynth': 'About MySynth',
     'Idioma · Language': 'Language · Idioma',
-    'Tema e cores, tamanho do teclado e oitavas, letras do teclado do computador, qualidade do som, vibração e restaurar tudo.':
-      'Theme and colors, keyboard size and octaves, computer keyboard letters, sound quality, vibration and reset everything.',
+    'Tamanho do teclado e oitavas, letras do teclado do computador, qualidade do som, vibração e restaurar tudo.':
+      'Keyboard size and octaves, computer keyboard letters, sound quality, vibration and reset everything.',
+    Tema: 'Theme',
+    Básico: 'Basic',
+    Comum: 'Standard',
+    Claro: 'Light',
     'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, 3 LFOs e 2 envelopes arrastáveis e 10 efeitos.':
       'A wavetable synthesizer made to play on your phone: 3 oscillators, 2 filters, 3 draggable LFOs and 2 envelopes, and 10 effects.',
     'Versão beta · setembro de 2026': 'Beta version · September 2026',

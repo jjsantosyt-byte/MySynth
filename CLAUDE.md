@@ -169,6 +169,17 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      N6 logo na tela de idioma, títulos das seções das janelas no estilo dos cartões, rodapé vazio
      escondido, foco do teclado do PC azul por dentro, Filtros/Ruído com On/Off (como o resto),
      texto do Sobre atualizado (3 LFOs, 10 efeitos).
+   - TEMAS (25/09/2026, em teste): Básico / Comum (padrão) / Claro. interface/tema.js (`TEMA`,
+     `TEMAS`, `NOMES_TEMAS`, `guardarTema`, `mudarTema` = guarda e recarrega); gaveta
+     `mysynth.tema.v1`; um script no <head> do index.html põe `data-tema` no <html> antes de
+     desenhar. Cores com nome no :root (--verde, --lcd-*, --led-apagado, --tecla-*, --desenho-*...);
+     os desenhos (visualizacao.js, `cores()`) leem as --desenho-* uma vez. Blocos "TEMAS" no fim do
+     estilo.css: CLARO troca só cores; BÁSICO desfaz o corte em 45° (cantos redondos), visor LCD,
+     LEDs, marcas dos knobs, ícones das abas e fichas cheias, e deixa as ondas azuis.
+     Cor nova no CSS: usar variável (e dar o valor dela no tema Claro).
+     Tela inicial (só na 1ª vez, sem `mysynth.idioma.v1`): Idioma + Tema com miniaturas; tocar só
+     marca (LED); "Seguir · Continue" guarda os dois e recarrega se mudou (interface/abertura.js).
+     Deitado: Idioma e Tema lado a lado. Configurações: seção Tema (trocar recarrega).
      REGRA: elemento novo usa as peças que já existem (chave com LED, seletor com setas, ícones de
      icones.js, janela/confirmar de janela.js) — nunca <select>, confirm(), alert() nem emojis.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e

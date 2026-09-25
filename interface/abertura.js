@@ -2,10 +2,12 @@
 // O que aparece ao abrir o app:
 //   1. Tela de carregamento (já está no index.html: aparece antes de qualquer JavaScript).
 //      O principal.js avisa as etapas (avancarCarregamento) e o fim (terminarCarregamento).
-//   2. Escolha de idioma — só na PRIMEIRA vez (fica guardada no aparelho; ver idioma.js).
-//      Escolher English recarrega o app já em inglês.
+//   2. Tela inicial: idioma + tema — só na PRIMEIRA vez (ficam guardados no aparelho; ver
+//      idioma.js e tema.js). Tocar numa opção só marca; "Seguir" guarda as duas escolhas e,
+//      se algo mudou em relação à tela atual, recarrega o app já no idioma/tema escolhidos.
 
-import { lerIdioma, mudarIdioma } from './idioma.js';
+import { lerIdioma, guardarIdioma, IDIOMA } from './idioma.js';
+import { guardarTema, TEMA } from './tema.js';
 
 const TEMPO_MINIMO_MS = 900; // a tela de carregamento fica pelo menos isso (não "pisca")
 const inicio = performance.now();
@@ -36,10 +38,33 @@ function mostrarEscolhaIdioma() {
   const tela = document.getElementById('escolha-idioma');
   if (!tela) return;
   tela.hidden = false;
-  tela.querySelectorAll('[data-idioma]').forEach((botao) => {
+
+  // Escolhas marcadas (começam no português e no tema Comum)
+  let idioma = 'pt';
+  let tema = 'comum';
+  const marcar = (atributo, valor) =>
+    tela.querySelectorAll(`[${atributo}]`).forEach((b) => b.setAttribute('aria-pressed', b.getAttribute(atributo) === valor));
+  marcar('data-idioma', idioma);
+  marcar('data-tema-opcao', tema);
+
+  tela.querySelectorAll('[data-idioma]').forEach((botao) =>
     botao.addEventListener('click', () => {
-      tela.hidden = true;
-      mudarIdioma(botao.dataset.idioma); // English: recarrega já traduzido
-    });
+      idioma = botao.dataset.idioma;
+      marcar('data-idioma', idioma);
+    })
+  );
+  tela.querySelectorAll('[data-tema-opcao]').forEach((botao) =>
+    botao.addEventListener('click', () => {
+      tema = botao.dataset.temaOpcao;
+      marcar('data-tema-opcao', tema);
+    })
+  );
+
+  // Seguir: guarda as duas escolhas; recarrega só se o idioma ou o tema da tela mudou
+  document.getElementById('botao-seguir').addEventListener('click', () => {
+    guardarIdioma(idioma);
+    guardarTema(tema);
+    if (idioma !== IDIOMA || tema !== TEMA) location.reload();
+    else tela.hidden = true;
   });
 }

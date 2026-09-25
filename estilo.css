@@ -3454,3 +3454,153 @@ html[data-tema='basico'] .tecla.preta.ativa {
   transform: none;
   box-shadow: none;
 }
+
+/* ---------- Tela inicial: idioma + tema + "Seguir" ---------- */
+.inicio-secoes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(520px, 100%);
+}
+
+.inicio-secao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.inicio-secao .idioma-opcoes {
+  width: 100%;
+}
+
+.tela-idioma .idioma-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Opção marcada: contorno azul + LED aceso (como as chaves On/Off) */
+.idioma-botao[aria-pressed] {
+  position: relative;
+}
+
+.idioma-botao[aria-pressed]::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--led-apagado);
+}
+
+.idioma-botao[aria-pressed='true'] {
+  --contorno: var(--destaque);
+  border-color: var(--destaque);
+}
+
+.idioma-botao[aria-pressed='true']::before {
+  background: var(--destaque);
+  box-shadow: 0 0 6px var(--destaque);
+}
+
+.idioma-botao:active {
+  border-color: var(--destaque);
+}
+
+.tema-botao {
+  gap: 2px;
+  padding: 8px 6px;
+}
+
+.tema-miniatura {
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  margin-bottom: 4px;
+}
+
+.tema-botao .idioma-nome {
+  font-size: 15px;
+}
+
+.tema-botao .idioma-regiao {
+  font-size: 12px;
+}
+
+.botao-seguir {
+  min-width: 200px;
+  min-height: 44px;
+  font-size: 16px;
+}
+
+/* Celular deitado: Idioma e Tema lado a lado, tudo mais baixo (sem rolar) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .tela-idioma {
+    gap: 8px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .inicio-secoes {
+    flex-direction: row;
+    align-items: stretch;
+    width: min(760px, 100%);
+    gap: 18px;
+  }
+  .inicio-secao:first-child {
+    flex: 0 0 34%;
+  }
+  .inicio-secao {
+    gap: 6px;
+  }
+  .inicio-secao:first-child .idioma-opcoes {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .inicio-secao:first-child .idioma-botao {
+    min-height: 0;
+    flex: 1 1 0;
+  }
+  .idioma-botao {
+    min-height: 0;
+  }
+  .idioma-nome {
+    font-size: 15px;
+  }
+  .tema-miniatura {
+    max-width: 96px;
+    margin-bottom: 2px;
+  }
+  .idioma-opcoes {
+    gap: 8px;
+  }
+  .botao-seguir {
+    min-height: 36px;
+  }
+  .idioma-logo {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .inicio-secao .idioma-opcoes {
+    flex: 1 1 auto;
+  }
+  .inicio-secao:first-child .idioma-botao {
+    min-height: 40px;
+  }
+}
+
+.tema-botao[aria-pressed]::before {
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+}

@@ -8,6 +8,7 @@
 
 import { criar, criarJanela, mostrarRecado } from './janela.js';
 import { IDIOMA, mudarIdioma } from './idioma.js';
+import { TEMA, TEMAS, NOMES_TEMAS, mudarTema } from './tema.js';
 
 export function criarMenuApp() {
   const botao = document.getElementById('botao-logo');
@@ -80,15 +81,32 @@ export function criarMenuApp() {
     for (const b of botoesIdioma) b.classList.toggle('escolhido', b.dataset.idioma === IDIOMA);
   };
 
+  // Tema (trocar recarrega o app já no tema novo)
+  const secaoTema = criar('section', 'config-secao');
+  secaoTema.appendChild(criar('h3', 'config-titulo', 'Tema'));
+  const grupoTema = criar('div', 'grupo-botoes config-tema');
+  const botoesTema = TEMAS.map((tema) => {
+    const b = criar('button', 'botao', NOMES_TEMAS[tema]);
+    b.dataset.tema = tema;
+    b.addEventListener('click', () => mudarTema(tema));
+    grupoTema.appendChild(b);
+    return b;
+  });
+  secaoTema.appendChild(grupoTema);
+  const marcarTema = () => {
+    for (const b of botoesTema) b.classList.toggle('escolhido', b.dataset.tema === TEMA);
+  };
+
   const secaoBreve = criar('section', 'config-secao');
   secaoBreve.appendChild(criar('h3', 'config-titulo', 'Em breve'));
   secaoBreve.appendChild(
-    criar('p', 'config-texto', 'Tema e cores, tamanho do teclado e oitavas, letras do teclado do computador, qualidade do som, vibração e restaurar tudo.')
+    criar('p', 'config-texto', 'Tamanho do teclado e oitavas, letras do teclado do computador, qualidade do som, vibração e restaurar tudo.')
   );
-  janelaConfig.corpo.append(secaoIdioma, secaoBreve);
+  janelaConfig.corpo.append(secaoIdioma, secaoTema, secaoBreve);
 
   function abrirConfiguracoes() {
     marcarIdioma();
+    marcarTema();
     janelaConfig.abrir();
   }
 

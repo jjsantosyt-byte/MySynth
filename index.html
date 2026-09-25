@@ -38,14 +38,51 @@
       <div id="carregando-texto" class="carregando-texto">Preparando o som…</div>
     </div>
 
-    <!-- Escolha de idioma: só na primeira vez que o app é aberto (depois, em Configurações) -->
+    <!-- Tela inicial: idioma + tema, só na primeira vez que o app é aberto (depois, em
+         Configurações). Tocar numa opção só MARCA; nada muda até tocar em "Seguir"
+         (interface/abertura.js). Textos em português e inglês ao mesmo tempo. -->
     <div id="escolha-idioma" class="tela-idioma" hidden>
       <svg class="idioma-logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 16 Q7 5 11 16 T19 16 L21 8 L21 24 L23 16 L29 16" /></svg>
-      <h2 class="idioma-titulo">Escolha o idioma · Choose your language</h2>
+      <div class="inicio-secoes">
+      <section class="inicio-secao">
+      <h2 class="idioma-titulo">Idioma · Language</h2>
       <div class="idioma-opcoes">
-        <button class="idioma-botao" data-idioma="pt"><span class="idioma-nome">Português</span><span class="idioma-regiao">Brasil</span></button>
-        <button class="idioma-botao" data-idioma="en"><span class="idioma-nome">English</span><span class="idioma-regiao">United States</span></button>
+        <button class="idioma-botao" data-idioma="pt" aria-pressed="true"><span class="idioma-nome">Português</span><span class="idioma-regiao">Brasil</span></button>
+        <button class="idioma-botao" data-idioma="en" aria-pressed="false"><span class="idioma-nome">English</span><span class="idioma-regiao">United States</span></button>
       </div>
+      </section>
+      <section class="inicio-secao">
+      <h2 class="idioma-titulo">Tema · Theme</h2>
+      <!-- Miniaturas com as cores fixas de cada tema (não mudam com o tema atual) -->
+      <div class="idioma-opcoes temas-opcoes">
+        <button class="idioma-botao tema-botao" data-tema-opcao="basico" aria-pressed="false">
+          <svg class="tema-miniatura" viewBox="0 0 120 44" aria-hidden="true">
+            <rect width="120" height="44" rx="6" fill="#0b0c0f" /><rect x="4" y="4" width="112" height="36" rx="6" fill="#181b23" stroke="#2b303e" />
+            <rect x="9" y="9" width="62" height="26" rx="5" fill="#1f2433" /><path d="M12 22q6-11 12 0t12 0 12 0 12 0" fill="none" stroke="#3fb8ff" stroke-width="2" />
+            <circle cx="89" cy="22" r="8" fill="none" stroke="#262a35" stroke-width="3.5" /><path d="M83 27a8 8 0 1 1 12 0" fill="none" stroke="#3fb8ff" stroke-width="3.5" />
+          </svg>
+          <span class="idioma-nome">Básico</span><span class="idioma-regiao">Basic</span>
+        </button>
+        <button class="idioma-botao tema-botao" data-tema-opcao="comum" aria-pressed="true">
+          <svg class="tema-miniatura" viewBox="0 0 120 44" aria-hidden="true">
+            <rect width="120" height="44" fill="#0b0c0f" /><polygon points="10,4 110,4 116,10 116,34 110,40 10,40 4,34 4,10" fill="#181b23" stroke="#2b303e" />
+            <rect x="9" y="9" width="62" height="26" fill="#1f2433" /><path d="M12 22q6-11 12 0t12 0 12 0 12 0" fill="none" stroke="#46f06e" stroke-width="2" />
+            <circle cx="89" cy="22" r="6" fill="#262a35" /><path d="M83 27a8 8 0 1 1 12 0" fill="none" stroke="#3fb8ff" stroke-width="1.8" /><circle cx="104" cy="14" r="2.5" fill="#3fb8ff" />
+          </svg>
+          <span class="idioma-nome">Comum</span><span class="idioma-regiao">Standard</span>
+        </button>
+        <button class="idioma-botao tema-botao" data-tema-opcao="claro" aria-pressed="false">
+          <svg class="tema-miniatura" viewBox="0 0 120 44" aria-hidden="true">
+            <rect width="120" height="44" fill="#e9ecf1" /><polygon points="10,4 110,4 116,10 116,34 110,40 10,40 4,34 4,10" fill="#f7f8fb" stroke="#c5cbd6" />
+            <rect x="9" y="9" width="62" height="26" fill="#ffffff" /><path d="M12 22q6-11 12 0t12 0 12 0 12 0" fill="none" stroke="#1a9e4a" stroke-width="2" />
+            <circle cx="89" cy="22" r="6" fill="#e2e6ed" /><path d="M83 27a8 8 0 1 1 12 0" fill="none" stroke="#1f7fd1" stroke-width="1.8" /><circle cx="104" cy="14" r="2.5" fill="#1f7fd1" />
+          </svg>
+          <span class="idioma-nome">Claro</span><span class="idioma-regiao">Light</span>
+        </button>
+      </div>
+      </section>
+      </div>
+      <button id="botao-seguir" class="botao botao-destaque botao-seguir">Seguir · Continue</button>
       <p class="idioma-dica">Dá para mudar depois em Configurações · You can change it later in Settings</p>
     </div>
 
