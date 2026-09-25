@@ -28,8 +28,36 @@ export function mostrarRecado(texto, segundos = 4) {
   temporizador = setTimeout(() => (bolha.hidden = true), segundos * 1000);
 }
 
-// Fecha no X, tocando fora ou com Esc.
-export function criarJanela(titulo) {
+// Pergunta de sim/não numa janela do próprio app (no lugar do confirm() do navegador, que
+// cada celular desenha de um jeito). [Cancelar] [textoBotao]; fechar no X, tocando fora ou
+// com Esc = Cancelar. Devolve uma Promise: true = confirmou.
+let pergunta = null;
+export function confirmar(texto, textoBotao = 'Apagar') {
+  if (!pergunta) {
+    const janela = criarJanela('Confirmar', { aoFechar: () => pergunta.responder(false) });
+    const paragrafo = criar('p', 'config-texto');
+    janela.corpo.appendChild(paragrafo);
+    const cancelar = criar('button', 'botao', 'Cancelar');
+    const sim = criar('button', 'botao botao-perigo');
+    janela.rodape.append(cancelar, sim);
+    pergunta = { janela, paragrafo, sim, responder: () => {} };
+    cancelar.addEventListener('click', () => pergunta.responder(false));
+    sim.addEventListener('click', () => pergunta.responder(true));
+  }
+  return new Promise((resolver) => {
+    pergunta.paragrafo.textContent = texto;
+    pergunta.sim.textContent = textoBotao;
+    pergunta.responder = (resposta) => {
+      pergunta.responder = () => {}; // responde uma vez só
+      pergunta.janela.fechar();
+      resolver(resposta);
+    };
+    pergunta.janela.abrir();
+  });
+}
+
+// Fecha no X, tocando fora ou com Esc. "aoFechar" (opcional): chamado sempre que ela fecha.
+export function criarJanela(titulo, { aoFechar } = {}) {
   const fundo = criar('div', 'janela-fundo');
   fundo.hidden = true;
   const janela = criar('div', 'janela');
@@ -46,7 +74,11 @@ export function criarJanela(titulo) {
   fundo.appendChild(janela);
   document.body.appendChild(fundo);
 
-  const esconder = () => (fundo.hidden = true);
+  const esconder = () => {
+    if (fundo.hidden) return;
+    fundo.hidden = true;
+    aoFechar?.();
+  };
   fechar.addEventListener('click', esconder);
   fundo.addEventListener('pointerdown', (evento) => {
     if (evento.target === fundo) esconder();

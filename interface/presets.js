@@ -10,8 +10,7 @@
 //   Exportar/Importar gera um arquivo .synth (texto JSON por dentro) para backup ou
 //   para mandar para alguém. Importar também aceita os .json antigos.
 
-import { criar, criarJanela } from './janela.js';
-import { t } from './idioma.js';
+import { criar, criarJanela, confirmar } from './janela.js';
 import { botaoComIcone } from './icones.js';
 
 const CHAVE_GUARDADOS = 'mysynth.presets.v1';
@@ -184,8 +183,8 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
     janelaLista.corpo.querySelector('.atual')?.scrollIntoView({ block: 'center' });
   });
 
-  function apagarPreset(preset) {
-    if (!window.confirm(t(`Apagar o preset "${preset.nome}"? Isso não pode ser desfeito.`))) return;
+  async function apagarPreset(preset) {
+    if (!(await confirmar(`Apagar o preset "${preset.nome}"? Isso não pode ser desfeito.`))) return;
     const novos = guardados.filter((p) => p.nome !== preset.nome);
     if (!gravarGuardados(novos)) {
       janelaLista.avisar('Não consegui apagar: o navegador não deixou gravar.');

@@ -3137,3 +3137,14 @@ h1 {
     height: 12px;
   }
 }
+
+/* N3) Botão de ação que apaga (janela "Confirmar", no lugar do confirm() do navegador) */
+.botao-perigo {
+  background: #8f2d2d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.botao-perigo:active {
+  background: #6f2222;
+}

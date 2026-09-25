@@ -189,6 +189,8 @@ const TEXTOS = new Map(
     Nome: 'Name',
     Categoria: 'Category',
     Cancelar: 'Cancel',
+    Confirmar: 'Confirm',
+    Apagar: 'Delete',
     Substituir: 'Replace',
     'Nome do preset': 'Preset name',
     Início: 'Init',

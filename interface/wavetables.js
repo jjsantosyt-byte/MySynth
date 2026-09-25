@@ -4,8 +4,7 @@
 // As importadas ficam guardadas neste aparelho (armazem-wavetables.js) e podem ser apagadas (lixeira).
 // Exportar presets leva junto as importadas que eles usam (wavetablesDosPresets / receberWavetables).
 
-import { criar, criarJanela } from './janela.js';
-import { t } from './idioma.js';
+import { criar, criarJanela, confirmar } from './janela.js';
 import { botaoComIcone } from './icones.js';
 import {
   WAVETABLES,
@@ -166,7 +165,7 @@ export function criarListaWavetables({ idAtual, escolher, aoApagar }) {
   }
 
   async function apagarImportada(id, nome) {
-    if (!window.confirm(t(`Apagar a wavetable "${nome}" deste aparelho? Presets que usam ela passam a abrir com a Básica.`))) return;
+    if (!(await confirmar(`Apagar a wavetable "${nome}" deste aparelho? Presets que usam ela passam a abrir com a Básica.`))) return;
     try {
       await apagarWavetable(nome);
     } catch {
