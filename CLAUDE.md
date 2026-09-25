@@ -320,6 +320,13 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 1. Colocar online (https, ex.: GitHub Pages) e testar no celular. ✔ online (falta o teste no celular)
 2. PWA: ícone na tela inicial, tela cheia, funciona sem internet. ✔ (`sw.js`, 24/09/2026)
 3. APK/AAB para a Play Store via TWA (PWABuilder/Bubblewrap). Conta Google: US$ 25 uma vez.
+   (25/09/2026) Dono criando a conta do Play Console. Pronto do lado do app: política de privacidade
+   em https://jjsantosyt-byte.github.io/MySynth/privacidade.html (link no menu da logo); menu sem
+   "em breve". Falta: gerar o .aab de novo (PWABuilder: Fallback = WebView; se travar no ícone,
+   testar Display = Standalone) e a prova de domínio: `/.well-known/assetlinks.json` na RAIZ do
+   domínio → precisa do repositório `jjsantosyt-byte.github.io` (com arquivo `.nojekyll`, senão o
+   GitHub esconde a pasta .well-known), com o SHA-256 da "chave de assinatura do app" do Play
+   Console. Contas novas: teste fechado com 12 testadores por 14 dias antes da produção.
 4. Só se a latência no celular incomodar: motor de som em C++ (Oboe no Android),
    tela continua em HTML/JS dentro do Capacitor. Alternativa radical: JUCE (tela + motor
    em C++, gera também VST/AU). iPhone exige Mac + conta Apple.
