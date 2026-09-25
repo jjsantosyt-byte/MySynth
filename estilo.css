@@ -3262,3 +3262,70 @@ input[type='range']:focus-visible {
   outline: 2px solid var(--destaque);
   outline-offset: -2px;
 }
+
+/* =====================================================================================
+   TEMAS (interface/tema.js). O "Comum" é o visual de cima (padrão). Cada tema aqui embaixo
+   só troca cores (variáveis) e, se precisar, uns poucos detalhes.
+   ===================================================================================== */
+
+/* ---------- Tema CLARO: fundo claro (bom para tocar no sol) ---------- */
+html[data-tema='claro'] {
+  color-scheme: light;
+  --fundo: #e9ecf1;
+  --barra: #dde1e8;
+  --cartao: #f7f8fb;
+  --cartao-borda: #c5cbd6;
+  --tela-onda: #ffffff;
+  --tela-onda-borda: #bfc6d2;
+  --botao: #e2e6ed;
+  --botao-apertado: #d0d6e0;
+  --texto: #1d222c;
+  --texto-suave: #5c6475;
+  --destaque: #1f7fd1;
+  --destaque-escuro: #1766aa;
+  --azul-rgb: 31, 127, 209;
+
+  --cor-lfo1: #1f9e52;
+  --cor-lfo2: #7b4fd6;
+  --cor-lfo3: #c29a00;
+  --cor-env2: #e0770f;
+  --cor-env3: #e0487f;
+
+  --verde: #1a9e4a;
+  --verde-rgb: 26, 158, 74;
+  --texto-sobre-destaque: #ffffff;
+  --texto-sobre-cor: #ffffff;
+  --lcd-fundo: #f1f7fc;
+  --lcd-texto: #1f5f99;
+  --led-apagado: #b8bfcc;
+  --rolagem: #b8bfcc;
+  --tecla-branca: #ffffff;
+  --tecla-preta: #2a2f3a;
+  --ponto-aovivo: #1d222c;
+
+  --desenho-onda: 26, 158, 74;
+  --desenho-linha: 31, 127, 209;
+  --desenho-apagado: #a4acbb;
+  --desenho-guia: #d3d8e1;
+  --desenho-marca: 214, 140, 20;
+  --desenho-ponto: 29, 34, 44;
+  --desenho-alca: #ffffff;
+}
+
+html[data-tema='claro'] .nome-onda {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+html[data-tema='claro'] .mod-alvo {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html[data-tema='claro'] .presets-linha-nome {
+  text-shadow: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-tema='claro'] .dica-modulacao {
+    background: rgba(247, 248, 251, 0.96);
+  }
+}
