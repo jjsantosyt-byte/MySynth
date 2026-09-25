@@ -3838,3 +3838,8 @@ html[data-tema='basico'] .painel-macros {
     row-gap: 12px;
   }
 }
+
+/* Link no menu da logo (Política de privacidade): igual aos outros itens */
+a.menu-item {
+  text-decoration: none;
+}

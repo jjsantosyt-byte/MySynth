@@ -75,6 +75,7 @@ const TEXTOS = new Map(
 
     // Menu da logo, Configurações, Sobre
     Configurações: 'Settings',
+    'Política de privacidade': 'Privacy policy',
     Arquivo: 'File',
     'Salvar nota como one shot (.wav)': 'Save note as one shot (.wav)',
     'Salvar escala como .wav': 'Save scale as .wav',

@@ -15,6 +15,7 @@ const GAVETA = 'mysynth-arquivos-v1';
 const ARQUIVOS = [
   './',
   'index.html',
+  'privacidade.html',
   'estilo.css',
   'manifest.json',
   'principal.js',

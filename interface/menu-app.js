@@ -1,12 +1,12 @@
 // interface/menu-app.js
 // Logo do app (canto superior esquerdo): tocar abre um PAINEL LATERAL (sai da esquerda, altura
 // toda da tela, o resto escurece) com
-//   - Configurações (janela: idioma; as outras opções vêm depois)
-//   - Arquivo: salvar one shot, salvar escala, gravar (por enquanto só as opções: "em breve")
+//   - Configurações (janela: idioma e tema; as outras opções vêm depois)
 //   - Sobre o MySynth
+//   - Política de privacidade (link para privacidade.html)
 // Fecha tocando fora, tocando na logo de novo ou com Esc.
 
-import { criar, criarJanela, mostrarRecado } from './janela.js';
+import { criar, criarJanela } from './janela.js';
 import { IDIOMA, mudarIdioma } from './idioma.js';
 import { TEMA, TEMAS, NOMES_TEMAS, mudarTema } from './tema.js';
 
@@ -56,7 +56,6 @@ export function criarMenuApp() {
       const acao = item.dataset.acao;
       if (acao === 'configuracoes') abrirConfiguracoes();
       else if (acao === 'sobre') janelaSobre.abrir();
-      else mostrarRecado(`${item.dataset.nome}: em breve.`, 3);
     });
   });
 
