@@ -17,7 +17,7 @@
 
 import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
-import { trechosDeRuido } from './dsp/ruido.js';
+import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
 import { MatrizModulacao } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
@@ -277,7 +277,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
     achado = /^unison([BC]?)$/.exec(nome);
     if (achado) {
-      ajustesOsc(achado[1]).unison = Math.min(16, Math.max(1, valor));
+      ajustesOsc(achado[1]).unison = Math.min(16, Math.max(1, Math.round(valor) || 1));
       return;
     }
     achado = /^osc([BC]?)Ligado$/.exec(nome);
@@ -296,7 +296,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.modo = valor;
         break;
       case 'vozes':
-        this.maxVozes = Math.min(MAX_VOZES, Math.max(1, valor));
+        this.maxVozes = Math.min(MAX_VOZES, Math.max(1, Math.round(valor) || 1));
         break;
       case 'legato':
         this.legato = valor;
@@ -326,7 +326,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.ruidoUnico = !!valor;
         break;
       case 'ruidoTipo':
-        this.ruidoTipo = valor;
+        // Tipo desconhecido (ex.: preset editado à mão) vira White: um tipo inválido
+        // quebraria o motor na próxima nota (ele pararia de tocar até recarregar).
+        this.ruidoTipo = TIPOS_RUIDO.includes(valor) ? valor : 'white';
         break;
       case 'filtroTipo':
         for (const voz of this.vozes) voz.definirFiltro(1, 'tipo', valor);

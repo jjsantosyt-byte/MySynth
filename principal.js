@@ -315,6 +315,13 @@ async function ligarSom() {
       outputChannelCount: [2], // estéreo
       parameterData: { ...estado.parametros },
     });
+    // Se der um erro dentro do motor, o navegador o desliga de vez (fica mudo):
+    // avisa na tela em vez de deixar o app "tocando" sem som.
+    synth.onprocessorerror = () => {
+      mostrarAviso('O motor de som parou por um erro. Recarregue o app para voltar a tocar.');
+      botaoLigar.textContent = 'Som parado';
+      botaoLigar.classList.remove('ligado');
+    };
     const ganho = contexto.createGain();
     ganho.gain.value = volumeDoControle();
 
