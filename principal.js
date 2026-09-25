@@ -369,9 +369,20 @@ async function ligarSom() {
   } catch (erro) {
     console.error(erro);
     mostrarAviso('Não consegui ligar o som: ' + erro.message);
+    // Fecha o motor de áudio que não deu certo (o navegador só aceita alguns abertos ao mesmo tempo)
+    contexto.close().catch(() => {});
     estado.contexto = null;
     botaoLigar.disabled = false;
     botaoLigar.textContent = 'Ligar som';
+  }
+}
+
+// Religa o áudio se ele não estiver rodando. No iPhone, uma ligação, a Siri ou um alarme deixam
+// o áudio "interrompido" (estado 'interrupted', não 'suspended'): sem isto, o app voltava mudo.
+function garantirSomRodando() {
+  const contexto = estado.contexto;
+  if (contexto && contexto.state !== 'running' && contexto.state !== 'closed') {
+    contexto.resume().catch(() => {});
   }
 }
 
@@ -1602,6 +1613,7 @@ document.addEventListener('keydown', (evento) => {
   evento.preventDefault();
   if (evento.repeat || estado.teclasPc.has(evento.code)) return; // segurar a tecla não repete a nota
   if (!estado.contexto) ligarSom(); // apertar uma tecla também liga o som
+  else garantirSomRodando();
   const nota = notaInicial() + semitom;
   estado.teclasPc.set(evento.code, nota); // guarda a nota (se a oitava mudar, solta a certa)
   notaOn(nota);
@@ -1684,6 +1696,7 @@ function soltarDedo(evento) {
 teclado.addEventListener('pointerdown', (evento) => {
   // Primeiro toque no teclado já liga o som (não precisa do botão).
   if (!estado.contexto) ligarSom();
+  else garantirSomRodando();
   evento.preventDefault();
   try {
     teclado.setPointerCapture(evento.pointerId);
@@ -1701,7 +1714,7 @@ teclado.addEventListener('pointermove', (evento) => {
 
 teclado.addEventListener('pointerup', (evento) => {
   // Alguns celulares só liberam o som quando o dedo sai da tela.
-  if (estado.contexto?.state === 'suspended') estado.contexto.resume();
+  garantirSomRodando();
   soltarDedo(evento);
 });
 teclado.addEventListener('pointercancel', soltarDedo);
@@ -1738,6 +1751,7 @@ window.addEventListener('resize', () => {
 // Se o app for para o fundo (trocar de aba, bloquear a tela), solta todas as notas.
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) soltarTudo();
+  else garantirSomRodando(); // voltou para o app: religa o áudio se o sistema o parou
 });
 
 montarTeclado();
