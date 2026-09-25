@@ -80,8 +80,8 @@ const TEXTOS = new Map(
     'Idioma · Language': 'Language · Idioma',
     'Tema e cores, tamanho do teclado e oitavas, letras do teclado do computador, qualidade do som, vibração e restaurar tudo.':
       'Theme and colors, keyboard size and octaves, computer keyboard letters, sound quality, vibration and reset everything.',
-    'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, LFOs e envelopes arrastáveis e 9 efeitos.':
-      'A wavetable synthesizer made to play on your phone: 3 oscillators, 2 filters, draggable LFOs and envelopes, and 9 effects.',
+    'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, 3 LFOs e 2 envelopes arrastáveis e 10 efeitos.':
+      'A wavetable synthesizer made to play on your phone: 3 oscillators, 2 filters, 3 draggable LFOs and 2 envelopes, and 10 effects.',
     'Versão beta · setembro de 2026': 'Beta version · September 2026',
 
     // Osciladores e wavetables

@@ -1367,7 +1367,7 @@ for (const f of FILTROS) {
   const mostrar = () => {
     const ligado = estado.opcoes[f.ligado];
     botaoLigado.setAttribute('aria-pressed', ligado);
-    botaoLigado.textContent = ligado ? 'Ligado' : 'Desligado';
+    botaoLigado.textContent = ligado ? 'On' : 'Off';
     tipos.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.opcoes[f.tipo]));
   };
 
@@ -1523,7 +1523,7 @@ const botaoUnico = document.getElementById('ruido-unico');
 function mostrarRuido() {
   const ligado = estado.opcoes.ruidoLigado;
   botaoRuido.setAttribute('aria-pressed', ligado);
-  botaoRuido.textContent = ligado ? 'Ligado' : 'Desligado';
+  botaoRuido.textContent = ligado ? 'On' : 'Off';
   nomeRuido.textContent = NOMES_RUIDO[estado.opcoes.ruidoTipo];
   modoRuido.querySelectorAll('.botao').forEach((botao) => {
     botao.classList.toggle('escolhido', botao.dataset.modo === estado.opcoes.ruidoModo);

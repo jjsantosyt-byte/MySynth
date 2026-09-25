@@ -158,6 +158,19 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      e marcas de modulação iguais): menu da logo virou PAINEL LATERAL (sai da esquerda, altura toda,
      280 px ou 82% da largura; logo + "MySynth" no topo; fundo escurecido `.menu-fundo`). O menu é
      movido para o fim do <body> pelo menu-app.js. Fecha tocando fora, na logo ou Esc.
+   - NORMALIZAÇÃO (25/09/2026, em teste) — nada com cara de "navegador" (bloco no fim do estilo.css):
+     N1 barras de rolagem finas e escuras (Firefox: regra padrão só em `@supports not
+     selector(::-webkit-scrollbar)`, senão o Chrome ignora as outras e desenha setinhas);
+     N2 ícones desenhados (interface/icones.js: `icone()`, `botaoComIcone()`: esquerda, direita,
+     fechar, lixeira, baixar) no lugar de 🗑 ⤓ ✕ ‹ ›; N3 `confirmar(texto, botão)` em janela.js
+     (Promise; botão vermelho `.botao-perigo`) no lugar do confirm() — `t()` não é mais usado;
+     N4 categoria ao salvar em botões (`.categorias-salvar`, valor fixo em português) + campo de
+     texto sem contorno do navegador; N5 "Transist." cabe (botões de tipo com menos espaço deitado);
+     N6 logo na tela de idioma, títulos das seções das janelas no estilo dos cartões, rodapé vazio
+     escondido, foco do teclado do PC azul por dentro, Filtros/Ruído com On/Off (como o resto),
+     texto do Sobre atualizado (3 LFOs, 10 efeitos).
+     REGRA: elemento novo usa as peças que já existem (chave com LED, seletor com setas, ícones de
+     icones.js, janela/confirmar de janela.js) — nunca <select>, confirm(), alert() nem emojis.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

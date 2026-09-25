@@ -30,6 +30,7 @@
 
     <!-- Escolha de idioma: só na primeira vez que o app é aberto (depois, em Configurações) -->
     <div id="escolha-idioma" class="tela-idioma" hidden>
+      <svg class="idioma-logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 16 Q7 5 11 16 T19 16 L21 8 L21 24 L23 16 L29 16" /></svg>
       <h2 class="idioma-titulo">Escolha o idioma · Choose your language</h2>
       <div class="idioma-opcoes">
         <button class="idioma-botao" data-idioma="pt"><span class="idioma-nome">Português</span><span class="idioma-regiao">Brasil</span></button>
@@ -250,7 +251,7 @@
           <article class="cartao cartao-ruido">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Ruído</h2>
-              <button id="ruido-ligado" class="chave" aria-pressed="false">Desligado</button>
+              <button id="ruido-ligado" class="chave" aria-pressed="false">Off</button>
             </div>
             <!-- Tipo (White, Pink, Brown) e rota de filtro, numa linha -->
             <div class="linha-ruido">
@@ -284,7 +285,7 @@
           <article class="cartao" data-filtro="1">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Filtro 1</h2>
-              <button class="chave" data-filtro-ligado aria-pressed="false">Desligado</button>
+              <button class="chave" data-filtro-ligado aria-pressed="false">Off</button>
             </div>
             <div class="tela-grafico"><canvas data-filtro-tela></canvas></div>
             <div class="grupo-botoes" data-filtro-tipos></div>
@@ -294,7 +295,7 @@
           <article class="cartao" data-filtro="2">
             <div class="cabecalho-cartao">
               <h2 class="titulo-cartao">Filtro 2</h2>
-              <button class="chave" data-filtro-ligado aria-pressed="false">Desligado</button>
+              <button class="chave" data-filtro-ligado aria-pressed="false">Off</button>
             </div>
             <div class="tela-grafico"><canvas data-filtro-tela></canvas></div>
             <div class="grupo-botoes" data-filtro-tipos></div>

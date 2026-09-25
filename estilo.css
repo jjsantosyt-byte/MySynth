@@ -3195,3 +3195,47 @@ h1 {
     letter-spacing: -0.01em;
   }
 }
+
+/* N6) Tela de idioma com a logo (a mesma onda verde do carregamento e do menu) */
+.idioma-logo {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: #46f06e;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .idioma-logo {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Títulos das seções nas janelas (Configurações, Sobre): mesmo estilo dos títulos dos cartões */
+.config-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Janela sem botões embaixo (Configurações, Sobre): sem o rodapé vazio */
+.janela-rodape:empty {
+  display: none;
+}
+
+/* Foco pelo teclado do computador (Tab): contorno azul por DENTRO do botão (o corte em 45°
+   esconderia um contorno por fora). Tocar com o dedo/mouse não mostra nada. */
+button:focus {
+  outline: none;
+}
+
+button:focus-visible,
+input[type='range']:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: -2px;
+}

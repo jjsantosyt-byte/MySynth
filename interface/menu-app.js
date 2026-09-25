@@ -95,7 +95,7 @@ export function criarMenuApp() {
   // ---------- Janela: Sobre ----------
   const janelaSobre = criarJanela('Sobre o MySynth');
   janelaSobre.corpo.append(
-    criar('p', 'config-texto', 'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, LFOs e envelopes arrastáveis e 9 efeitos.'),
+    criar('p', 'config-texto', 'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, 3 LFOs e 2 envelopes arrastáveis e 10 efeitos.'),
     criar('p', 'config-texto', 'Versão beta · setembro de 2026')
   );
 
