@@ -700,16 +700,26 @@ function montarOscilador(osc) {
       atalhos.appendChild(botao);
     }
   }
+  // Barra do WT Pos com desenho próprio: preenchimento até a posição (--pos) e uma marquinha
+  // em cada frame da wavetable (--passo = distância entre frames; sem marcas acima de 24 frames)
+  function pintarWTPos() {
+    const frames = osc.wavetable.frames.length;
+    controleWTPos.style.setProperty('--pos', controleWTPos.value);
+    controleWTPos.style.setProperty('--passo', frames > 1 ? 100 / (frames - 1) + '%' : '100%');
+    controleWTPos.classList.toggle('sem-marcas', frames > 24);
+  }
+
   osc.aoTrocarWavetable = () => {
     botaoNome.textContent = osc.wavetable.nome;
     montarAtalhos();
+    pintarWTPos(); // as marcas dos frames mudam com a wavetable
   };
-  osc.aoTrocarWavetable();
 
   // --- WT Pos (barra) ---
   function definirWTPos(valor) {
     const wtPos = Math.min(1, Math.max(0, valor));
     controleWTPos.value = wtPos;
+    pintarWTPos();
     definirParametro(nomes.wtPos, wtPos);
     desenharModulacaoWTPos(); // as faixas acompanham a barra
   }
@@ -747,9 +757,11 @@ function montarOscilador(osc) {
   // Acompanha quando um preset é carregado
   sincronizadores.push(() => {
     controleWTPos.value = estado.parametros[nomes.wtPos];
+    pintarWTPos();
     desenharModulacaoWTPos();
   });
   controleWTPos.value = estado.parametros[nomes.wtPos];
+  osc.aoTrocarWavetable();
 
   // Arrastar no desenho da onda muda o WT Pos.
   // Para a direita ou para cima aumenta; atravessar a largura toda = de ponta a ponta.
@@ -1151,14 +1163,30 @@ document.querySelectorAll('[data-pagina-fx]').forEach((botao) => {
   });
 });
 
-// Botões de tipo de um efeito (ex.: Distorção: Suave / Dura / Válvula)
-function botoesDeTipo(id, lugar, tipos, nomes) {
+// Desenhinho da curva de cada tipo de filtro (nos botões LP 12 / LP 24 / HP / BP):
+// mostra o que o filtro faz sem precisar ler. O nome fica no aria-label e na dica (title).
+const CURVAS_FILTRO = {
+  lp12: 'M2 4H13Q18 4 21 8L26 11',
+  lp24: 'M2 4H12Q16 4 18 9L20 13',
+  hp: 'M2 13L6 8Q9 4 14 4H26',
+  bp: 'M3 13Q8 13 11 7Q14 2 17 7Q20 13 25 13',
+};
+function botaoComCurva(botao, tipo, nome) {
+  botao.innerHTML = `<svg class="curva-filtro" viewBox="0 0 28 14" aria-hidden="true"><path d="${CURVAS_FILTRO[tipo]}" /></svg>`;
+  botao.setAttribute('aria-label', nome);
+  botao.title = nome;
+}
+
+// Botões de tipo de um efeito (ex.: Distorção: Suave / Dura / Válvula).
+// "comCurva": botões de filtro mostram o desenho da curva no lugar do texto.
+function botoesDeTipo(id, lugar, tipos, nomes, comCurva = false) {
   const marcar = () =>
     lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.efeitos[id].tipo));
   tipos.forEach((tipo) => {
     const botao = document.createElement('button');
     botao.className = 'botao';
-    botao.textContent = nomes[tipo];
+    if (comCurva) botaoComCurva(botao, tipo, nomes[tipo]);
+    else botao.textContent = nomes[tipo];
     botao.dataset.tipo = tipo;
     botao.addEventListener('click', () => {
       definirEfeito(id, 'tipo', tipo);
@@ -1207,11 +1235,11 @@ document.querySelector('[data-knobs-efeito="distorcao"]').append(
 const NOMES_NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const nomeDaNota = (nota) => NOMES_NOTAS[((nota % 12) + 12) % 12] + (Math.floor(nota / 12) - 1); // 60 = C4
 botoesDeTipo('filtroTrack', document.getElementById('tipos-filtro-track'), TIPOS_FILTRO, {
-  lp12: 'LP12', // sem espaço: cabem numa linha no cartão estreito
-  lp24: 'LP24',
+  lp12: 'LP 12',
+  lp24: 'LP 24',
   hp: 'HP',
   bp: 'BP',
-});
+}, true);
 const knobCutoffTrack = criarKnob({
   rotulo: 'Cutoff',
   escala: escalaLinear(NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK),
@@ -1351,7 +1379,7 @@ for (const f of FILTROS) {
   TIPOS_FILTRO.forEach((tipo) => {
     const botao = document.createElement('button');
     botao.className = 'botao';
-    botao.textContent = NOMES_FILTRO[tipo];
+    botaoComCurva(botao, tipo, NOMES_FILTRO[tipo]);
     botao.dataset.tipo = tipo;
     botao.addEventListener('click', () => {
       definirOpcao(f.tipo, tipo);

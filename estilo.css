@@ -2879,3 +2879,95 @@ h1 {
     height: 9px;
   }
 }
+
+/* Barra do WT Pos: trilho com uma marquinha em cada frame, preenchimento verde (cor dos
+   osciladores) e marcador em forma de seta. --pos e --passo vêm do principal.js.
+   O marcador tem 12 px: o centro dele anda de 6 px até (largura − 6 px), e as marcas e o
+   preenchimento seguem essa mesma faixa. */
+.grupo-wtpos input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  --preenche: calc(6px + (100% - 12px) * var(--pos, 0));
+  --trilho-wt:
+    repeating-linear-gradient(to right, var(--cor-marca, #3a4152) 0 1px, transparent 1px var(--passo, 100%)) 6px 0 /
+      calc(100% - 11px) 100% no-repeat,
+    linear-gradient(to right, rgba(70, 240, 110, 0.75) var(--preenche), transparent var(--preenche)),
+    var(--fundo);
+}
+
+.grupo-wtpos input.sem-marcas {
+  --cor-marca: transparent;
+}
+
+.grupo-wtpos input::-webkit-slider-runnable-track {
+  height: 12px;
+  background: var(--trilho-wt);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.grupo-wtpos input::-moz-range-track {
+  height: 12px;
+  background: var(--trilho-wt);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.grupo-wtpos input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 24px;
+  margin-top: -9px;
+  border: none;
+  background: var(--texto);
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%);
+}
+
+.grupo-wtpos input::-moz-range-thumb {
+  width: 12px;
+  height: 24px;
+  border: none;
+  border-radius: 0;
+  background: var(--texto);
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%);
+}
+
+.faixas-barra {
+  left: 6px;
+  right: 6px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .grupo-wtpos input::-webkit-slider-runnable-track {
+    height: 9px;
+  }
+  .grupo-wtpos input::-webkit-slider-thumb {
+    height: 18px;
+    margin-top: -7px;
+  }
+  .grupo-wtpos input::-moz-range-thumb {
+    height: 18px;
+  }
+}
+
+/* Botões de tipo de filtro com o desenho da curva (LP 12, LP 24, HP, BP) */
+.curva-filtro {
+  display: block;
+  width: 26px;
+  height: 13px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .curva-filtro {
+    width: 22px;
+    height: 11px;
+  }
+}

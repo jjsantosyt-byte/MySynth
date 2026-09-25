@@ -148,6 +148,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      - Seletor de número: número + setas ▲ ▼ EMPILHADAS à direita (estilo rack; `.seletor-setas`).
        Deitado, Oct/Semi/Fine continuam só com o número (arrastar; toque duplo = 0).
      - Fichas: nome nunca quebra em 2 linhas (em pé, desenhinho menor).
+   - V9 (25/09/2026, em teste; 4ª rodada — Ligar som, oitava, número dos knobs e páginas FX iguais):
+     - Botões de tipo de FILTRO (Filtros 1/2 e Filtro Track) com o DESENHO DA CURVA no lugar do
+       texto (`CURVAS_FILTRO`, `botaoComCurva`; nome no aria-label/title). Distorção/Saturação: texto.
+     - Barra do WT Pos com desenho próprio: trilho escuro, preenchimento verde até a posição,
+       marquinha em cada frame (`--passo`; sem marcas acima de 24 frames) e marcador em SETA
+       (`pintarWTPos` no principal.js).
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).
