@@ -1,0 +1,32 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- Desenho do ícone do MySynth em qualquer tamanho (para gerar os ícones e o splash do
+         app Android). Parâmetros: ?t=1024 (tamanho) &fundo=0 (transparente) &escala=0.62
+         (tamanho da onda em relação à imagem). A onda é a mesma do icones/icone-512.png. -->
+    <style>
+      html, body { margin: 0; overflow: hidden; background: transparent; }
+      svg { display: block; }
+    </style>
+  </head>
+  <body>
+    <script>
+      const p = new URLSearchParams(location.search);
+      const t = Number(p.get('t') || 1024);
+      const comFundo = p.get('fundo') !== '0';
+      const escala = Number(p.get('escala') || 1);
+      // Onda no quadro de 512 (como no ícone original), centralizada e escalada
+      const onda = 'M112 256 C138 212 158 166 184 166 C214 166 232 214 256 256 C280 298 300 322 328 322 C352 322 374 296 400 256';
+      document.body.innerHTML = `
+        <svg width="${t}" height="${t}" viewBox="0 0 512 512">
+          ${comFundo ? '<rect width="512" height="512" fill="#0b0c0f"/>' : ''}
+          <g transform="translate(256 256) scale(${escala}) translate(-256 -256)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="${onda}" stroke="#3fb8ff" stroke-opacity="0.12" stroke-width="74"/>
+            <path d="${onda}" stroke="#3fb8ff" stroke-opacity="0.22" stroke-width="52"/>
+            <path d="${onda}" stroke="#3fb8ff" stroke-width="30"/>
+          </g>
+        </svg>`;
+    </script>
+  </body>
+</html>

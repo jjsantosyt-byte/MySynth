@@ -1,0 +1,12 @@
+{
+  "appId": "com.jayjaymusictools.mysynth",
+  "appName": "MySynth",
+  "webDir": "www",
+  "backgroundColor": "#0b0c0f",
+  "android": {
+    "backgroundColor": "#0b0c0f",
+    "allowMixedContent": false,
+    "captureInput": false,
+    "webContentsDebuggingEnabled": false
+  }
+}

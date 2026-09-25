@@ -1,0 +1,26 @@
+{
+  "name": "mysynth",
+  "version": "1.0.0",
+  "private": true,
+  "description": "MySynth: sintetizador wavetable (web + app Android com Capacitor)",
+  "type": "module",
+  "scripts": {
+    "web": "node scripts/copiar-web.mjs",
+    "sync": "npm run web && npx cap sync android",
+    "apk": "npm run sync && node scripts/gradle.mjs assembleDebug",
+    "aab": "npm run sync && node scripts/gradle.mjs bundleRelease",
+    "abrir": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/app": "^8.1.1",
+    "@capacitor/core": "^8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.5.2"
+  },
+  "allowScripts": {
+    "sharp@0.32.6": true
+  }
+}

@@ -3,3 +3,11 @@
 
 # Exports de presets feitos para teste (não publicar)
 mysynth-presets.synth
+
+# App Android (Capacitor)
+node_modules/
+www/
+# Senhas da assinatura do app (NUNCA no Git; o keystore fica fora do projeto)
+android/keystore.properties
+*.jks
+*.keystore
