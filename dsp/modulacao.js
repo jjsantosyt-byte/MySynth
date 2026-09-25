@@ -49,6 +49,7 @@ export class MatrizModulacao {
     // Quantidade muda suavemente (~10 ms): ligar/desligar/ajustar não estala.
     this.suavizar = 1 - Math.exp(-tamanhoBloco / (0.01 * taxaAmostragem));
     this.usos = new Uint8Array(DESTINOS_MOD.length); // 1 = algum destino está sendo modulado
+    this.usosFonte = new Uint8Array(FONTES_MOD.length); // 1 = a fonte está ligada a algo
   }
 
   // Recebe a lista completa da página: [{ fonte, destino, quantidade }].
@@ -75,6 +76,7 @@ export class MatrizModulacao {
   // Uma vez por bloco: quantidades andam até o alvo; removidas saem ao chegar em zero.
   avancarBloco() {
     this.usos.fill(0);
+    this.usosFonte.fill(0);
     for (let k = this.ligacoes.length - 1; k >= 0; k--) {
       const ligacao = this.ligacoes[k];
       ligacao.atual += (ligacao.alvo - ligacao.atual) * this.suavizar;
@@ -83,11 +85,16 @@ export class MatrizModulacao {
         continue;
       }
       this.usos[ligacao.iDestino] = 1;
+      this.usosFonte[ligacao.iFonte] = 1;
     }
   }
 
   usa(iDestino) {
     return this.usos[iDestino] === 1;
+  }
+
+  usaFonte(iFonte) {
+    return this.usosFonte[iFonte] === 1;
   }
 
   // Soma a modulação de cada destino, dados os valores atuais das fontes.

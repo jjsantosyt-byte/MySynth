@@ -37,7 +37,19 @@ export class Envelope {
   }
 
   // Tempos em segundos; sustentação de 0 a 1.
+  // (Chamado a cada bloco: se nada mudou, não refaz as contas.)
   definir(ataque, decaimento, sustentacao, soltura) {
+    if (
+      ataque === this.ataqueDefinido &&
+      decaimento === this.decaimentoDefinido &&
+      soltura === this.solturaDefinida &&
+      sustentacao === this.sustentacao
+    ) {
+      return;
+    }
+    this.ataqueDefinido = ataque;
+    this.decaimentoDefinido = decaimento;
+    this.solturaDefinida = soltura;
     this.passoAtaque = 1 / (Math.max(ataque, ATAQUE_MINIMO) * this.taxa);
     this.coefDecaimento = Math.exp(QUEDA_60DB / (Math.max(decaimento, QUEDA_MINIMA) * this.taxa));
     this.coefSoltura = Math.exp(QUEDA_60DB / (Math.max(soltura, QUEDA_MINIMA) * this.taxa));
@@ -64,6 +76,46 @@ export class Envelope {
 
   get ativo() {
     return this.estagio !== PARADO;
+  }
+
+  // Anda "qtd" amostras de uma vez (mesmo resultado que chamar proximo() qtd vezes, com
+  // diferenças só de arredondamento). Usado nos envelopes de modulação que não estão ligados
+  // a nada: eles continuam andando (para estarem certos se uma ligação for feita com a nota
+  // tocando), mas sem o custo de calcular amostra por amostra.
+  avancar(qtd) {
+    switch (this.estagio) {
+      case PARADO:
+        return this.nivel;
+      case ATAQUE: {
+        const n = this.nivel + this.passoAtaque * qtd;
+        if (n < 1) {
+          this.nivel = n;
+          return n;
+        }
+        break; // vai mudar de estágio no meio: passo a passo
+      }
+      case DECAIMENTO: {
+        const n = this.sustentacao + (this.nivel - this.sustentacao) * Math.pow(this.coefDecaimento, qtd);
+        if (Math.abs(n - this.sustentacao) >= 1e-4) {
+          this.nivel = n;
+          return n;
+        }
+        break;
+      }
+      case SUSTENTACAO:
+        this.nivel += (this.sustentacao - this.nivel) * (1 - Math.pow(1 - this.suavizarSustentacao, qtd));
+        return this.nivel;
+      case SOLTURA: {
+        const n = this.nivel * Math.pow(this.rapido ? this.coefRoubo : this.coefSoltura, qtd);
+        if (n >= 1e-5) {
+          this.nivel = n;
+          return n;
+        }
+        break;
+      }
+    }
+    for (let k = 0; k < qtd; k++) this.proximo();
+    return this.nivel;
   }
 
   // Calcula o próximo valor (um por amostra de áudio).

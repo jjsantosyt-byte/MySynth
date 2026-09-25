@@ -102,6 +102,8 @@ export class Filtro {
     this.mistura = 0;
     this.alvoMistura = 0;
     this.suavizar = 1 - Math.exp(-1 / (0.005 * taxaAmostragem));
+    this.estagio2 = true;
+    this.ultimoPassaBaixas = 0;
     this.reiniciar();
   }
 
@@ -114,12 +116,21 @@ export class Filtro {
     this.s4 = 0;
     for (let j = 0; j < this.alvos.length; j++) this.pesos[j] = this.alvos[j];
     this.mistura = this.alvoMistura;
+    this.estagio2 = this.alvos[1] === 1; // o 2º estágio só existe no LP 24
+    this.ultimoPassaBaixas = 0;
   }
 
   definirTipo(tipo) {
     const indice = TIPOS_FILTRO.indexOf(tipo);
     if (indice < 0) return;
     for (let j = 0; j < this.alvos.length; j++) this.alvos[j] = j === indice ? 1 : 0;
+    if (indice === 1 && !this.estagio2) {
+      // Voltando para o LP 24 com a nota tocando: o 2º estágio começa já "carregado" com o
+      // som atual do 1º (em vez de do zero), para a troca de tipo continuar suave.
+      this.s3 = 0;
+      this.s4 = this.ultimoPassaBaixas;
+      this.estagio2 = true;
+    }
   }
 
   definirLigado(ligado) {
@@ -128,6 +139,11 @@ export class Filtro {
       this.s1 = this.s2 = this.s3 = this.s4 = 0;
     }
     this.alvoMistura = ligado ? 1 : 0;
+  }
+
+  // Está filtrando (ligado, ou ainda saindo suavemente)? Desligado = o som passa direto.
+  get ativo() {
+    return !(this.alvoMistura === 0 && this.mistura < 1e-5);
   }
 
   // Filtra uma amostra. "c" = coeficientes; "j" = posição deles no bloco.
@@ -147,19 +163,30 @@ export class Filtro {
     const passaBanda = k * v1; // ajustado para não ficar mais alto que o original
     const passaAltas = x - k * v1 - v2;
 
-    // Estágio 2: passa-baixas de novo, em cima do primeiro (LP 24)
-    const w3 = passaBaixas - this.s4;
-    const w1 = c.b1[j] * this.s3 + c.b2[j] * w3;
-    const w2 = this.s4 + c.b2[j] * this.s3 + c.b3[j] * w3;
-    this.s3 = 2 * w1 - this.s3;
-    this.s4 = 2 * w2 - this.s4;
-    const passaBaixas24 = w2;
+    // Estágio 2: passa-baixas de novo, em cima do primeiro (LP 24).
+    // Só é calculado quando o LP 24 está em uso (ou ainda saindo suavemente).
+    let passaBaixas24 = 0;
+    if (this.estagio2) {
+      const w3 = passaBaixas - this.s4;
+      const w1 = c.b1[j] * this.s3 + c.b2[j] * w3;
+      const w2 = this.s4 + c.b2[j] * this.s3 + c.b3[j] * w3;
+      this.s3 = 2 * w1 - this.s3;
+      this.s4 = 2 * w2 - this.s4;
+      passaBaixas24 = w2;
+    } else {
+      this.ultimoPassaBaixas = passaBaixas; // para o estágio 2 começar "no ponto" se o LP 24 voltar
+    }
 
     // Mistura os tipos conforme os pesos (que andam suavemente até o tipo escolhido).
     const p = this.pesos;
     const s = this.suavizar;
     p[0] += (this.alvos[0] - p[0]) * s;
     p[1] += (this.alvos[1] - p[1]) * s;
+    // Saiu do LP 24 e o peso dele já é inaudível: desliga o estágio 2
+    if (this.estagio2 && this.alvos[1] === 0 && p[1] < 1e-6) {
+      p[1] = 0;
+      this.estagio2 = false;
+    }
     p[2] += (this.alvos[2] - p[2]) * s;
     p[3] += (this.alvos[3] - p[3]) * s;
     const filtrado =

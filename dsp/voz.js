@@ -209,7 +209,11 @@ export class Voz {
     }
     for (let e = 0; e < 2; e++) {
       const env = this.envsMod[e];
-      for (let k = 0; k < qtd; k++) env.proximo();
+      if (comum.matriz.usaFonte(2 + e)) {
+        for (let k = 0; k < qtd; k++) env.proximo(); // ligado a algo: amostra por amostra (exato)
+      } else {
+        env.avancar(qtd); // sem ligação: anda o pedaço de uma vez (ninguém ouve o valor)
+      }
       this.valoresFontes[2 + e] = env.nivel;
     }
   }
@@ -370,6 +374,28 @@ export class Voz {
     const c2 = modulaF2 ? this.filtrosMod[1].coef : coef2;
     const envelope = this.envelope;
     const qtdUsadas = usadas.length;
+
+    // Nenhum filtro ativo nas rotas usadas (o caso de muitos sons): só soma as caixas e aplica
+    // o envelope, sem passar pelo "caminho" do filtro amostra por amostra (mesmo resultado).
+    let algumFiltro = false;
+    for (let g = 0; g < qtdUsadas; g++) {
+      for (const etapa of usadas[g].cadeia) if (etapa.par[0].ativo || etapa.par[1].ativo) algumFiltro = true;
+    }
+    if (!algumFiltro) {
+      for (let i = 0; i < tamanhoBloco; i++) {
+        let e = 0;
+        let d = 0;
+        for (let g = 0; g < qtdUsadas; g++) {
+          e += usadas[g].somaE[i];
+          d += usadas[g].somaD[i];
+        }
+        const env = envelope.proximo();
+        saidaE[i] += e * env;
+        saidaD[i] += d * env;
+      }
+      return;
+    }
+
     for (let i = 0; i < tamanhoBloco; i++) {
       const j1 = c1.variavel ? i : 0;
       const j2 = c2.variavel ? i : 0;
