@@ -495,6 +495,7 @@ function definirFonte(id, nome, valor) {
   modificou();
   enviarFonte(id);
   pedirDesenho();
+  if (nome === 'forma') telaModulacao.atualizarFichas(); // desenhinho na ficha do LFO
 }
 
 function enviarFonte(id) {
@@ -1625,7 +1626,9 @@ const telaModulacao = criarModulacao({
     modificou();
     enviarLigacoes();
   },
+  formaDe: (id) => estado.fontes[id].forma,
 });
+sincronizadores.push(telaModulacao.atualizarFichas); // preset novo: formas dos LFOs nas fichas
 
 // ---------- Abas ----------
 

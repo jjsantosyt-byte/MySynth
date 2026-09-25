@@ -83,7 +83,43 @@ function textoQuantidade(destino, quantidade) {
 }
 const DISTANCIA_ARRASTE = 8; // px: menos que isso é um toque, não um arraste
 
+// Desenhinho dentro da ficha (caixa 22 × 12): a forma atual do LFO, ou um ADSR nos ENVs
+const DESENHOS_FORMA = {
+  seno: 'M1 6C3 0 5 0 6 6S9 12 11 6 14 0 16 6 19 12 21 6',
+  triangulo: 'M1 6L3.5 1 8.5 11 13.5 1 18.5 11 21 6',
+  serraSobe: 'M1 11L10 1V11L19 1V11',
+  serraDesce: 'M1 1L10 11V1L19 11V1',
+  quadrada: 'M1 11V1H6V11H11V1H16V11H21',
+  aleatorio: 'M1 8H5V3H9V10H13V5H17V9H21',
+  env: 'M1 11L5 1L9 6H15L21 11',
+};
+const desenhoDaFicha = (forma) => DESENHOS_FORMA[forma] || DESENHOS_FORMA.env;
+
 const nomeDaFonte = (id) => FONTES.find((f) => f.id === id).nome;
+
+// Cabo desenhado por cima da tela enquanto se arrasta uma ficha: sai do meio da ficha,
+// "pendura" um pouco (curva para baixo, mais quanto mais longe) e termina num plugue no dedo.
+function criarCabo(ficha, cor) {
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+  svg.setAttribute('class', 'cabo-mod');
+  svg.innerHTML = '<path /><circle r="6" />';
+  svg.style.setProperty('--cor', cor);
+  const [caminho, plugue] = svg.children;
+  const r = ficha.getBoundingClientRect();
+  const x0 = r.left + r.width / 2;
+  const y0 = r.top + r.height / 2;
+  return {
+    svg,
+    puxar(x, y) {
+      const queda = 30 + Math.hypot(x - x0, y - y0) * 0.2;
+      const cx = (x0 + x) / 2;
+      const cy = Math.max(y0, y) + queda;
+      caminho.setAttribute('d', `M ${x0} ${y0} Q ${cx} ${cy} ${x} ${y}`);
+      plugue.setAttribute('cx', x);
+      plugue.setAttribute('cy', y);
+    },
+  };
+}
 const corDaFonte = (id) => `var(--cor-${id})`;
 // LFOs vão de -1 a +1 (balançam para os dois lados); envelopes de 0 a 1.
 const ehBipolar = (id) => id.startsWith('lfo');
@@ -94,15 +130,19 @@ const ehBipolar = (id) => id.startsWith('lfo');
 //   listas: { lfo1: elemento, ... } onde mostrar as ligações de cada fonte
 //   ligacoes: a lista de ligações (é alterada aqui dentro)
 //   aoMudar: chamado sempre que as ligações mudam
-export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
+//   formaDe: (id) → forma atual de um LFO ('seno'...), para o desenhinho da ficha
+export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe }) {
   let armada = null; // fonte escolhida no modo "tocar para ligar"
   let modAoVivo = null; // quanto cada destino está sendo modulado agora (ou null)
 
   // ---------- Fichas ----------
+  // Cheias na cor da fonte, com o desenhinho da forma e o nome.
   const fichas = FONTES.map(({ id, nome }) => {
     const ficha = document.createElement('button');
     ficha.className = 'ficha';
-    ficha.textContent = nome;
+    ficha.innerHTML = `<svg class="ficha-forma" viewBox="0 0 22 12" aria-hidden="true"><path /></svg><span></span>`;
+    ficha.querySelector('span').textContent = nome;
+    ficha.setAttribute('aria-label', nome);
     ficha.dataset.fonte = id;
     ficha.style.setProperty('--cor', corDaFonte(id));
     ficha.setAttribute('aria-pressed', 'false');
@@ -110,6 +150,16 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
     barra.appendChild(ficha);
     return ficha;
   });
+
+  // Atualiza o desenhinho de cada ficha (chamar quando a forma de um LFO mudar)
+  function atualizarFichas() {
+    for (const ficha of fichas) {
+      const id = ficha.dataset.fonte;
+      const forma = ehBipolar(id) ? formaDe?.(id) : 'env';
+      ficha.querySelector('.ficha-forma path').setAttribute('d', desenhoDaFicha(forma));
+    }
+  }
+  atualizarFichas();
 
   // ---------- Criar / remover ligações ----------
   function ligar(fonte, destino) {
@@ -197,15 +247,18 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
       if (!arraste.fantasma && distancia < DISTANCIA_ARRASTE) return;
 
       if (!arraste.fantasma) {
-        // Começou a arrastar: uma cópia da ficha segue o dedo.
+        // Começou a arrastar: uma cópia da ficha segue o dedo, puxando um "cabo" colorido
+        // que sai da ficha (como ligar um cabo num sintetizador modular).
         arraste.fantasma = ficha.cloneNode(true);
         arraste.fantasma.classList.add('ficha-fantasma');
-        document.body.appendChild(arraste.fantasma);
+        arraste.cabo = criarCabo(ficha, corDaFonte(fonte));
+        document.body.append(arraste.cabo.svg, arraste.fantasma);
         document.body.classList.add('arrastando-mod');
         document.body.style.setProperty('--cor-ligando', corDaFonte(fonte));
       }
       arraste.fantasma.style.left = evento.clientX + 'px';
       arraste.fantasma.style.top = evento.clientY + 'px';
+      arraste.cabo.puxar(evento.clientX, evento.clientY);
 
       // Destaca o controle que está embaixo do dedo.
       const embaixo = document.elementFromPoint(evento.clientX, evento.clientY)?.closest('[data-destino]');
@@ -218,13 +271,14 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
 
     const terminar = (evento, cancelado) => {
       if (!arraste || evento.pointerId !== arraste.id) return;
-      const { fantasma, alvo } = arraste;
+      const { fantasma, alvo, cabo } = arraste;
       arraste = null;
       if (!fantasma) {
         if (!cancelado) armar(fonte); // foi só um toque: arma/desarma a ficha
         return;
       }
       fantasma.remove();
+      cabo.svg.remove();
       alvo?.classList.remove('mod-alvo');
       document.body.classList.remove('arrastando-mod');
       if (alvo && !cancelado) ligar(fonte, alvo.dataset.destino);
@@ -332,5 +386,5 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar }) {
   }
 
   atualizar();
-  return { atualizar, atualizarAoVivo, desarmar };
+  return { atualizar, atualizarAoVivo, desarmar, atualizarFichas };
 }
