@@ -19,7 +19,7 @@ import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
-import { MatrizModulacao, INDICES_LFO, D_RATE_LFO, FONTES_MOD, DESTINOS_MOD, D_PRIMEIRO_EFEITO } from './dsp/modulacao.js';
+import { MatrizModulacao, INDICES_LFO, INDICES_MACRO, D_RATE_LFO, FONTES_MOD, DESTINOS_MOD, D_PRIMEIRO_EFEITO } from './dsp/modulacao.js';
 import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
 import { EstadoLFO, rateModulado } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
@@ -237,6 +237,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.enviouPico = false;
 
     this.lfosLivres = this.ajustesLfo.map(() => new EstadoLFO());
+    // Macros M1–M4: valor escolhido na tela (alvo) e o valor em uso, suavizado (~10 ms)
+    this.macrosAlvo = new Float64Array(4);
+    this.macros = new Float64Array(4);
+    this.suavizarMacros = 1 - Math.exp(-128 / (0.01 * sampleRate));
     this.valoresLivres = this.ajustesLfo.map(() => new Float64Array(4)); // 1 valor por pedaço
 
     // Valores "ao vivo" para a tela (pontinhos que se mexem)
@@ -296,6 +300,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   // Ajustes de uma fonte de modulação (LFO: forma, rate, modo; ENV: A, D, S, R).
   definirFonte(id, ajustes) {
+    const macro = { macro1: 0, macro2: 1, macro3: 2, macro4: 3 }[id];
+    if (macro !== undefined && typeof ajustes.valor === 'number') {
+      this.macrosAlvo[macro] = Math.min(1, Math.max(0, ajustes.valor));
+    }
     const lfo = { lfo1: 0, lfo2: 1, lfo3: 2 }[id];
     if (lfo !== undefined) Object.assign(this.ajustesLfo[lfo], ajustes);
     const env = { env2: 0, env3: 1 }[id];
@@ -531,6 +539,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       }
     }
     this.matriz.avancarBloco();
+    // Macros andam suavemente até o valor escolhido (girar rápido não faz degrau)
+    for (let m = 0; m < 4; m++) this.macros[m] += (this.macrosAlvo[m] - this.macros[m]) * this.suavizarMacros;
 
     // Notas (só se alguma estiver soando)
     let algumaAtiva = false;
@@ -624,6 +634,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const ultima = this.ruidoDona && this.ruidoDona.envelope.ativo ? this.ruidoDona : null;
     if (ultima) fontes.set(ultima.valoresFontes);
     else fontes.fill(0);
+    // Macros valem sempre (mesmo sem nota tocando)
+    for (let m = 0; m < INDICES_MACRO.length; m++) fontes[INDICES_MACRO[m]] = this.macros[m];
     for (let l = 0; l < INDICES_LFO.length; l++) {
       if (this.ajustesLfo[l].modo !== 'livre') continue;
       const valores = this.valoresLivres[l];
@@ -688,6 +700,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     comum.matriz = this.matriz;
     comum.ajustesLfo = this.ajustesLfo;
     comum.lfosLivres = this.valoresLivres;
+    comum.macros = this.macros;
 
     const [env2, env3] = this.ajustesEnv;
     for (const voz of this.vozes) {

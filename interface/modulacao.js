@@ -16,6 +16,11 @@ export const FONTES = [
   { id: 'lfo3', nome: 'LFO 3' },
   { id: 'env2', nome: 'ENV 2' },
   { id: 'env3', nome: 'ENV 3' },
+  // Macros: as fichas ficam no painel dos Macros (botão "M"), não na barra
+  { id: 'macro1', nome: 'M1', macro: true },
+  { id: 'macro2', nome: 'M2', macro: true },
+  { id: 'macro3', nome: 'M3', macro: true },
+  { id: 'macro4', nome: 'M4', macro: true },
 ];
 
 export const NOMES_DESTINOS = {
@@ -93,6 +98,7 @@ const DESENHOS_FORMA = {
   quadrada: 'M1 11V1H6V11H11V1H16V11H21',
   aleatorio: 'M1 8H5V3H9V10H13V5H17V9H21',
   env: 'M1 11L5 1L9 6H15L21 11',
+  macro: 'M6 11A5.5 5.5 0 1 1 16 11M11 6.5L11 2.5', // um knob
 };
 const desenhoDaFicha = (forma) => DESENHOS_FORMA[forma] || DESENHOS_FORMA.env;
 
@@ -132,13 +138,15 @@ const ehBipolar = (id) => id.startsWith('lfo');
 //   ligacoes: a lista de ligações (é alterada aqui dentro)
 //   aoMudar: chamado sempre que as ligações mudam
 //   formaDe: (id) → forma atual de um LFO ('seno'...), para o desenhinho da ficha
-export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe }) {
+//   lugaresMacros: { macro1: elemento, ... } onde pôr a ficha de cada Macro (painel dos Macros)
+//   aoArmar(fonte): avisa quando uma ficha é armada (ou null ao desarmar)
+export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe, lugaresMacros = {}, aoArmar = () => {} }) {
   let armada = null; // fonte escolhida no modo "tocar para ligar"
   let modAoVivo = null; // quanto cada destino está sendo modulado agora (ou null)
 
   // ---------- Fichas ----------
   // Cheias na cor da fonte, com o desenhinho da forma e o nome.
-  const fichas = FONTES.map(({ id, nome }) => {
+  const fichas = FONTES.map(({ id, nome, macro }) => {
     const ficha = document.createElement('button');
     ficha.className = 'ficha';
     ficha.innerHTML = `<svg class="ficha-forma" viewBox="0 0 22 12" aria-hidden="true"><path /></svg><span></span>`;
@@ -148,7 +156,7 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
     ficha.style.setProperty('--cor', corDaFonte(id));
     ficha.setAttribute('aria-pressed', 'false');
     prepararFicha(ficha, id);
-    barra.appendChild(ficha);
+    (macro ? lugaresMacros[id] : barra)?.appendChild(ficha);
     return ficha;
   });
 
@@ -156,7 +164,7 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
   function atualizarFichas() {
     for (const ficha of fichas) {
       const id = ficha.dataset.fonte;
-      const forma = ehBipolar(id) ? formaDe?.(id) : 'env';
+      const forma = ehBipolar(id) ? formaDe?.(id) : id.startsWith('macro') ? 'macro' : 'env';
       ficha.querySelector('.ficha-forma path').setAttribute('d', desenhoDaFicha(forma));
     }
   }
@@ -204,11 +212,15 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
     document.body.classList.toggle('ligando-mod', armada !== null);
     if (armada) {
       document.body.style.setProperty('--cor-ligando', corDaFonte(armada));
-      dica.textContent = `Toque nos controles para ligar o ${nomeDaFonte(armada)}. Toque na ficha de novo para terminar.`;
+      // Macro: o painel fecha para mostrar os controles; termina tocando no "M"
+      dica.textContent = armada.startsWith('macro')
+        ? `Toque nos controles para ligar o ${nomeDaFonte(armada)}. Toque no M para terminar.`
+        : `Toque nos controles para ligar o ${nomeDaFonte(armada)}. Toque na ficha de novo para terminar.`;
       dica.hidden = false;
     } else {
       dica.hidden = true;
     }
+    aoArmar(armada);
   }
 
   // Com uma ficha armada, tocar num destino liga (em vez de mexer no controle).
@@ -392,5 +404,5 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
   }
 
   atualizar();
-  return { atualizar, atualizarAoVivo, desarmar, atualizarFichas };
+  return { atualizar, atualizarAoVivo, desarmar, atualizarFichas, armada: () => armada };
 }

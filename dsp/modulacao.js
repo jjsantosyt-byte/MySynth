@@ -7,11 +7,13 @@
 
 import { MOD_EFEITOS } from './efeitos/modulaveis.js';
 
-// O LFO 3 veio depois: fica no fim (os índices antigos não mudam).
-export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3', 'lfo3'];
-// Onde cada LFO (1, 2, 3) e cada ENV (2, 3) fica na lista acima
+// O LFO 3 e os Macros vieram depois: ficam no fim (os índices antigos não mudam).
+// Macros (M1–M4): o valor é o knob do macro (0 a 1), o mesmo para todas as notas e efeitos.
+export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3', 'lfo3', 'macro1', 'macro2', 'macro3', 'macro4'];
+// Onde cada LFO (1, 2, 3), ENV (2, 3) e Macro (1–4) fica na lista acima
 export const INDICES_LFO = [0, 1, 4];
 export const INDICES_ENV = [2, 3];
+export const INDICES_MACRO = [5, 6, 7, 8];
 // cutoff/resonancia = Filtro 1; cutoff2/resonancia2 = Filtro 2.
 // wtPos/detune/width/nivelOsc = OSC A; os do B e do C têm a letra no fim (sempre no fim da
 // lista: os índices antigos não mudam).

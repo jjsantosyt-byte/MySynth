@@ -178,7 +178,19 @@
 
         <!-- Fontes de modulação (sempre visíveis): arraste uma ficha até um controle,
              ou toque nela e depois no controle -->
-        <div id="barra-fontes" class="barra-fontes"></div>
+        <div id="barra-fontes" class="barra-fontes">
+          <!-- "M": abre o painel dos Macros (as fichas LFO/ENV vêm depois, pelo interface/modulacao.js) -->
+          <button id="botao-macros" class="ficha ficha-macros" aria-expanded="false" aria-label="Macros" title="Macros">M</button>
+        </div>
+        <!-- Painel dos Macros: abre por cima da tela (botão "M"); fecha tocando fora ou no M -->
+        <div id="painel-macros" class="painel-macros" hidden>
+          <div class="macros-colunas">
+            <div class="macro-coluna" data-macro="macro1"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro1"></div></div>
+            <div class="macro-coluna" data-macro="macro2"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro2"></div></div>
+            <div class="macro-coluna" data-macro="macro3"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro3"></div></div>
+            <div class="macro-coluna" data-macro="macro4"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro4"></div></div>
+          </div>
+        </div>
       </div>
       <p id="dica-modulacao" class="dica-modulacao" hidden></p>
 

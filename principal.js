@@ -199,6 +199,11 @@ const estado = {
     lfo3: { forma: 'seno', rate: 1, modo: 'retrig' },
     env2: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     env3: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
+    // Macros M1–M4: a posição do knob (0 a 1); vai no preset
+    macro1: { valor: 0 },
+    macro2: { valor: 0 },
+    macro3: { valor: 0 },
+    macro4: { valor: 0 },
   },
   // Ligações de modulação: [{ fonte: 'lfo1', destino: 'cutoff', quantidade: 0.5 }]
   ligacoes: [],
@@ -1677,6 +1682,49 @@ const listasMod = {};
 document.querySelectorAll('[data-lista]').forEach((lista) => (listasMod[lista.dataset.lista] = lista));
 
 const barraFontes = document.getElementById('barra-fontes');
+
+// ---------- Macros (M1–M4): painel aberto pelo botão "M" ----------
+// Cada macro é um knob (0 a 100%) + uma ficha para ligar a vários controles (como um LFO,
+// mas quem move é você). O painel abre por cima da tela e fecha tocando fora ou no "M".
+// Tocar numa ficha de macro (armar) fecha o painel para mostrar os controles; tocar no "M"
+// enquanto um macro está armado termina de ligar.
+const painelMacros = document.getElementById('painel-macros');
+const botaoMacros = document.getElementById('botao-macros');
+const lugaresMacros = {};
+painelMacros.querySelectorAll('[data-macro]').forEach((coluna) => {
+  const id = coluna.dataset.macro;
+  lugaresMacros[id] = coluna.querySelector('[data-ficha-macro]');
+  coluna.querySelector('[data-knob-macro]').appendChild(
+    criarKnob({
+      rotulo: 'M' + id.slice(5),
+      escala: escalaLinear(0, 1),
+      padrao: 0,
+      formatar: formatarPorcentagem,
+      aoMudar: (v) => definirFonte(id, 'valor', v),
+      ler: () => estado.fontes[id].valor,
+    })
+  );
+});
+function mostrarPainelMacros(abrir) {
+  painelMacros.hidden = !abrir;
+  botaoMacros.setAttribute('aria-expanded', abrir);
+}
+botaoMacros.addEventListener('click', () => {
+  if (telaModulacao.armada()?.startsWith('macro')) {
+    telaModulacao.desarmar(); // estava ligando um macro: "M" termina
+    return;
+  }
+  mostrarPainelMacros(painelMacros.hidden);
+});
+document.addEventListener(
+  'pointerdown',
+  (evento) => {
+    if (painelMacros.hidden || painelMacros.contains(evento.target) || botaoMacros.contains(evento.target)) return;
+    mostrarPainelMacros(false);
+  },
+  true
+);
+
 const telaModulacao = criarModulacao({
   barra: barraFontes,
   dica: document.getElementById('dica-modulacao'),
@@ -1687,6 +1735,11 @@ const telaModulacao = criarModulacao({
     enviarLigacoes();
   },
   formaDe: (id) => estado.fontes[id].forma,
+  lugaresMacros,
+  aoArmar: (fonte) => {
+    if (fonte?.startsWith('macro')) mostrarPainelMacros(false);
+    botaoMacros.classList.toggle('ligando', !!fonte?.startsWith('macro'));
+  },
 });
 sincronizadores.push(telaModulacao.atualizarFichas); // preset novo: formas dos LFOs nas fichas
 

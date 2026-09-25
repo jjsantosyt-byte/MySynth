@@ -21,6 +21,10 @@
   --cor-lfo3: #f2d94e; /* amarelo */
   --cor-env2: #ffa94d; /* laranja */
   --cor-env3: #ff6fae; /* rosa */
+  --cor-macro1: #4fd1c5; /* Macros: turquesa */
+  --cor-macro2: #4fd1c5;
+  --cor-macro3: #4fd1c5;
+  --cor-macro4: #4fd1c5;
 
   /* Mais cores com nome (cada TEMA troca estas; ver "TEMAS" no fim do arquivo) */
   --verde: #46f06e; /* logo e ondas dos osciladores */
@@ -3644,5 +3648,193 @@ html[data-tema='basico'] .tecla.preta.ativa {
   }
   .grupo-acoes .chave {
     padding: 0 8px;
+  }
+}
+
+/* ---------- Macros (botão "M" + painel) ---------- */
+.linha-abas {
+  position: relative; /* o painel dos Macros abre logo abaixo desta linha */
+}
+
+.ficha-macros {
+  --cor: var(--cor-macro1);
+  flex: 0 0 auto;
+  min-width: 40px;
+  font-size: 15px;
+}
+
+.ficha-macros[aria-expanded='true'],
+.ficha-macros.ligando {
+  background: var(--fundo);
+  color: var(--cor);
+}
+
+html[data-tema='claro'] {
+  --cor-macro1: #14867c;
+  --cor-macro2: #14867c;
+  --cor-macro3: #14867c;
+  --cor-macro4: #14867c;
+}
+
+.painel-macros {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 120;
+  width: min(460px, 100%);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 10px;
+  box-sizing: border-box;
+  background: var(--cartao);
+  border: 1px solid var(--cor-macro1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  --c: 10px;
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+
+.painel-macros[hidden] {
+  display: none;
+}
+
+html[data-tema='basico'] .painel-macros {
+  clip-path: none;
+  border-radius: 12px;
+}
+
+.macros-colunas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.macro-coluna {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+
+.macro-coluna [data-knob-macro] {
+  display: flex;
+  justify-content: center;
+}
+
+.macro-coluna [data-ficha-macro] .ficha {
+  width: 100%;
+}
+
+/* Lista de ligações de cada macro: compacta (nome + barra embaixo) */
+.macro-coluna .lista-mod {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.macro-coluna .linha-mod {
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  min-height: 0;
+  padding: 3px 2px 3px 6px;
+}
+
+.macro-coluna .linha-mod-nome {
+  width: auto;
+  flex: 1 1 60%;
+  font-size: 11px;
+}
+
+.macro-coluna .linha-mod-valor {
+  width: auto;
+  font-size: 11px;
+}
+
+.macro-coluna .barra-quantidade {
+  order: 3;
+  flex: 1 1 100%;
+  height: 20px;
+}
+
+.macro-coluna .linha-mod-remover {
+  width: 24px;
+  height: 24px;
+}
+
+.macro-coluna .lista-mod-vazia {
+  font-size: 11px;
+}
+
+/* Arrastando uma ficha de macro: o painel some da frente (dá para soltar nos controles
+   que estão embaixo dele) */
+.arrastando-mod .painel-macros {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .ficha-macros {
+    min-width: 32px;
+    font-size: 13px;
+  }
+  .painel-macros {
+    top: calc(100% + 4px);
+    width: min(520px, 100%);
+    max-height: calc(100dvh - 90px);
+    padding: 8px;
+  }
+  .macro-coluna .lista-mod {
+    max-height: 70px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Painel dos Macros deitado: sem a frase de ajuda nas listas vazias (falta altura) */
+  .macro-coluna .lista-mod-vazia {
+    display: none;
+  }
+}
+
+/* Painel dos Macros: linha da ligação = [nome … valor ✕] em cima, barra embaixo */
+.macro-coluna .linha-mod-nome {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.macro-coluna .linha-mod-valor {
+  order: 1;
+}
+
+.macro-coluna .linha-mod-remover {
+  order: 2;
+  width: 22px;
+  height: 22px;
+}
+
+/* Telas estreitas (celular em pé): as 6 fichas (M + 5) cabem numa linha — sem o desenhinho —
+   e o painel dos Macros fica em 2 colunas (as listas de ligações ganham largura) */
+@media (max-width: 500px) {
+  #barra-fontes .ficha {
+    min-width: 0;
+    padding: 0 2px;
+  }
+  #barra-fontes .ficha-forma {
+    display: none;
+  }
+  .ficha-macros {
+    flex: 0 0 34px;
+    min-width: 34px;
+  }
+  .macros-colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
   }
 }

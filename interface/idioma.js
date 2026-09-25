@@ -225,6 +225,7 @@ const parte = (texto) => traduzirTexto(texto);
 const MODELOS = [
   [/^Arraste a ficha (.+) até um controle \(ou toque nela e depois no controle\)\.$/, (m) => `Drag the ${m[1]} chip onto a control (or tap it, then tap the control).`],
   [/^Toque nos controles para ligar o (.+)\. Toque na ficha de novo para terminar\.$/, (m) => `Tap controls to connect ${m[1]}. Tap the chip again to finish.`],
+  [/^Toque nos controles para ligar o (.+)\. Toque no M para terminar\.$/, (m) => `Tap controls to connect ${m[1]}. Tap M to finish.`],
   [/^Quantidade: (.+) → (.+)$/, (m) => `Amount: ${m[1]} → ${parte(m[2])}`],
   [/^Remover ligação com (.+)$/, (m) => `Remove connection to ${parte(m[1])}`],
   [/^Nível ([ABC])$/, (m) => `Level ${m[1]}`],

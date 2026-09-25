@@ -187,6 +187,15 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      solta as notas. Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y. presets.js: `lerVisor`/`definirVisor`.
      Hold = pedal de sustain: soltar a tecla não solta a nota (fica em `sustentadas`, tecla acesa);
      desligar o Hold solta as que não têm dedo; tocar de novo reataca. Em pé a barra tem 3 linhas.
+   - MACROS M1–M4 (25/09/2026, em teste; maquete opção C): fontes de modulação novas no FIM de
+     `FONTES_MOD` (`INDICES_MACRO` [5,6,7,8]); valor = knob do macro (0–1, unipolar), igual para
+     todas as notas E para os efeitos (valem sem nota tocando). Motor: `macrosAlvo` → `macros`
+     suavizados ~10 ms por bloco (`comum.macros`). Estado: `fontes.macroN.valor` (vai no preset).
+     Tela: botão "M" (`#botao-macros`, 1º da barra das fichas) abre `#painel-macros` por cima (abaixo
+     da linha das abas): 4 colunas [knob · ficha · lista]; em pé 2 colunas. As fichas dos macros
+     ficam no painel (`lugaresMacros` em criarModulacao). Tocar numa ficha de macro (armar) fecha o
+     painel; tocar no "M" termina de ligar. Arrastando uma ficha, o painel some da frente. Fecha
+     tocando fora. Cor turquesa `--cor-macro1..4`. Em pé, as fichas escondem o desenhinho.
      REGRA: elemento novo usa as peças que já existem (chave com LED, seletor com setas, ícones de
      icones.js, janela/confirmar de janela.js) — nunca <select>, confirm(), alert() nem emojis.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e

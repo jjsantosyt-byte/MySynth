@@ -17,7 +17,7 @@ import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { OsciladorVoz, MAX_UNISON } from './oscilador-voz.js';
 import { EstadoLFO, rateModulado } from './lfo.js';
-import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, D_RATE_LFO, D_RUIDO_PITCH, D_RUIDO_DURACAO, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
+import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, INDICES_MACRO, D_RATE_LFO, D_RUIDO_PITCH, D_RUIDO_DURACAO, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
 import { NOTA_BASE_RUIDO } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
@@ -226,6 +226,8 @@ export class Voz {
       }
       this.valoresFontes[i] = env.nivel;
     }
+    // Macros: o mesmo valor para todas as notas (já suavizado pelo motor)
+    for (let m = 0; m < INDICES_MACRO.length; m++) this.valoresFontes[INDICES_MACRO[m]] = comum.macros[m];
   }
 
   // Caixa de uma rota neste bloco (na primeira vez que é usada: zera e entra na lista).
