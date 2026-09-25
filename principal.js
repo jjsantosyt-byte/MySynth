@@ -318,27 +318,9 @@ async function ligarSom() {
     const ganho = contexto.createGain();
     ganho.gain.value = volumeDoControle();
 
-    // Limitador no fim do caminho: no uso normal não faz nada; só segura
-    // picos que iam estourar (ex.: ressonância alta com varredura rápida).
-    const limiar = LIMIAR_LIMITADOR;
-    const razao = 20;
-    const limitador = new DynamicsCompressorNode(contexto, {
-      threshold: limiar,
-      knee: 0,
-      ratio: razao,
-      attack: 0.001,
-      release: 0.1,
-    });
-    // O limitador do navegador aumenta o volume de tudo por conta própria
-    // ("makeup gain"). Este ganho desfaz isso, para ele ficar neutro.
-    const desfazerAumento = contexto.createGain();
-    desfazerAumento.gain.value = Math.pow(10, (limiar * (1 - 1 / razao) * 0.6) / 20);
-
-    synth
-      .connect(ganho)
-      .connect(limitador)
-      .connect(desfazerAumento)
-      .connect(contexto.destination);
+    // Sem limitador automático (removido a pedido): o volume nunca muda sozinho.
+    // Se o som passar de 0 dB, ele distorce — o aviso na tela conta quando isso acontece.
+    synth.connect(ganho).connect(contexto.destination);
 
     // Envia uma cópia da wavetable de cada oscilador para o motor de som.
     for (const osc of OSCILADORES) enviarWavetable(osc, synth);
@@ -358,10 +340,10 @@ async function ligarSom() {
     estado.synth = synth;
     estado.ganho = ganho;
 
-    // Medidor logo antes do limitador (só escuta; o som não passa por ele)
+    // Medidor na saída (só escuta; o som não passa por ele)
     const medidor = new AnalyserNode(contexto, { fftSize: 4096 });
     ganho.connect(medidor);
-    vigiarLimitador(medidor);
+    vigiarSaida(medidor);
 
     // Envia as opções atuais (tipo de filtro, legato...), as fontes e as ligações.
     for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);
@@ -406,18 +388,15 @@ controleVolume.addEventListener('input', () => {
   estado.ganho.gain.setTargetAtTime(volumeDoControle(), estado.contexto.currentTime, 0.02);
 });
 
-// ---------- Aviso do limitador (recado na tela) ----------
-// Quando o som passa do limite, o limitador abaixa o volume sozinho, e depois solta
-// devagar: parece que o volume muda "sem motivo". Este aviso conta quando isso acontece.
-// Como sabemos: um "medidor" escuta o som logo ANTES do limitador (só mede, não muda nada).
-// Pico acima do limiar = o limitador está abaixando. (A leitura do próprio limitador do
-// navegador não é confiável: ela mostra redução até em silêncio, logo ao ligar o som.)
-const LIMIAR_LIMITADOR = -3; // dB (o mesmo do limitador em ligarSom)
+// ---------- Aviso de som estourando (recado na tela) ----------
+// Não há limitador: se o som passar de 0 dB (o máximo), ele é cortado e distorce.
+// Um "medidor" escuta a saída (só mede, não muda nada) e avisa quando isso acontece.
+const LIMITE_SAIDA = 0; // dB
 const INTERVALO_AVISOS = 6000; // ms: no máximo um aviso a cada 6 s (não fica piscando)
 
-function vigiarLimitador(medidor) {
+function vigiarSaida(medidor) {
   const amostras = new Float32Array(medidor.fftSize);
-  const limiar = Math.pow(10, LIMIAR_LIMITADOR / 20);
+  const limiar = Math.pow(10, LIMITE_SAIDA / 20);
   let ultimoAviso = -Infinity;
   // Lê a cada 50 ms um trecho de ~85 ms (4096 amostras): nenhum pico escapa.
   setInterval(() => {
@@ -429,10 +408,10 @@ function vigiarLimitador(medidor) {
     }
     const passou = 20 * Math.log10(pico / limiar); // quantos dB acima do limite
     const agora = performance.now();
-    if (passou > 0.5 && agora - ultimoAviso > INTERVALO_AVISOS) {
+    if (passou > 0.1 && agora - ultimoAviso > INTERVALO_AVISOS) {
       ultimoAviso = agora;
       mostrarRecado(
-        `Limitador agindo: o som passou do máximo e foi abaixado (~${Math.max(1, Math.round(passou))} dB). ` +
+        `Som estourando: passou do máximo em ~${Math.max(1, Math.round(passou))} dB e pode distorcer. ` +
           'Abaixe o Nível dos osciladores ou o Volume.',
         4
       );

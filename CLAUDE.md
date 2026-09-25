@@ -99,7 +99,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   Delay: Low/High Cut, Width, Sync BPM; Reverb: Pre-delay, Low Cut, Width) — planejado.
 - LFO: desenhar a forma com pontos e curvas (estilo Serum/Vital); sincronismo com BPM
   (1/4, 1/8...) quando existir o sequenciador; talvez LFO 3 e 4.
-- Limitador próprio no motor (`dsp/`), no lugar do DynamicsCompressor do navegador: olha ~1,5 ms
+- (Se um dia quiser proteção de volume de novo — o do navegador foi removido:) Limitador próprio
+  no motor (`dsp/`), opcional, com chave On/Off: olha ~1,5 ms
   à frente, solta em ~0,1 s de verdade, não começa "apertado" ao ligar o som. (O do navegador
   solta em > 1 s: o volume parece mudar sozinho depois de um pico.)
 - Exportar som como .wav:
@@ -520,7 +521,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Medido: Semi com LFO quadrado ±7 pula direto 659 ↔ 294 Hz (nada parado em 440); Fine com
   LFO ±50 = 427,5 a 452,9 Hz; Oct com ENV 2 começa uma oitava acima e volta; presets idênticos.
 
-**Aviso do limitador — feito e aprovado:**
+**Limitador automático REMOVIDO (24/09/2026, pedido do dono) — em teste:**
+- Caminho agora: motor → volume geral → saída (sem DynamicsCompressor e sem o ganho que
+  desfazia o "makeup"). O volume nunca muda sozinho; passar de 0 dB distorce.
+- O aviso ficou, mas mudou: "Som estourando: passou do máximo em ~X dB e pode distorcer..."
+  quando o pico na saída passa de 0 dB (`vigiarSaida`, mesmo medidor, mesmos intervalos).
+- (Histórico abaixo: como era com o limitador.)
+
+**Aviso do limitador — feito e aprovado (substituído pelo aviso de estouro acima):**
 - Recado na tela ("Limitador agindo: ... abaixado ~X dB. Abaixe o Nível dos osciladores ou o
   Volume.") quando o som passa do limiar (-3 dB); no máximo um aviso a cada 6 s; some em 4 s.
 - Como mede: um AnalyserNode logo ANTES do limitador (depois do volume geral), lido a cada
