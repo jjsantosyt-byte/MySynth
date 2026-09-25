@@ -19,8 +19,8 @@ import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
-import { MatrizModulacao, INDICES_LFO } from './dsp/modulacao.js';
-import { EstadoLFO } from './dsp/lfo.js';
+import { MatrizModulacao, INDICES_LFO, D_RATE_LFO } from './dsp/modulacao.js';
+import { EstadoLFO, rateModulado } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
 import { Saturacao } from './dsp/efeitos/saturacao.js';
@@ -507,10 +507,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     saidaD.fill(0);
 
     // LFOs livres rodam sempre, mesmo em silêncio (as notas pegam eles andando).
+    // Rate modulado: um LFO livre é um só para todas as notas, então segue a modulação
+    // da nota tocada por último (enquanto ela soa).
+    const ultima = this.ruidoDona && this.ruidoDona.envelope.ativo ? this.ruidoDona : null;
     for (let l = 0; l < this.ajustesLfo.length; l++) {
       const ajustes = this.ajustesLfo[l];
+      const rate = ultima ? rateModulado(ajustes.rate, ultima.mod[D_RATE_LFO[l]]) : ajustes.rate;
       for (let pedaco = 0; pedaco * PEDACO < tamanhoBloco; pedaco++) {
-        this.lfosLivres[l].avancar((ajustes.rate * PEDACO) / sampleRate);
+        this.lfosLivres[l].avancar((rate * PEDACO) / sampleRate);
         this.valoresLivres[l][pedaco] = this.lfosLivres[l].valor(ajustes.forma);
       }
     }
@@ -617,6 +621,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     comum.ruidoModo = this.ruidoModo;
     // One Shot: quanto o nível cai por amostra para chegar a -60 dB no tempo da Duração
     comum.ruidoQueda = Math.exp(Math.log(0.001) / (this.ruidoDuracao * sampleRate));
+    comum.ruidoDuracao = this.ruidoDuracao; // (para a Duração modulada)
     comum.ruidoTrack = this.ruidoTrack;
     comum.ruidoPitch = this.ruidoPitch;
     comum.ruidoUnico = this.ruidoUnico;

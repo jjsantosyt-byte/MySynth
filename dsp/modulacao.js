@@ -27,6 +27,8 @@ export const DESTINOS_MOD = [
   'panOscC', 'blendOscC',
   // Quantidade do Warp de cada oscilador
   'warpOsc', 'warpOscB', 'warpOscC',
+  // Rate dos LFOs 1, 2, 3 e Pitch/Duração do Ruído
+  'rateLfo1', 'rateLfo2', 'rateLfo3', 'ruidoPitch', 'ruidoDuracao',
 ];
 
 // Índices para acesso rápido
@@ -39,6 +41,9 @@ export const D_RUIDO = 5;
 export const D_NIVEL_OSC = 6;
 export const D_CUTOFF2 = 7;
 export const D_RESO2 = 8;
+export const D_RATE_LFO = [35, 36, 37]; // LFO 1, 2, 3
+export const D_RUIDO_PITCH = 38;
+export const D_RUIDO_DURACAO = 39;
 
 // Destinos de cada oscilador (A, B, C), na ordem acima
 export const DESTINOS_OSC = [

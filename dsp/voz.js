@@ -3,7 +3,7 @@
 //   OSC A, B, C (cópias de unison, ver oscilador-voz.js) ─┐
 //                                                          ├─ cada um pela sua rota de filtro ─→ ENV 1 (volume)
 //   ruído ─────────────────────────────────────────────────┘
-// e as fontes de modulação da própria nota: LFO 1 e 2 (modo Retrig), ENV 2 e 3.
+// e as fontes de modulação da própria nota: LFO 1, 2 e 3 (modo Retrig), ENV 2 e 3.
 //
 // Rotas de filtro (escolhidas para cada oscilador e para o ruído, separadamente):
 //   f1 = Filtro 1 · f2 = Filtro 2 · f12 = Filtro 1 e depois Filtro 2 · f21 = o contrário
@@ -16,8 +16,8 @@
 import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { OsciladorVoz, MAX_UNISON } from './oscilador-voz.js';
-import { EstadoLFO } from './lfo.js';
-import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
+import { EstadoLFO, rateModulado } from './lfo.js';
+import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, D_RATE_LFO, D_RUIDO_PITCH, D_RUIDO_DURACAO, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
 import { NOTA_BASE_RUIDO } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
@@ -26,6 +26,12 @@ const PEDACO = 32; // amostras por pedaço de modulação
 // Cutoff: a modulação anda na mesma escala do knob (20 Hz a 20 kHz, exponencial).
 const CORTE_MIN = 20;
 const LOG_FAIXA_CORTE = Math.log(1000); // 20 kHz / 20 Hz
+
+// Ruído: faixas dos knobs Pitch (±24 semitons) e Duração (5 ms a 2 s, exponencial),
+// para a modulação andar na mesma escala
+const PITCH_RUIDO_MAX = 24;
+const DURACAO_RUIDO_MIN = 0.005;
+const LOG_FAIXA_DURACAO = Math.log(2 / DURACAO_RUIDO_MIN);
 
 const limitar01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -204,7 +210,9 @@ export class Voz {
         // Livre: todas as notas usam o mesmo LFO, que roda sem parar.
         this.valoresFontes[i] = lfosLivres[l][pedaco];
       } else {
-        this.lfos[l].avancar((ajustes.rate * qtd) / this.taxa);
+        // Rate modulado: usa a modulação do pedaço anterior (a deste ainda não existe)
+        const rate = rateModulado(ajustes.rate, this.mod[D_RATE_LFO[l]]);
+        this.lfos[l].avancar((rate * qtd) / this.taxa);
         this.valoresFontes[i] = this.lfos[l].valor(ajustes.forma);
       }
     }
@@ -319,9 +327,20 @@ export class Voz {
         temRuido = true;
         const trecho = comum.trechosRuido[ruidoTipo];
         const tamanhoTrecho = trecho.length;
-        const semitons = comum.ruidoPitch + (comum.ruidoTrack ? this.altura - NOTA_BASE_RUIDO : 0);
+        // Pitch modulado: 100% = a faixa toda do knob (48 semitons), sem degraus
+        let pitch = comum.ruidoPitch;
+        if (this.mod[D_RUIDO_PITCH] !== 0) {
+          pitch = Math.min(PITCH_RUIDO_MAX, Math.max(-PITCH_RUIDO_MAX, pitch + this.mod[D_RUIDO_PITCH] * 2 * PITCH_RUIDO_MAX));
+        }
+        const semitons = pitch + (comum.ruidoTrack ? this.altura - NOTA_BASE_RUIDO : 0);
         const velocidade = semitons === 0 ? 1 : Math.pow(2, semitons / 12);
-        const queda = comum.ruidoQueda;
+        let queda = comum.ruidoQueda;
+        if (oneShot && this.mod[D_RUIDO_DURACAO] !== 0) {
+          // Duração modulada (na escala do knob: exponencial de 5 ms a 2 s)
+          const posicao = Math.log(comum.ruidoDuracao / DURACAO_RUIDO_MIN) / LOG_FAIXA_DURACAO + this.mod[D_RUIDO_DURACAO];
+          const duracao = DURACAO_RUIDO_MIN * Math.exp(limitar01(posicao) * LOG_FAIXA_DURACAO);
+          queda = Math.exp(Math.log(0.001) / (duracao * this.taxa));
+        }
         let pos = this.ruidoPos;
         for (let i = inicio; i < fim; i++) {
           this.nivelRuido += (alvoRuido - this.nivelRuido) * s;

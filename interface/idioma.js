@@ -124,6 +124,8 @@ const TEXTOS = new Map(
     Desligado: 'Off',
     '1 ruído': '1 noise',
     Duração: 'Length',
+    'Pitch Ruído': 'Noise Pitch',
+    'Duração Ruído': 'Noise Length',
     'Tipo de ruído anterior': 'Previous noise type',
     'Próximo tipo de ruído': 'Next noise type',
     'A cor do ruído acompanha a nota': 'Noise color follows the note',

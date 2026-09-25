@@ -7,7 +7,7 @@ import './interface/idioma.js';
 import { listaWavetables, obterWavetable, existeWavetable, esquecerMontada } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
-import { FORMAS_LFO } from './dsp/lfo.js';
+import { FORMAS_LFO, RATE_MIN, RATE_MAX } from './dsp/lfo.js';
 import {
   criarKnob,
   escalaLinear,
@@ -1484,6 +1484,7 @@ document.getElementById('ruido-proximo').addEventListener('click', () => andarRu
 // Duração do One Shot: de 5 ms (um "tic") a 2 s, com mais precisão nos tempos curtos
 const knobDuracao = criarKnob({
   rotulo: 'Duração',
+  destino: 'ruidoDuracao',
   escala: escalaExponencial(0.005, 2),
   padrao: estado.opcoes.ruidoDuracao,
   formatar: formatarTempo,
@@ -1504,6 +1505,7 @@ document.getElementById('knobs-ruido').append(
   // Pitch: a "cor" do ruído (o trecho tocado mais rápido = mais brilhante), em semitons
   criarKnob({
     rotulo: 'Pitch',
+    destino: 'ruidoPitch', // aceita modulação (sem degraus: o ruído "varre")
     escala: escalaLinear(-24, 24),
     padrao: estado.opcoes.ruidoPitch,
     formatar: (v) => (Math.round(v) > 0 ? '+' : '') + Math.round(v) + ' st',
@@ -1555,7 +1557,8 @@ document.querySelectorAll('[data-knobs-lfo]').forEach((lugar) => {
   lugar.append(
     criarKnob({
       rotulo: 'Rate',
-      escala: escalaExponencial(0.02, 40),
+      destino: 'rateLfo' + id.slice(3), // aceita modulação (ex.: ENV 2 acelera o LFO)
+      escala: escalaExponencial(RATE_MIN, RATE_MAX),
       padrao: estado.fontes[id].rate,
       formatar: formatarRate,
       aoMudar: (v) => definirFonte(id, 'rate', v),

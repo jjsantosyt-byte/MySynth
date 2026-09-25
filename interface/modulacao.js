@@ -53,6 +53,11 @@ export const NOMES_DESTINOS = {
   ruido: 'Ruído',
   cutoff2: 'Cutoff 2',
   resonancia2: 'Reso 2',
+  rateLfo1: 'Rate LFO 1',
+  rateLfo2: 'Rate LFO 2',
+  rateLfo3: 'Rate LFO 3',
+  ruidoPitch: 'Pitch Ruído',
+  ruidoDuracao: 'Duração Ruído',
 };
 
 const QUANTIDADE_INICIAL = 0.5; // +50% ao criar uma ligação
