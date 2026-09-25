@@ -12,7 +12,7 @@
 //   é o que abre o estéreo.
 
 import { ganhosMix } from './delay.js';
-import { aplicarWidth } from './comum.js';
+import { aplicarWidth, andarWidth } from './comum.js';
 
 const PROFUNDIDADE_MAXIMA = 0.006; // segundos (±6 ms com Depth 100%)
 const ATRASO_MAXIMO = 0.03; // segundos (knob Delay)
@@ -38,6 +38,7 @@ export class Chorus {
     this.voltaE = 0; // Feedback: as cópias da amostra anterior
     this.voltaD = 0;
     this.par = [0, 0]; // rascunho do Width
+    this.width = 1; // Width em uso (anda suave até o ajuste)
     this.suavizar = 1 - Math.exp(-1 / (0.01 * taxaAmostragem));
     this.silencio = 0;
     this.dormindo = true;
@@ -75,7 +76,7 @@ export class Chorus {
     const alvoBase = Math.min(ATRASO_MAXIMO, Math.max(0.005, a.atraso)) * this.taxa;
     const amplitude = PROFUNDIDADE_MAXIMA * this.taxa;
     const feedback = Math.min(FEEDBACK_MAXIMO, Math.max(0, a.feedback));
-    const width = Math.min(1, Math.max(0, a.width));
+    const alvoWidth = Math.min(1, Math.max(0, a.width));
     const par = this.par;
     let energia = 0;
 
@@ -115,8 +116,9 @@ export class Chorus {
       this.escrita = this.escrita + 1 === this.tamanho ? 0 : this.escrita + 1;
 
       // Width das cópias (100% = como vieram: nem calcula)
-      if (width < 1) {
-        aplicarWidth(copiasE, copiasD, width, par);
+      this.width = andarWidth(this.width, alvoWidth, s);
+      if (this.width < 1) {
+        aplicarWidth(copiasE, copiasD, this.width, par);
         copiasE = par[0];
         copiasD = par[1];
       }

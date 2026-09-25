@@ -5,6 +5,8 @@
 // Destinos: controles de som. A modulação soma na posição do knob (0 a 1):
 // quantidade +50% com a fonte no máximo = knob meio giro para cima.
 
+import { MOD_EFEITOS } from './efeitos/modulaveis.js';
+
 // O LFO 3 veio depois: fica no fim (os índices antigos não mudam).
 export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3', 'lfo3'];
 // Onde cada LFO (1, 2, 3) e cada ENV (2, 3) fica na lista acima
@@ -29,7 +31,12 @@ export const DESTINOS_MOD = [
   'warpOsc', 'warpOscB', 'warpOscC',
   // Rate dos LFOs 1, 2, 3 e Pitch/Duração do Ruído
   'rateLfo1', 'rateLfo2', 'rateLfo3', 'ruidoPitch', 'ruidoDuracao',
+  // Knobs dos efeitos ("delay.mix"...; ver dsp/efeitos/modulaveis.js), sempre no fim da lista.
+  // Destino novo que não seja de efeito: ANTES desta linha (índices fixos acima não mudam).
+  ...MOD_EFEITOS.map((m) => m.destino),
 ];
+// Onde começam os destinos dos efeitos (na ordem de MOD_EFEITOS)
+export const D_PRIMEIRO_EFEITO = DESTINOS_MOD.indexOf(MOD_EFEITOS[0].destino);
 
 // Índices para acesso rápido
 export const D_WTPOS = 0;

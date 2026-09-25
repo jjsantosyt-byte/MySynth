@@ -20,8 +20,9 @@ import {
   faixaModulacao,
 } from './interface/knob.js';
 import { criarSeletor } from './interface/seletor.js';
-import { criarModulacao } from './interface/modulacao.js';
+import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
+import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 import { TIPOS_SATURACAO } from './dsp/efeitos/saturacao.js';
@@ -1103,11 +1104,35 @@ document.querySelectorAll('[data-ligar-efeito]').forEach((botao) => {
   sincronizadores.push(mostrar);
 });
 
+// Nomes dos efeitos (na lista de ligações: "Delay · Mix")
+const NOMES_EFEITOS = {
+  saturacao: 'Saturação',
+  distorcao: 'Distorção',
+  filtroTrack: 'Filtro Track',
+  eq: 'EQ',
+  compressor: 'Compressor',
+  phaser: 'Phaser',
+  flanger: 'Flanger',
+  chorus: 'Chorus',
+  delay: 'Delay',
+  reverb: 'Reverb',
+};
+
+// Knob de efeito que aceita modulação: destino e escala vêm da tabela do motor
+// (dsp/efeitos/modulaveis.js), para o knob e a modulação andarem na mesma escala.
+function modulavelDoEfeito(id, nome, rotulo) {
+  const m = MOD_EFEITOS.find((x) => x.efeito === id && x.nome === nome);
+  if (!m) return null;
+  NOMES_DESTINOS[m.destino] = `${NOMES_EFEITOS[id]} · ${rotulo}`;
+  return { destino: m.destino, escala: m.exp ? escalaExponencial(m.min, m.max) : escalaLinear(m.min, m.max) };
+}
+
 // Knob de um efeito
 const knobEfeito = (id, rotulo, nome, escala, formatar) =>
   criarKnob({
     rotulo,
     escala,
+    ...modulavelDoEfeito(id, nome, rotulo),
     padrao: estado.efeitos[id][nome],
     formatar,
     aoMudar: (v) => definirEfeito(id, nome, v),
@@ -1188,6 +1213,7 @@ botoesDeTipo('filtroTrack', document.getElementById('tipos-filtro-track'), TIPOS
 const knobCutoffTrack = criarKnob({
   rotulo: 'Cutoff',
   escala: escalaLinear(NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK),
+  ...modulavelDoEfeito('filtroTrack', 'nota', 'Cutoff'),
   padrao: estado.efeitos.filtroTrack.nota,
   formatar: (v) => {
     const nota = Math.round(v);

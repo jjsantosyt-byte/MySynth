@@ -178,6 +178,27 @@ modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no
 - Tela: sem nenhuma ligação e com a aba LFO fechada, as mensagens ao vivo não redesenham nada
   (desenha 1 vez sem modulação ao tirar a última ligação: `telaSemAoVivo`).
 
+**LFO 3 + mais knobs moduláveis (25/09/2026) — feito, em teste:**
+- LFO 3 (ficha amarela `--cor-lfo3`, 3º cartão na aba LFO). No motor, `FONTES_MOD` =
+  ['lfo1','lfo2','env2','env3','lfo3'] (o LFO 3 no fim: índices antigos iguais); `INDICES_LFO`
+  [0,1,4] e `INDICES_ENV` [2,3] dizem onde cada um fica em `valoresFontes`.
+- Destinos novos (fim de `DESTINOS_MOD`): Rate dos LFOs 1/2/3 (`rateLfo1..3`, escala do knob
+  0,02–40 Hz, `rateModulado()` em dsp/lfo.js; LFO Livre segue a modulação da última nota),
+  Pitch do Ruído (`ruidoPitch`, 100% = 48 st, sem degraus) e Duração do One Shot (`ruidoDuracao`).
+- Knobs dos EFEITOS (53, todos os contínuos): tabela `MOD_EFEITOS` em dsp/efeitos/modulaveis.js
+  (efeito, nome, min, max, exp; destino "delay.mix"...). A tela monta esses knobs com a escala
+  da tabela (`modulavelDoEfeito` no principal.js) e mostra "Delay · Mix" na lista. Motor:
+  `modularEfeitos()` a cada bloco (só se houver ligação): fontes da ÚLTIMA nota tocada (enquanto
+  soa) + LFOs Livres (valem sem nota); suaviza ~5 ms; efeito recebe base + modulação na escala do
+  knob (`basesEfeitos` guarda o valor do knob); tirou a ligação → volta ao valor exato.
+- Junto, para não dar "zíper"/tique ao mexer rápido (com LFO ou com o dedo): Width de Chorus/Delay/
+  Reverb anda suave amostra por amostra (`andarWidth`); compensação do Compressor suave; memória do
+  Tom (Distorção/Saturação) acompanha o som quando aberto e a do Low Cut zera quando em 20 Hz.
+- Medido: sem ligações = som idêntico ao publicado (-600 dB); Delay Mix com LFO Livre vai de 0 a
+  0,8 (base 0,3) e volta a 0,3; os 53 com LFO quadrado 8 Hz: sem NaN, pico 0 dB (clipper);
+  "aspereza" com seno: Width e Threshold iguais a sem modulação; peso: +~10% no tempo dos efeitos
+  com as 53 ligações. Testes em `_antigo/teste/` (fora do Git; rodam no navegador).
+
 **Efeito Filtro Track (25/09/2026) — feito, em teste:** a ideia do "Cutoff em notas + keytracking"
 virou um EFEITO (os Filtros 1 e 2 das vozes não mudaram). `dsp/efeitos/filtro-track.js`, página Cor,
 depois da Distorção: Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger →

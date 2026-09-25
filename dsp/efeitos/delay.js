@@ -10,7 +10,7 @@
 // - Desligar: para de entrar som novo, mas os ecos que já existem terminam
 //   naturalmente. Quando tudo silencia, o delay "dorme" e não gasta processamento.
 
-import { coefPolo, aplicarWidth } from './comum.js';
+import { coefPolo, aplicarWidth, andarWidth } from './comum.js';
 
 const TEMPO_MAXIMO = 2; // segundos
 const LOW_CUT_DESLIGADO = 20.5; // Hz: Low Cut em 20 Hz = desligado (nem calcula)
@@ -63,6 +63,7 @@ export class Delay {
     this.gravesE = 0; // o grave que o Low Cut tira
     this.gravesD = 0;
     this.par = [0, 0]; // rascunho do Width
+    this.width = 1; // Width em uso (anda suave até o ajuste)
 
     this.silencio = 0; // quantas amostras seguidas sem eco audível
     this.dormindo = true;
@@ -92,8 +93,13 @@ export class Delay {
     const c = this.coefAgudo;
     const comLowCut = a.lowcut > LOW_CUT_DESLIGADO;
     const cGrave = comLowCut ? coefPolo(a.lowcut, this.taxa) : 0;
-    const width = Math.min(1, Math.max(0, a.width));
+    const alvoWidth = Math.min(1, Math.max(0, a.width));
     const par = this.par;
+    // Low Cut desligado (20 Hz): a memória dele fica zerada, para ligar de novo sem tique
+    if (!comLowCut) {
+      this.gravesE = 0;
+      this.gravesD = 0;
+    }
     const tamanho = this.tamanho;
     const linhaE = this.linhaE;
     const linhaD = this.linhaD;
@@ -163,8 +169,9 @@ export class Delay {
       if (++this.escrita === tamanho) this.escrita = 0;
 
       // Width dos ecos (100% = como vieram: nem calcula)
-      if (width < 1) {
-        aplicarWidth(ecoE, ecoD, width, par);
+      this.width = andarWidth(this.width, alvoWidth, s);
+      if (this.width < 1) {
+        aplicarWidth(ecoE, ecoD, this.width, par);
         ecoE = par[0];
         ecoD = par[1];
       }

@@ -188,6 +188,10 @@ export class Saturacao {
         this.tomD += (satD - this.tomD) * cTom;
         satE = this.tomE;
         satD = this.tomD;
+      } else {
+        // Tom aberto: a memória acompanha o som, para fechar o Tom de novo sem tique
+        this.tomE = satE;
+        this.tomD = satD;
       }
 
       this.secoE[this.pSeco] = saidaE[i];

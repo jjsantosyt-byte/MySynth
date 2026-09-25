@@ -19,7 +19,8 @@ import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
-import { MatrizModulacao, INDICES_LFO, D_RATE_LFO } from './dsp/modulacao.js';
+import { MatrizModulacao, INDICES_LFO, D_RATE_LFO, FONTES_MOD, DESTINOS_MOD, D_PRIMEIRO_EFEITO } from './dsp/modulacao.js';
+import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
 import { EstadoLFO, rateModulado } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
@@ -218,6 +219,16 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     );
     this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
 
+    // Modulação dos knobs dos efeitos (ver modularEfeitos): o valor escolhido na tela de cada
+    // knob ("base") fica guardado aqui; o efeito recebe base + modulação.
+    this.basesEfeitos = {};
+    for (const [id, efeito] of Object.entries(this.efeitos)) this.basesEfeitos[id] = { ...efeito.ajustes };
+    this.fontesEfeitos = new Float64Array(FONTES_MOD.length);
+    this.modEfeitosAlvo = new Float64Array(DESTINOS_MOD.length);
+    this.modEfeitos = new Float64Array(MOD_EFEITOS.length); // suavizada (~5 ms)
+    this.modulandoEfeito = new Uint8Array(MOD_EFEITOS.length); // 1 = o knob está sendo modulado
+    this.suavizarModEfeitos = 1 - Math.exp(-128 / (0.005 * sampleRate));
+
     // Saída: volume geral → soft clipper, SEMPRE ligado (proteção fixa: nunca passa de 0 dB).
     // O motor avisa a tela do maior pico (antes de arredondar) para ela mostrar um recado
     // quando o clipper está segurando bastante.
@@ -278,6 +289,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'efeito':
         this.efeitos[msg.id]?.definir(msg.ajustes);
+        if (this.basesEfeitos[msg.id]) Object.assign(this.basesEfeitos[msg.id], msg.ajustes);
         break;
     }
   }
@@ -544,6 +556,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       }
     }
     if (algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
+    this.modularEfeitos();
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
@@ -590,6 +603,52 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
     return true;
+  }
+
+  // Knobs dos efeitos ligados a LFO/ENV. Os efeitos tratam todas as notas juntas, então usam
+  // as fontes da nota tocada por último (enquanto ela soa); um LFO Livre vale sempre, mesmo
+  // sem nota. Sem nenhuma ligação nos efeitos, não faz nada.
+  modularEfeitos() {
+    const matriz = this.matriz;
+    const total = MOD_EFEITOS.length;
+    let algum = false;
+    for (let j = 0; j < total; j++) {
+      if (this.modulandoEfeito[j] || matriz.usa(D_PRIMEIRO_EFEITO + j)) {
+        algum = true;
+        break;
+      }
+    }
+    if (!algum) return;
+
+    const fontes = this.fontesEfeitos;
+    const ultima = this.ruidoDona && this.ruidoDona.envelope.ativo ? this.ruidoDona : null;
+    if (ultima) fontes.set(ultima.valoresFontes);
+    else fontes.fill(0);
+    for (let l = 0; l < INDICES_LFO.length; l++) {
+      if (this.ajustesLfo[l].modo !== 'livre') continue;
+      const valores = this.valoresLivres[l];
+      fontes[INDICES_LFO[l]] = valores[valores.length - 1];
+    }
+    matriz.somar(fontes, this.modEfeitosAlvo);
+
+    const k = this.suavizarModEfeitos;
+    for (let j = 0; j < total; j++) {
+      const usa = matriz.usa(D_PRIMEIRO_EFEITO + j);
+      if (!usa && !this.modulandoEfeito[j]) continue;
+      const m = MOD_EFEITOS[j];
+      const base = this.basesEfeitos[m.efeito][m.nome];
+      const ajustes = this.efeitos[m.efeito].ajustes;
+      if (!usa) {
+        // A ligação saiu (já sumiu suavemente): volta ao valor exato do knob
+        ajustes[m.nome] = base;
+        this.modEfeitos[j] = 0;
+        this.modulandoEfeito[j] = 0;
+        continue;
+      }
+      this.modEfeitos[j] += (this.modEfeitosAlvo[D_PRIMEIRO_EFEITO + j] - this.modEfeitos[j]) * k;
+      ajustes[m.nome] = valorDaPosicao(m, posicaoDoValor(m, base) + this.modEfeitos[j]);
+      this.modulandoEfeito[j] = 1;
+    }
   }
 
   processarVozes(saidaE, saidaD, tamanhoBloco, parametros) {

@@ -13,7 +13,7 @@
 // - Desligar: para de entrar som novo e a cauda termina naturalmente.
 
 import { ganhosMix } from './delay.js';
-import { coefPolo, aplicarWidth } from './comum.js';
+import { coefPolo, aplicarWidth, andarWidth } from './comum.js';
 
 const PRE_DELAY_MAXIMO = 0.2; // segundos
 
@@ -80,6 +80,7 @@ export class Reverb {
     this.passoRampaPre = 1 / (0.02 * taxaAmostragem); // rampa de ~20 ms
     this.acordou = true; // primeira amostra depois de dormir (memória limpa)
     this.par = [0, 0]; // rascunho do Width
+    this.width = 1; // Width em uso (anda suave até o ajuste)
 
     this.ajustes = { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 };
     this.entrada = 0;
@@ -141,7 +142,7 @@ export class Reverb {
     const v = this.v;
     const atrasoPre = Math.round(Math.min(PRE_DELAY_MAXIMO, Math.max(0, a.predelay)) * this.taxa);
     const tamanhoPre = this.pre.length;
-    const width = Math.min(1, Math.max(0, a.width));
+    const alvoWidth = Math.min(1, Math.max(0, a.width));
     const par = this.par;
     let energia = 0;
 
@@ -202,8 +203,9 @@ export class Reverb {
       let molhadoE = (v[0] - v[2] + v[4] - v[6]) * ESCALA_SAIDA;
       let molhadoD = (v[1] - v[3] + v[5] - v[7]) * ESCALA_SAIDA;
       // Width da cauda (100% = como veio: nem calcula)
-      if (width < 1) {
-        aplicarWidth(molhadoE, molhadoD, width, par);
+      this.width = andarWidth(this.width, alvoWidth, s);
+      if (this.width < 1) {
+        aplicarWidth(molhadoE, molhadoD, this.width, par);
         molhadoE = par[0];
         molhadoD = par[1];
       }

@@ -47,6 +47,7 @@ const ARQUIVOS = [
   'dsp/efeitos/delay.js',
   'dsp/efeitos/distorcao.js',
   'dsp/efeitos/reverb.js',
+  'dsp/efeitos/modulaveis.js',
   'interface/abertura.js',
   'interface/armazem-wavetables.js',
   'interface/idioma.js',

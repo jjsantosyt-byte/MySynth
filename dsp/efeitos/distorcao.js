@@ -201,6 +201,11 @@ export class Distorcao {
     const cGrave = comLowCut ? coefPolo(a.lowcut, this.taxa) : 0;
     const comTom = a.tom < TOM_ABERTO;
     const cTom = comTom ? coefPolo(tomParaHz(a.tom), this.taxa) : 0;
+    // Low Cut desligado (20 Hz): a memória dele fica zerada, para ligar de novo sem tique
+    if (!comLowCut) {
+      this.graveE = 0;
+      this.graveD = 0;
+    }
 
     for (let i = 0; i < tamanhoBloco; i++) {
       this.seco += (alvoSeco - this.seco) * s;
@@ -234,6 +239,10 @@ export class Distorcao {
         this.tomD += (distD - this.tomD) * cTom;
         distE = this.tomE;
         distD = this.tomD;
+      } else {
+        // Tom aberto: a memória acompanha o som, para fechar o Tom de novo sem tique
+        this.tomE = distE;
+        this.tomD = distD;
       }
 
       // Som original atrasado na mesma medida

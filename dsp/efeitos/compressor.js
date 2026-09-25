@@ -39,6 +39,7 @@ export class Compressor {
     this.maiorReducao = 0; // maior redução desde a última leitura (para o medidor da tela)
     this.seco = 1;
     this.molhado = 0;
+    this.compensacao = null; // volume de compensação em uso (null = ainda não começou)
     this.suavizar = 1 - Math.exp(-1 / (0.01 * taxaAmostragem));
     this.dormindo = true;
   }
@@ -67,7 +68,10 @@ export class Compressor {
     const coefAtaque = 1 - Math.exp(-1 / (Math.max(0.0001, a.attack) * this.taxa));
     const coefSoltura = 1 - Math.exp(-1 / (Math.max(0.005, a.release) * this.taxa));
     // Compensação automática: metade do que um som em 0 dB perderia, + o Ganho escolhido
-    const compensacao = deDb(reducaoEstatica(0, threshold, ratio) * 0.5 + a.ganho);
+    // (anda suave, ~10 ms: girar/modular Threshold, Ratio ou Ganho não dá degrau no volume;
+    // ao acordar, já começa no valor certo)
+    const alvoCompensacao = deDb(reducaoEstatica(0, threshold, ratio) * 0.5 + a.ganho);
+    if (this.compensacao === null) this.compensacao = alvoCompensacao;
     const s = this.suavizar;
     let maior = this.maiorReducao;
 
@@ -83,7 +87,11 @@ export class Compressor {
       this.reducao += (alvo - this.reducao) * (alvo > this.reducao ? coefAtaque : coefSoltura);
       if (this.reducao > maior) maior = this.reducao;
 
-      const ganho = deDb(-this.reducao) * compensacao * this.molhado;
+      if (this.compensacao !== alvoCompensacao) {
+        this.compensacao += (alvoCompensacao - this.compensacao) * s;
+        if (Math.abs(this.compensacao - alvoCompensacao) < 1e-7) this.compensacao = alvoCompensacao;
+      }
+      const ganho = deDb(-this.reducao) * this.compensacao * this.molhado;
       saidaE[i] = e * this.seco + e * ganho;
       saidaD[i] = d * this.seco + d * ganho;
     }
@@ -95,6 +103,7 @@ export class Compressor {
       this.seco = 1;
       this.molhado = 0;
       this.reducao = 0;
+      this.compensacao = null;
     }
   }
 }

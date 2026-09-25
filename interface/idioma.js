@@ -219,6 +219,8 @@ const MODELOS = [
   [/^Quantidade: (.+) → (.+)$/, (m) => `Amount: ${m[1]} → ${parte(m[2])}`],
   [/^Remover ligação com (.+)$/, (m) => `Remove connection to ${parte(m[1])}`],
   [/^Nível ([ABC])$/, (m) => `Level ${m[1]}`],
+  // Knob de efeito na lista de ligações: "Distorção · Tom" → "Distortion · Tone"
+  [/^(Saturação|Distorção|Filtro Track|EQ|Compressor|Phaser|Flanger|Chorus|Delay|Reverb) · (.+)$/, (m) => `${parte(m[1])} · ${parte(m[2])}`],
   [/^Apagar o preset "(.+)"\? Isso não pode ser desfeito\.$/, (m) => `Delete the preset "${m[1]}"? This can't be undone.`],
   [/^Apagar a wavetable "(.+)" deste aparelho\? Presets que usam ela passam a abrir com a Básica\.$/, (m) => `Delete the wavetable "${m[1]}" from this device? Presets that use it will open with Basic.`],
   [/^Exportar (.+)$/, (m) => `Export ${m[1]}`],
