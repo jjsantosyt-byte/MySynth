@@ -3185,3 +3185,13 @@ h1 {
     min-height: 36px;
   }
 }
+
+/* N5) Botões de tipo dos efeitos no celular deitado: menos espaço interno, para nomes como
+   "Transist." caberem inteiros no cartão estreito */
+@media (orientation: landscape) and (max-height: 500px) {
+  .modulos-fx [id^='tipos-'] .botao {
+    padding-left: 1px;
+    padding-right: 1px;
+    letter-spacing: -0.01em;
+  }
+}
