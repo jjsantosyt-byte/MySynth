@@ -3063,3 +3063,37 @@ h1 {
     height: 24px;
   }
 }
+
+/* =====================================================================================
+   NORMALIZAÇÃO (25/09/2026): tudo com cara de sintetizador, nada com cara de "navegador".
+   ===================================================================================== */
+
+/* N1) Barras de rolagem finas e escuras (janelas, listas de ligações, abas que rolam) */
+/* (Firefox: regra padrão; Chrome/Safari: as de baixo — se o Chrome vir a padrão, ignora as de baixo e desenha setinhas) */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3a4152 transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3a4152;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--texto-suave);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
