@@ -21,6 +21,7 @@ import {
 } from './interface/knob.js';
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
+import { envelopeArrastavel } from './interface/envelope-arrastar.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
@@ -1455,6 +1456,31 @@ document.querySelectorAll('[data-knobs-env]').forEach((lugar) => {
   );
 });
 
+// Pontos para arrastar nos desenhos dos envelopes (ENV 1, 2 e 3). Os knobs acompanham.
+const acompanharKnobs = (lugar) => lugar.querySelectorAll('.knob').forEach((k) => k.sincronizar?.());
+envelopeArrastavel(telaEnvelope, {
+  ler: () => estado.parametros,
+  mudar: (nome, valor) => {
+    definirParametro(nome, valor);
+    acompanharKnobs(knobsEnvelope);
+  },
+  escalaTempo,
+  redesenhar: pedirDesenho,
+});
+document.querySelectorAll('[data-tela-env]').forEach((tela) => {
+  const id = tela.dataset.telaEnv;
+  const lugarKnobs = document.querySelector(`[data-knobs-env="${id}"]`);
+  envelopeArrastavel(tela, {
+    ler: () => estado.fontes[id],
+    mudar: (nome, valor) => {
+      definirFonte(id, nome, valor);
+      acompanharKnobs(lugarKnobs);
+    },
+    escalaTempo,
+    redesenhar: pedirDesenho,
+  });
+});
+
 // ---------- Ruído (aba OSC) ----------
 
 const botaoRuido = document.getElementById('ruido-ligado');
@@ -1852,7 +1878,7 @@ teclado.addEventListener('contextmenu', (evento) => evento.preventDefault());
 // que são segurados/arrastados desliga isso. Eles funcionam por "pointer events", que continuam
 // chegando normalmente. (Botões comuns ficam de fora: eles precisam do toque nativo para o clique;
 // a barra de volume também, porque é uma barra do próprio navegador.)
-const SEGURADOS = '#teclado, .knob, .tela-onda, .seletor-numero, .ficha';
+const SEGURADOS = '#teclado, .knob, .tela-onda, .seletor-numero, .ficha, .envelope-arrastavel';
 document.addEventListener(
   'touchstart',
   (evento) => {

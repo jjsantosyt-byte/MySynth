@@ -128,7 +128,18 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      azul. Aba escolhida: azul cheio com texto escuro. Knobs: arco fino (2,2) no raio 18 + 11
      marcas em volta (`MARCAS` no knob.js) + corpo redondo (`.knob-corpo`). Chaves On/Off
      (`.chave[aria-pressed]`): LED (`::before`) apagado cinza / aceso azul com brilho. Títulos
-     dos cartões iguais. 852×340, 852×393 e em pé sem cortes.
+     dos cartões iguais. 852×340, 852×393 e em pé sem cortes. APROVADO.
+   - V7 (25/09/2026, em teste; 2ª rodada de maquetes — tela da onda, fundo e teclado ficaram iguais):
+     - Fichas de modulação CHEIAS na cor da fonte, com o desenhinho da forma do LFO (muda junto
+       ao trocar a forma; `atualizarFichas`, `formaDe`) ou um ADSR nos ENVs; armada = vazada.
+       Arrastar puxa um CABO colorido da ficha até o dedo (`criarCabo`, svg `.cabo-mod`).
+     - Nome do preset num VISOR LCD azul (monoespaçado, maiúsculas): em cima categoria + número
+       ("BAIXO · 02/20", conta na ordem da lista), embaixo o nome e o "*". Deitado: 140 px.
+     - Envelopes (ENV 1, 2, 3) com PONTOS PARA ARRASTAR (interface/envelope-arrastar.js): pico =
+       Attack (para os lados), fim da queda = Decay (lados) + Sustain (cima/baixo), soltar =
+       Sustain, fim = Release. Para os lados como o knob (200 px = ponta a ponta); os knobs
+       acompanham. visualizacao.js guarda `canvas.geometriaEnvelope` e desenha as bolinhas
+       (a pega fica acesa em azul). Canvas com `touch-action: none` (sem vibração no Android).
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).
@@ -178,7 +189,7 @@ modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no
 - Tela: sem nenhuma ligação e com a aba LFO fechada, as mensagens ao vivo não redesenham nada
   (desenha 1 vez sem modulação ao tirar a última ligação: `telaSemAoVivo`).
 
-**LFO 3 + mais knobs moduláveis (25/09/2026) — feito, em teste:**
+**LFO 3 + mais knobs moduláveis (25/09/2026) — feito e APROVADO:**
 - LFO 3 (ficha amarela `--cor-lfo3`, 3º cartão na aba LFO). No motor, `FONTES_MOD` =
   ['lfo1','lfo2','env2','env3','lfo3'] (o LFO 3 no fim: índices antigos iguais); `INDICES_LFO`
   [0,1,4] e `INDICES_ENV` [2,3] dizem onde cada um fica em `valoresFontes`.

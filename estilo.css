@@ -2687,3 +2687,9 @@ h1 {
     min-width: 140px; /* o visor precisa de espaço para o nome (a barra de volume encolhe) */
   }
 }
+
+/* Desenho dos envelopes com pontos para arrastar: o dedo arrasta o ponto (não rola a página) */
+.envelope-arrastavel {
+  touch-action: none;
+  cursor: pointer;
+}

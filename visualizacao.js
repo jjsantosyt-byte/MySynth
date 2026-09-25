@@ -240,6 +240,36 @@ export function desenharEnvelope(canvas, env) {
     pontos.push([x3 + u * (x4 - x3), y(s * Math.pow(0.001, u))]);
   }
   linhaComBrilho(g, pontos, base, altura);
+
+  // Pontos para arrastar (interface/envelope-arrastar.js): posições guardadas no canvas
+  const geometria = {
+    base,
+    alto,
+    pontos: { pico: [x1, y(1)], queda: [x2, y(s)], soltar: [x3, y(s)], fim: [x4, y(0)] },
+  };
+  canvas.geometriaEnvelope = geometria;
+  if (canvas.classList.contains('envelope-arrastavel')) desenharAlcas(g, geometria.pontos, canvas.dataset.alcaAtiva);
+}
+
+// Bolinhas nos pontos do envelope: vazadas (contorno branco); a que está sendo arrastada
+// fica maior e acesa em azul.
+function desenharAlcas(g, pontos, ativa) {
+  for (const [nome, [x, y]] of Object.entries(pontos)) {
+    const acesa = nome === ativa;
+    g.save();
+    g.beginPath();
+    g.arc(x, y, acesa ? 6 : 4.5, 0, 2 * Math.PI);
+    g.fillStyle = acesa ? `rgb(${AZUL.join(', ')})` : '#0b0d12';
+    g.fill();
+    g.lineWidth = 1.5;
+    g.strokeStyle = acesa ? '#ffffff' : 'rgba(255, 255, 255, 0.85)';
+    if (acesa) {
+      g.shadowColor = `rgba(${AZUL.join(', ')}, 0.9)`;
+      g.shadowBlur = 10;
+    }
+    g.stroke();
+    g.restore();
+  }
 }
 
 // ---------- Curva do filtro ----------
