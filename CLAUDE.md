@@ -748,7 +748,7 @@ Botões comuns e a barra de volume (nativa) ficam de fora.
 
 **Teclado do computador — feito:**
 - Padrão FL Studio, pela posição da tecla (`evento.code`, funciona em ABNT e americano).
-  Desde 25/09/2026 (pedido do dono): Z X C V B N M (+ S D G H J) = a 1ª oitava da tela (Z = 1º C);
+  Desde 25/09/2026 (pedido do dono, testado e aprovado): Z X C V B N M (+ S D G H J) = a 1ª oitava da tela (Z = 1º C);
   Q W E R T Y U I O P [ ] (+ 2 3 5 6 7 9 0 =) = a oitava seguinte; ", L ." repetem C/C#/D da
   linha do Q. Nenhuma tecla toca abaixo do 1º C da tela. Botões de oitava mudam tudo junto.
 - Segurar não repete; Ctrl/Cmd/Alt e campos de texto são ignorados; perder o foco da
