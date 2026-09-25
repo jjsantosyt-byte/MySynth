@@ -570,6 +570,11 @@ modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no
 - Medido: Semi com LFO quadrado ±7 pula direto 659 ↔ 294 Hz (nada parado em 440); Fine com
   LFO ±50 = 427,5 a 452,9 Hz; Oct com ENV 2 começa uma oitava acima e volta; presets idênticos.
 
+**Android sem vibração ao segurar (25/09/2026) — em teste:** o Chrome vibrava no "toque longo"
+(nota segurada). principal.js cancela o `touchstart` (e o `contextmenu`) em `#teclado, .knob,
+.tela-onda, .seletor-numero, .ficha` (controles por pointer events, que continuam chegando).
+Botões comuns e a barra de volume (nativa) ficam de fora.
+
 **Soft clipper na saída, SEMPRE ligado (25/09/2026, pedido do dono) — em teste:**
 - `dsp/clipper.js`, último passo do motor: volume geral (agora parâmetro `volume` do motor, a-rate,
   = barra² × 0,5; o GainNode e o AnalyserNode da tela saíram) → clipper → alto-falante.
