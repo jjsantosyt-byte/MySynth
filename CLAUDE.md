@@ -84,6 +84,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 4. Depois: item 7 (o "DAW"): 7a Gravar .wav → 7b sequenciador (piano roll) → 7c gravar no
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
 
+**Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
+(nada mudado ainda; o dono decide o que entra). Destaques: Pre-delay do Reverb "ressuscita" som
+antigo; motor pode parar com dado inválido; acordes estouram sem limitador; Unison recalcula contas
+à toa (~1/3 do peso do oscilador); efeitos ligados gastam em silêncio.
+
 ## Ideias para o futuro (sem data)
 - Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais
   (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
