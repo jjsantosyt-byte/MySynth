@@ -85,8 +85,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
 
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
-(o dono decide o que entra). Destaques ainda abertos: acordes estouram sem limitador; efeitos
-ligados gastam em silêncio; iPhone pode voltar sem som depois de ligação.
+(o dono decide o que entra). Ainda abertos: acordes estouram sem limitador (decidir volume/limitador);
+wavetable grande copiada inteira a cada troca; service worker lento com internet ruim; Distorção/
+Saturação mais leves (polifásico); detalhes da tela (sombras, JSON nos knobs).
 **Consertos pequenos e seguros (25/09/2026) — feitos, em teste:**
 - Reverb: a memória do Pre-delay é gravada sempre (antes, com Pre-delay 0 ela parava e, ao subir
   de novo, o reverb recebia som antigo). Medido: fantasma 198 dB → nada; Pre-delay segue igual.
@@ -97,6 +98,25 @@ ligados gastam em silêncio; iPhone pode voltar sem som depois de ligação.
   Pan, tabela ou aceleração mudam (`ultimosAjustes`). Som idêntico (diferença 0 em 6 cenários:
   acorde, glide, LFO no Detune/Pan/Fine, FM, Unison mudando, Bend em C7). Peso: 8 notas × U8
   18,9% → 14,6%; 3 osc × U8 38,2% → 26,2%; 16 × U16 50,4% → 35,5%.
+**Revisão, 2ª rodada (25/09/2026) — feita, em teste:**
+- iPhone: `garantirSomRodando()` (principal.js) chama `resume()` sempre que o áudio não está
+  "running" (inclui "interrupted" do Safari): ao voltar para o app, ao tocar teclado/tecla do PC.
+  Falha ao ligar → `contexto.close()`.
+- Reverb: Pre-delay troca numa rampa de 20 ms (`preAtual`/`preNovo`, `lerPre`); começa sem rampa
+  depois de dormir (`acordou`). Pre-delay fixo = som idêntico; girando o knob: tique 16× menor.
+- Voz: `Envelope.definir` não refaz contas se nada mudou; ENV 2/3 sem ligação andam o pedaço de uma
+  vez (`Envelope.avancar`, `matriz.usaFonte`); sem filtro ativo nas rotas, a voz pula o caminho do
+  filtro; o 2º estágio (LP 24) só roda no LP 24 (`Filtro.estagio2`; volta "carregado" com o LP atual).
+  Som idêntico em 6 cenários (troca LP24→LP12→LP24 com nota: -63 dB, mesma suavidade). Peso 8 notas:
+  U1 sem filtro 10,4% → 7,7%; LP 12 14,3% → 12,6%; U8 14,3% → 11,8%.
+- Efeitos parados no silêncio (processador): `cadeiaEfeitos` + `picoDoBloco`; entrada e saída abaixo
+  de -120 dB por mais de 2,5 s (maior que o Delay de 2 s) → o efeito nem é chamado até chegar som;
+  Phaser/Flanger/Chorus têm `pular()` (o LFO continua andando). Som igual (-138 dB) inclusive ecos
+  depois do silêncio; parado com os 9 ligados: 16,4% → ~2–4%.
+- App no fundo: `visibilitychange` → `contexto.suspend()`; voltar → resume. O medidor de estouro não
+  lê com o app escondido.
+- Tela: sem nenhuma ligação e com a aba LFO fechada, as mensagens ao vivo não redesenham nada
+  (desenha 1 vez sem modulação ao tirar a última ligação: `telaSemAoVivo`).
 
 ## Ideias para o futuro (sem data)
 - Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais

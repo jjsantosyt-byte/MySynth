@@ -57,6 +57,8 @@ const telaEnvelope = document.getElementById('tela-envelope');
 const botaoLegato = document.getElementById('legato');
 const knobsEnvelope = document.getElementById('knobs-envelope');
 const modoVoz = document.getElementById('modo-voz');
+const painelLfo = document.querySelector('[data-painel="lfo"]');
+let telaSemAoVivo = false; // true = a tela já foi desenhada sem modulação (ver onmessage)
 const lugarSeletorVozes = document.getElementById('seletor-vozes');
 
 // Os 3 osciladores. Os controles do A não têm letra (wtPos, unison...), para os presets
@@ -339,6 +341,20 @@ async function ligarSom() {
         return;
       }
       if (evento.data.tipo !== 'aoVivo') return;
+      // Sem nenhuma ligação, nada na tela muda com os valores ao vivo (a modulação é zero):
+      // só redesenha se a aba LFO estiver aberta (o pontinho andando no desenho do LFO).
+      // Economiza o processador do celular enquanto se toca. (Desenha uma última vez sem
+      // modulação, para nada ficar parado numa posição antiga ao tirar a última ligação.)
+      if (estado.ligacoes.length === 0 && painelLfo.hidden) {
+        estado.aoVivo = { mod: null, lfos: evento.data.lfos };
+        if (!telaSemAoVivo) {
+          telaSemAoVivo = true;
+          telaModulacao.atualizarAoVivo(null);
+          pedirDesenho();
+        }
+        return;
+      }
+      telaSemAoVivo = false;
       estado.aoVivo = evento.data;
       telaModulacao.atualizarAoVivo(evento.data.mod);
       pedirDesenho();
