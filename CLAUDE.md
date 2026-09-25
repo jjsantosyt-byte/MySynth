@@ -85,9 +85,18 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
 
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
-(nada mudado ainda; o dono decide o que entra). Destaques: Pre-delay do Reverb "ressuscita" som
-antigo; motor pode parar com dado inválido; acordes estouram sem limitador; Unison recalcula contas
-à toa (~1/3 do peso do oscilador); efeitos ligados gastam em silêncio.
+(o dono decide o que entra). Destaques ainda abertos: acordes estouram sem limitador; efeitos
+ligados gastam em silêncio; iPhone pode voltar sem som depois de ligação.
+**Consertos pequenos e seguros (25/09/2026) — feitos, em teste:**
+- Reverb: a memória do Pre-delay é gravada sempre (antes, com Pre-delay 0 ela parava e, ao subir
+  de novo, o reverb recebia som antigo). Medido: fantasma 198 dB → nada; Pre-delay segue igual.
+- Motor tolerante: `ruidoTipo` desconhecido vira White; Unison/Vozes arredondados. Tela:
+  `synth.onprocessorerror` → aviso "O motor de som parou por um erro. Recarregue o app..." e o
+  botão vira "Som parado". Medido: tipo inválido toca White; erro forçado dispara o aviso.
+- Unison: `OsciladorVoz.ajustarCopias` só refaz as contas quando frequência, Unison, Detune, Width,
+  Pan, tabela ou aceleração mudam (`ultimosAjustes`). Som idêntico (diferença 0 em 6 cenários:
+  acorde, glide, LFO no Detune/Pan/Fine, FM, Unison mudando, Bend em C7). Peso: 8 notas × U8
+  18,9% → 14,6%; 3 osc × U8 38,2% → 26,2%; 16 × U16 50,4% → 35,5%.
 
 ## Ideias para o futuro (sem data)
 - Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais

@@ -91,6 +91,8 @@ export class OsciladorVoz {
 
     this.suavizar = 1 - Math.exp(-1 / (0.005 * taxaAmostragem));
     this.escolha = { nivel: 0, nivelB: 0, mistura: 0 };
+    // Últimos valores usados em ajustarCopias (se nada mudar, as contas não são refeitas)
+    this.ultimosAjustes = { frequencia: -1, unison: 0, detune: 0, width: 0, pan: 0, tabela: null, aceleracao: 0 };
   }
 
   // Nota começando do silêncio: ponto de início de cada cópia na onda.
@@ -123,6 +125,28 @@ export class OsciladorVoz {
   // aceleracao: a versão da onda (com mais ou menos agudos) é escolhida como se a nota
   // fosse "aceleracao" vezes mais aguda (usado pelo Warp; 1 = normal).
   ajustarCopias(frequencia, unison, detune, width, pan, tabela, aceleracao = 1) {
+    // Nada mudou desde o pedaço anterior (o caso comum: nota parada, sem modulação)?
+    // Então as contas dariam exatamente o mesmo resultado: pula. (~1/3 do peso do oscilador)
+    const u = this.ultimosAjustes;
+    if (
+      u.frequencia === frequencia &&
+      u.unison === unison &&
+      u.detune === detune &&
+      u.width === width &&
+      u.pan === pan &&
+      u.tabela === tabela &&
+      u.aceleracao === aceleracao
+    ) {
+      return;
+    }
+    u.frequencia = frequencia;
+    u.unison = unison;
+    u.detune = detune;
+    u.width = width;
+    u.pan = pan;
+    u.tabela = tabela;
+    u.aceleracao = aceleracao;
+
     for (let c = 0; c < unison; c++) {
       // Posição da cópia de -1 (ponta de baixo/esquerda) a +1 (ponta de cima/direita).
       const posicao = unison === 1 ? 0 : (c / (unison - 1)) * 2 - 1;
