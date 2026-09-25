@@ -2785,3 +2785,97 @@ h1 {
     margin-top: -3px;
   }
 }
+
+/* Seletor de número: número na caixinha + setas ▲ ▼ empilhadas à direita (estilo rack) */
+.seletor-controle {
+  align-items: stretch;
+  min-height: 40px;
+}
+
+.seletor-controle .seletor-numero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 0 6px;
+}
+
+.seletor-setas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 3px 3px 0;
+}
+
+.seletor-setas .seletor-botao {
+  --c: 3px;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  background: var(--botao);
+  color: var(--texto);
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+
+.seletor-setas .seletor-botao:active:not(:disabled) {
+  background: var(--botao-apertado);
+}
+
+.seletor-setas svg {
+  width: 11px;
+  height: 7px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.linha-afinacao .seletor-setas .seletor-botao {
+  width: 22px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .seletor-controle {
+    min-height: 30px;
+  }
+  .seletor-setas {
+    gap: 1px;
+    padding: 2px 2px 2px 0;
+  }
+  .seletor-setas .seletor-botao {
+    width: 24px;
+  }
+  /* Afinação compacta (Oct/Semi/Fine): só o número (arrastar; toque duplo = 0) */
+  .linha-afinacao .seletor-setas {
+    display: none;
+  }
+  .linha-afinacao .seletor-controle {
+    min-height: 0;
+  }
+}
+
+/* Fichas nunca quebram o nome em 2 linhas; em telas estreitas o desenhinho encolhe */
+.ficha {
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+@media (max-width: 500px) {
+  .ficha {
+    gap: 3px;
+    font-size: 12px;
+  }
+  .ficha-forma {
+    width: 15px;
+    height: 9px;
+  }
+}

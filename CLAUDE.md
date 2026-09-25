@@ -140,6 +140,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
        Sustain, fim = Release. Para os lados como o knob (200 px = ponta a ponta); os knobs
        acompanham. visualizacao.js guarda `canvas.geometriaEnvelope` e desenha as bolinhas
        (a pega fica acesa em azul). Canvas com `touch-action: none` (sem vibração no Android).
+     V7 testado pelo dono.
+   - V8 (25/09/2026, em teste; 3ª rodada — cartão desligado, recados e curva do filtro iguais):
+     - Abas com ÍCONE em cima do nome (svg `.aba-icone` no index.html; deitado 17 px + texto 10 px).
+     - Quantidade das ligações: barra "do meio para os lados" na cor da fonte (`.barra-quantidade`,
+       input range com desenho próprio; `--ini`/`--fim` vindos do JS; traço fino no zero).
+     - Seletor de número: número + setas ▲ ▼ EMPILHADAS à direita (estilo rack; `.seletor-setas`).
+       Deitado, Oct/Semi/Fine continuam só com o número (arrastar; toque duplo = 0).
+     - Fichas: nome nunca quebra em 2 linhas (em pé, desenhinho menor).
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

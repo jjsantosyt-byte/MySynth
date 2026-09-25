@@ -1,8 +1,9 @@
 // interface/seletor.js
-// Caixinha de número inteiro com botões ‹ e › (ex.: Unison, número de vozes).
+// Caixinha de número inteiro com setas ▲ ▼ empilhadas ao lado (ex.: Unison, número de vozes),
+// estilo aparelho de rack.
 //
 // Como usar na tela:
-// - Tocar em ‹ ou › diminui/aumenta 1.
+// - Tocar em ▲ ou ▼ aumenta/diminui 1.
 // - Arrastar para cima/baixo em cima do número muda mais rápido.
 
 const PIXELS_POR_PASSO = 16;
@@ -32,15 +33,22 @@ export function criarSeletor({
   elemento.className = 'seletor' + (rotuloAoLado ? ' seletor-linha' : '');
   elemento.innerHTML = `
     <div class="seletor-controle">
-      <button class="seletor-botao" aria-label="${rotulo}: menos">‹</button>
       <span class="seletor-numero" role="spinbutton" tabindex="0"
         aria-label="${rotulo}" aria-valuemin="${min}" aria-valuemax="${max}"></span>
-      <button class="seletor-botao" aria-label="${rotulo}: mais">›</button>
+      <div class="seletor-setas">
+        <button class="seletor-botao seletor-mais" aria-label="${rotulo}: mais">
+          <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M2 6.5L6 2.5L10 6.5" /></svg>
+        </button>
+        <button class="seletor-botao seletor-menos" aria-label="${rotulo}: menos">
+          <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M2 1.5L6 5.5L10 1.5" /></svg>
+        </button>
+      </div>
     </div>
     <span class="seletor-rotulo">${rotulo}</span>`;
   if (rotuloAoLado) elemento.prepend(elemento.querySelector('.seletor-rotulo'));
 
-  const [botaoMenos, botaoMais] = elemento.querySelectorAll('.seletor-botao');
+  const botaoMenos = elemento.querySelector('.seletor-menos');
+  const botaoMais = elemento.querySelector('.seletor-mais');
   const numero = elemento.querySelector('.seletor-numero');
   const controle = elemento.querySelector('.seletor-controle');
   let valor = padrao;
