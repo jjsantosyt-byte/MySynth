@@ -2693,3 +2693,38 @@ h1 {
   touch-action: none;
   cursor: pointer;
 }
+
+/* ---------- Escolhas visuais de 25/09/2026 (3ª rodada) ---------- */
+
+/* Abas com ícone em cima do nome */
+.aba {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  line-height: 1;
+}
+
+.aba-icone {
+  width: 22px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .aba {
+    gap: 2px;
+    font-size: 10px;
+  }
+  .aba-icone {
+    width: 17px;
+    height: 10px;
+  }
+}

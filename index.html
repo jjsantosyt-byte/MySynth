@@ -101,12 +101,25 @@
       <div id="linha-abas" class="linha-abas">
         <!-- Abas: cada uma com uma função só -->
         <nav class="abas" role="tablist">
-          <button class="aba ativa" role="tab" aria-selected="true" data-aba="osc">OSC</button>
-          <button class="aba" role="tab" aria-selected="false" data-aba="filtro">Filtro</button>
-          <button class="aba" role="tab" aria-selected="false" data-aba="env">ENV</button>
-          <button class="aba" role="tab" aria-selected="false" data-aba="lfo">LFO</button>
-          <button class="aba" role="tab" aria-selected="false" data-aba="fx">FX</button>
-          <button class="aba" role="tab" aria-selected="false" data-aba="global">Global</button>
+          <!-- Cada aba: desenhinho (ícone) em cima do nome -->
+          <button class="aba ativa" role="tab" aria-selected="true" data-aba="osc">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 7C4 0 7 0 8 7S11 14 13 7 16 0 18 7 21 14 22 7" /></svg><span>OSC</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="filtro">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 6H12Q15 6 16 2Q17 6 19 10L22 13" /></svg><span>Filtro</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="env">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 13L6 2L10 7H16L22 13" /></svg><span>ENV</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="lfo">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 7L5 2L11 12L17 2L22 10" /></svg><span>LFO</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="fx">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M4 1V13M10 4V13M16 7V13M21 10V13" /></svg><span>FX</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="global">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><circle cx="12" cy="7" r="3.5" /><path d="M12 0.5V2.5M12 11.5V13.5M5.5 7H7.5M16.5 7H18.5M7.4 2.4L8.8 3.8M15.2 10.2L16.6 11.6M7.4 11.6L8.8 10.2M15.2 3.8L16.6 2.4" /></svg><span>Global</span>
+          </button>
         </nav>
 
         <!-- Fontes de modulação (sempre visíveis): arraste uma ficha até um controle,
