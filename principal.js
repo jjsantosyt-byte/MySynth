@@ -1765,6 +1765,23 @@ teclado.addEventListener('pointercancel', soltarDedo);
 teclado.addEventListener('lostpointercapture', soltarDedo);
 teclado.addEventListener('contextmenu', (evento) => evento.preventDefault());
 
+// Android: segurar o dedo parado (ex.: uma nota longa) faz o Chrome entender "toque longo" e
+// VIBRAR (antes de tentar abrir menu/seleção). Cancelar o gesto de toque nativo nos controles
+// que são segurados/arrastados desliga isso. Eles funcionam por "pointer events", que continuam
+// chegando normalmente. (Botões comuns ficam de fora: eles precisam do toque nativo para o clique;
+// a barra de volume também, porque é uma barra do próprio navegador.)
+const SEGURADOS = '#teclado, .knob, .tela-onda, .seletor-numero, .ficha';
+document.addEventListener(
+  'touchstart',
+  (evento) => {
+    if (evento.target.closest?.(SEGURADOS)) evento.preventDefault();
+  },
+  { passive: false }
+);
+document.addEventListener('contextmenu', (evento) => {
+  if (evento.target.closest?.(SEGURADOS)) evento.preventDefault();
+});
+
 // ---------- Botões ----------
 
 botaoLigar.addEventListener('click', ligarSom);
