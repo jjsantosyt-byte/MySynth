@@ -3148,3 +3148,40 @@ h1 {
 .botao-perigo:active {
   background: #6f2222;
 }
+
+/* N4) Categoria ao salvar: botões (4 por linha) no lugar da lista do sistema */
+.categorias-salvar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.categorias-salvar .botao {
+  min-height: 36px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+/* Campo de texto (nome do preset): sem o contorno azul do navegador; foco = borda azul */
+.campo {
+  outline: none;
+  font-family: inherit;
+}
+
+.campo:focus {
+  border-color: var(--destaque);
+}
+
+.campo::placeholder {
+  color: var(--texto-suave);
+  opacity: 0.7;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .categorias-salvar .botao {
+    min-height: 30px;
+  }
+  .campo {
+    min-height: 36px;
+  }
+}

@@ -285,16 +285,25 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   campoNome.type = 'text';
   campoNome.maxLength = TAMANHO_MAXIMO_NOME;
   campoNome.placeholder = 'Nome do preset';
-  const campoCategoria = criar('select', 'campo');
+  // Categoria: botões dentro da janela (no lugar da lista do sistema, que no celular abria
+  // a tela do próprio sistema). O valor fica fixo em português; o texto aparece traduzido.
+  let categoriaEscolhida = 'Outros';
+  const botoesCategoria = criar('div', 'grupo-botoes categorias-salvar');
   for (const categoria of categorias.filter((c) => c !== 'Início')) {
-    const opcao = criar('option', '', categoria);
-    opcao.value = categoria; // o valor fica fixo (o texto pode aparecer traduzido)
-    campoCategoria.appendChild(opcao);
+    const b = criar('button', 'botao', categoria);
+    b.type = 'button';
+    b.dataset.categoria = categoria;
+    b.addEventListener('click', () => escolherCategoria(categoria));
+    botoesCategoria.appendChild(b);
+  }
+  function escolherCategoria(categoria) {
+    categoriaEscolhida = categoria;
+    for (const b of botoesCategoria.children) b.classList.toggle('escolhido', b.dataset.categoria === categoria);
   }
   const rotuloNome = criar('label', 'campo-rotulo', 'Nome');
   rotuloNome.appendChild(campoNome);
-  const rotuloCategoria = criar('label', 'campo-rotulo', 'Categoria');
-  rotuloCategoria.appendChild(campoCategoria);
+  const rotuloCategoria = criar('div', 'campo-rotulo', 'Categoria');
+  rotuloCategoria.appendChild(botoesCategoria);
   janelaSalvar.corpo.append(rotuloNome, rotuloCategoria);
   const botaoCancelar = criar('button', 'botao', 'Cancelar');
   const botaoConfirmar = criar('button', 'botao botao-destaque', 'Salvar');
@@ -311,8 +320,9 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
 
   botaoSalvar.addEventListener('click', () => {
     campoNome.value = atual && !atual.fabrica ? atual.nome : '';
-    campoCategoria.value =
-      atual && categorias.includes(atual.categoria) && atual.categoria !== 'Início' ? atual.categoria : 'Outros';
+    escolherCategoria(
+      atual && categorias.includes(atual.categoria) && atual.categoria !== 'Início' ? atual.categoria : 'Outros'
+    );
     conferirNome();
     janelaSalvar.abrir();
     campoNome.focus();
@@ -329,7 +339,7 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
       janelaSalvar.avisar('Esse nome é de um preset que vem com o app. Escolha outro.');
       return;
     }
-    const preset = { nome, categoria: campoCategoria.value, som: obterSom() };
+    const preset = { nome, categoria: categoriaEscolhida, som: obterSom() };
     const novos = [...guardados.filter((p) => p.nome !== nome), preset];
     if (!gravarGuardados(novos)) {
       janelaSalvar.avisar('Não consegui salvar: o navegador não deixou gravar neste aparelho.');
