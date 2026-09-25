@@ -1,7 +1,7 @@
 // principal.js
 // Liga o som, desenha o teclado e transforma os toques na tela em notas.
 
-import { listaWavetables, obterWavetable, existeWavetable } from './wavetable.js';
+import { listaWavetables, obterWavetable, existeWavetable, esquecerMontada } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
@@ -331,7 +331,8 @@ async function ligarSom() {
     // Se o som passar de 0 dB, ele distorce — o aviso na tela conta quando isso acontece.
     synth.connect(ganho).connect(contexto.destination);
 
-    // Envia uma cópia da wavetable de cada oscilador para o motor de som.
+    // Envia uma cópia da wavetable de cada oscilador para o motor de som (motor novo: vazio).
+    tabelasNoMotor.clear();
     for (const osc of OSCILADORES) enviarWavetable(osc, synth);
 
     // Valores ao vivo vindos do motor: atualizam os pontinhos e os desenhos.
@@ -574,19 +575,51 @@ const telasOnda = document.querySelectorAll('[data-tela-onda]');
 // Cada cartão tem: ‹ wavetable ›, On/Off, desenho da onda, WT Pos, rota de filtro,
 // atalhos e os knobs Unison, Detune, Width e Nível.
 
+// Tabelas que o motor já recebeu (id → a tabela montada). O motor guarda as que recebe: a
+// tabela inteira (uma importada grande tem ~9 MB) só vai na primeira vez; depois, só o id.
+// Zera quando o motor é criado (ligarSom).
+const tabelasNoMotor = new Map();
+
 function enviarWavetable(osc, synth = estado.synth) {
-  synth?.port.postMessage({ tipo: 'wavetable', osc: osc.letra, wavetable: osc.wavetable });
+  if (!synth) return;
+  const tabela = osc.wavetable;
+  const jaTem = tabelasNoMotor.get(tabela.id) === tabela;
+  synth.port.postMessage({ tipo: 'wavetable', osc: osc.letra, id: tabela.id, wavetable: jaTem ? null : tabela });
+  tabelasNoMotor.set(tabela.id, tabela);
+}
+
+// Importadas que nenhum oscilador usa mais: o motor e a tela esquecem (libera memória no
+// celular). Se forem escolhidas de novo, são montadas e enviadas outra vez.
+function esquecerWavetablesForaDeUso() {
+  const emUso = (id) => OSCILADORES.some((o) => o.wavetable.id === id);
+  for (const [id, tabela] of tabelasNoMotor) {
+    if (tabela.importada && !emUso(id)) {
+      tabelasNoMotor.delete(id);
+      estado.synth?.port.postMessage({ tipo: 'esquecerWavetable', id });
+    }
+  }
+  for (const { id } of listaWavetables()) if (!emUso(id)) esquecerMontada(id);
 }
 
 // Troca a wavetable de um oscilador: monta (se preciso), manda para o motor e ajusta a tela.
 // Importada que não está neste aparelho (apagada, ou preset vindo de outro aparelho) → Básica.
+// Passando rápido pelas setas ‹ ›: o desenho troca na hora, mas o motor só recebe a última
+// (~0,1 s depois de parar), em vez de cada uma das tabelas pelo caminho.
 function trocarWavetable(osc, id) {
   if (!existeWavetable(id)) {
     mostrarRecado(`A wavetable "${String(id).replace(/^wav:/, '')}" não está neste aparelho: usando a Básica.`, 6);
   }
   osc.wavetable = obterWavetable(id);
   estado.opcoes[osc.nomes.wavetable] = osc.wavetable.id;
-  enviarWavetable(osc);
+  const agora = performance.now();
+  clearTimeout(osc.esperaEnvio);
+  const mandar = () => {
+    enviarWavetable(osc);
+    esquecerWavetablesForaDeUso();
+  };
+  if (agora - (osc.ultimaTroca ?? -Infinity) < 300) osc.esperaEnvio = setTimeout(mandar, 120);
+  else mandar();
+  osc.ultimaTroca = agora;
   osc.aoTrocarWavetable?.();
   pedirDesenho();
 }

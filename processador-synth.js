@@ -144,7 +144,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         warp: 0, // quantidade do Warp (0 a 1)
       },
     }));
-    this.comum = { oscs: this.oscs.map((o) => o.ajustes) }; // dados do bloco, compartilhados por todas as vozes
+    this.comum = { oscs: this.oscs.map((o) => o.ajustes) };
+    this.tabelas = new Map(); // wavetables recebidas da tela (id → tabela) // dados do bloco, compartilhados por todas as vozes
 
     // Opções (a página manda os valores escolhidos logo ao ligar)
     this.modo = 'poly';
@@ -224,13 +225,23 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     switch (msg.tipo) {
       case 'wavetable': {
         // Qual oscilador: 'A' (padrão), 'B' ou 'C'.
+        // A tela manda a tabela inteira só na primeira vez (uma importada grande tem ~9 MB);
+        // depois, só o id: o motor guarda as que recebeu (this.tabelas).
+        if (msg.wavetable) this.tabelas.set(msg.id ?? msg.wavetable.id, msg.wavetable);
+        const tabela = this.tabelas.get(msg.id ?? msg.wavetable?.id);
+        if (!tabela) break;
         // Primeira tabela: entra direto. Trocas depois: passam por um "abaixa e sobe"
         // rápido só naquele oscilador (sem estalo), feito no process().
         const osc = this.oscs[{ B: 1, C: 2 }[msg.osc] || 0];
-        if (!osc.ajustes.tabela) osc.ajustes.tabela = msg.wavetable;
-        else osc.tabelaNova = msg.wavetable;
+        if (!osc.ajustes.tabela) osc.ajustes.tabela = tabela;
+        else osc.tabelaNova = tabela;
         break;
       }
+      case 'esquecerWavetable':
+        // A tela não usa mais esta tabela (libera memória; se um oscilador ainda estiver
+        // tocando com ela, ele continua até trocar)
+        this.tabelas.delete(msg.id);
+        break;
       case 'notaOn':
         if (this.modo === 'mono') this.notaOnMono(msg.nota);
         else this.notaOnPoly(msg.nota);

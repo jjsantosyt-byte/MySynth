@@ -379,3 +379,10 @@ export function removerImportada(id) {
 }
 
 export const existeWavetable = (id) => listaWavetables().some((w) => w.id === id);
+
+// Esquece a versão MONTADA de uma importada (ela ocupa até ~9 MB): usada quando nenhum
+// oscilador a usa mais. A receita continua no catálogo; se for escolhida de novo, é montada
+// outra vez. As de fábrica (pequenas) ficam sempre montadas.
+export function esquecerMontada(id) {
+  if (IMPORTADAS.some((w) => w.id === id)) prontas.delete(id);
+}
