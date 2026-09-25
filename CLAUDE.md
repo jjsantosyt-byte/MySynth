@@ -115,6 +115,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      <select> de categoria tem `value` fixo. Testado: nenhum texto em português sobrando (fora a
      tela de idioma, bilíngue), recados, dica e lista de modulação, nome da onda, salvar preset
      em inglês guarda a categoria certa, trocar idioma recarrega.
+   - V5 (25/09/2026, em teste): SEM cantos arredondados: cantos cortados em 45° (chanfro) em
+     cartões, janelas, menu, botões, chaves, fichas, telas, seletores, abas e teclas (só embaixo).
+     Bloco no fim do estilo.css: `border-radius: 0 !important`; `clip-path` de 8 pontas com o
+     tamanho `--c` (10 px cartões/janelas, 6 px botões, 4 px pequenos; menor no celular deitado);
+     nos que tinham borda, a borda fica transparente e um `::after` desenha o contorno de 1 px
+     que acompanha a diagonal (polígono "evenodd", cor `--contorno`). Círculos (bolinhas, pontos
+     ao vivo, knobs) continuam redondos. Obs.: clip-path corta sombras (o menu da logo perdeu a
+     sombra). Novo elemento com canto/borda: incluir nas listas desse bloco.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

@@ -2368,3 +2368,122 @@ h1 {
     font-size: 13px;
   }
 }
+
+/* =====================================================================================
+   CANTOS EM 45° (chanfrados) no lugar dos arredondados — identidade visual do app.
+   - Os cantos são cortados com clip-path (um polígono de 8 pontas). O tamanho do corte é
+     --c (maior nos cartões e janelas, menor nos botões).
+   - Onde havia borda, o corte também cortaria a linha da borda na diagonal. Por isso a borda
+     fica transparente e o contorno é desenhado por uma camada fina por cima (::after), com o
+     MESMO polígono menos o de dentro (1 px): a linha acompanha a diagonal. A cor do contorno
+     é --contorno.
+   - Círculos de verdade (bolinhas, pontos ao vivo, os knobs em si) continuam redondos.
+   ===================================================================================== */
+
+/* 1) Nenhum canto arredondado (também vence as regras do celular deitado) */
+.botao, .aviso, .presets-nome, .janela, .janela-fechar, .presets-item, .presets-apagar, .campo,
+.abas, .aba, .ficha, [data-destino], .knob, .linha-mod, .linha-mod-remover, .seletor-controle,
+.seletor-numero:focus-visible, .cartao, .chave, .tela-grafico, .nome-onda, .seletor-wt, .recado,
+.tecla, .dica-modulacao, .botao-pagina, .medidor-trilho, .grupo-volume .volume-trilho input,
+.carregando-trilho, .carregando-barra, .idioma-botao, .menu-logo, .menu-item, .menu-em-breve,
+.atalhos-wt .botao, .faixas-barra .faixa {
+  border-radius: 0 !important;
+}
+
+/* 2) Tamanho do corte de cada grupo */
+.cartao, .janela, .menu-logo, .idioma-botao, .abas {
+  --c: 10px;
+}
+.botao, .presets-nome, .campo, .ficha, .seletor-controle, .chave, .tela-grafico, .seletor-wt,
+.recado, .aviso, .dica-modulacao, .botao-pagina, .janela-fechar, .presets-item, .presets-apagar,
+.linha-mod-remover {
+  --c: 6px;
+}
+.aba, .menu-item, .nome-onda, .menu-em-breve, .atalhos-wt .botao, .linha-mod {
+  --c: 4px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao, .janela, .menu-logo, .abas {
+    --c: 8px;
+  }
+  .botao, .presets-nome, .chave, .ficha, .seletor-controle, .seletor-wt, .tela-grafico, .botao-pagina {
+    --c: 5px;
+  }
+}
+
+/* 3) O corte (8 pontas) */
+.cartao, .janela, .menu-logo, .idioma-botao, .abas, .botao, .presets-nome, .campo, .ficha,
+.seletor-controle, .chave, .tela-grafico, .seletor-wt, .recado, .aviso, .dica-modulacao,
+.botao-pagina, .janela-fechar, .presets-item, .presets-apagar, .linha-mod-remover, .aba,
+.menu-item, .nome-onda, .menu-em-breve, .linha-mod {
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+
+/* 4) Contorno que acompanha a diagonal (nos que tinham borda) */
+.cartao, .janela, .presets-nome, .seletor-controle, .chave, .tela-grafico, .seletor-wt,
+.botao-pagina, .idioma-botao, .ficha:not(.ficha-fantasma) {
+  position: relative; /* referência para a camada do contorno */
+}
+.cartao, .janela, .menu-logo, .idioma-botao, .presets-nome, .ficha, .seletor-controle, .chave,
+.tela-grafico, .seletor-wt, .recado, .dica-modulacao, .botao-pagina {
+  --contorno: var(--cartao-borda);
+  border-color: transparent !important;
+}
+.presets-nome, .seletor-controle, .tela-grafico, .seletor-wt, .chave.rota {
+  --contorno: var(--tela-onda-borda);
+}
+.ficha {
+  --contorno: var(--cor);
+}
+.recado,
+.chave[aria-pressed='true'],
+.botao-pagina[aria-pressed='true'],
+.idioma-botao:active {
+  --contorno: var(--destaque);
+}
+.dica-modulacao {
+  --contorno: var(--cor-ligando);
+}
+.cartao::after, .janela::after, .menu-logo::after, .idioma-botao::after, .presets-nome::after,
+.ficha::after, .seletor-controle::after, .chave::after, .tela-grafico::after, .seletor-wt::after,
+.recado::after, .dica-modulacao::after, .botao-pagina::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: var(--contorno);
+  /* anel de 1 px: o polígono de fora menos o de dentro (regra "evenodd") */
+  --d: calc(var(--c) - 0.41px); /* corte do polígono de dentro (a linha fica com 1 px na diagonal) */
+  clip-path: polygon(
+    evenodd,
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c),
+    var(--c) 0,
+    calc(1px + var(--d)) 1px, calc(100% - 1px - var(--d)) 1px, calc(100% - 1px) calc(1px + var(--d)),
+    calc(100% - 1px) calc(100% - 1px - var(--d)), calc(100% - 1px - var(--d)) calc(100% - 1px),
+    calc(1px + var(--d)) calc(100% - 1px), 1px calc(100% - 1px - var(--d)), 1px calc(1px + var(--d)),
+    calc(1px + var(--d)) 1px
+  );
+}
+
+/* 5) Teclas: corte só nos cantos de baixo (a borda delas é da cor do fundo: o corte já mostra o
+   fundo, então a separação continua certinha) */
+.tecla {
+  --c: 7px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+.tecla.preta {
+  --c: 5px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .tecla {
+    --c: 5px;
+  }
+  .tecla.preta {
+    --c: 4px;
+  }
+}
