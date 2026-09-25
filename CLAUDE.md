@@ -141,24 +141,24 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
        acompanham. visualizacao.js guarda `canvas.geometriaEnvelope` e desenha as bolinhas
        (a pega fica acesa em azul). Canvas com `touch-action: none` (sem vibração no Android).
      V7 testado pelo dono.
-   - V8 (25/09/2026, em teste; 3ª rodada — cartão desligado, recados e curva do filtro iguais):
+   - V8 (25/09/2026, APROVADO; 3ª rodada — cartão desligado, recados e curva do filtro iguais):
      - Abas com ÍCONE em cima do nome (svg `.aba-icone` no index.html; deitado 17 px + texto 10 px).
      - Quantidade das ligações: barra "do meio para os lados" na cor da fonte (`.barra-quantidade`,
        input range com desenho próprio; `--ini`/`--fim` vindos do JS; traço fino no zero).
      - Seletor de número: número + setas ▲ ▼ EMPILHADAS à direita (estilo rack; `.seletor-setas`).
        Deitado, Oct/Semi/Fine continuam só com o número (arrastar; toque duplo = 0).
      - Fichas: nome nunca quebra em 2 linhas (em pé, desenhinho menor).
-   - V9 (25/09/2026, em teste; 4ª rodada — Ligar som, oitava, número dos knobs e páginas FX iguais):
+   - V9 (25/09/2026, APROVADO; 4ª rodada — Ligar som, oitava, número dos knobs e páginas FX iguais):
      - Botões de tipo de FILTRO (Filtros 1/2 e Filtro Track) com o DESENHO DA CURVA no lugar do
        texto (`CURVAS_FILTRO`, `botaoComCurva`; nome no aria-label/title). Distorção/Saturação: texto.
      - Barra do WT Pos com desenho próprio: trilho escuro, preenchimento verde até a posição,
        marquinha em cada frame (`--passo`; sem marcas acima de 24 frames) e marcador em SETA
        (`pintarWTPos` no principal.js).
-   - V10 (25/09/2026, em teste; 5ª rodada — janelas, ligar modulação, etiqueta da onda, carregamento
+   - V10 (25/09/2026, APROVADO; 5ª rodada — janelas, ligar modulação, etiqueta da onda, carregamento
      e marcas de modulação iguais): menu da logo virou PAINEL LATERAL (sai da esquerda, altura toda,
      280 px ou 82% da largura; logo + "MySynth" no topo; fundo escurecido `.menu-fundo`). O menu é
      movido para o fim do <body> pelo menu-app.js. Fecha tocando fora, na logo ou Esc.
-   - NORMALIZAÇÃO (25/09/2026, em teste) — nada com cara de "navegador" (bloco no fim do estilo.css):
+   - NORMALIZAÇÃO (25/09/2026, APROVADO) — nada com cara de "navegador" (bloco no fim do estilo.css):
      N1 barras de rolagem finas e escuras (Firefox: regra padrão só em `@supports not
      selector(::-webkit-scrollbar)`, senão o Chrome ignora as outras e desenha setinhas);
      N2 ícones desenhados (interface/icones.js: `icone()`, `botaoComIcone()`: esquerda, direita,
@@ -169,7 +169,7 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      N6 logo na tela de idioma, títulos das seções das janelas no estilo dos cartões, rodapé vazio
      escondido, foco do teclado do PC azul por dentro, Filtros/Ruído com On/Off (como o resto),
      texto do Sobre atualizado (3 LFOs, 10 efeitos).
-   - TEMAS (25/09/2026, em teste): Básico / Comum (padrão) / Claro. interface/tema.js (`TEMA`,
+   - TEMAS (25/09/2026, APROVADO): Básico / Comum (padrão) / Claro. interface/tema.js (`TEMA`,
      `TEMAS`, `NOMES_TEMAS`, `guardarTema`, `mudarTema` = guarda e recarrega); gaveta
      `mysynth.tema.v1`; um script no <head> do index.html põe `data-tema` no <html> antes de
      desenhar. Cores com nome no :root (--verde, --lcd-*, --led-apagado, --tecla-*, --desenho-*...);
@@ -180,14 +180,14 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      Tela inicial (só na 1ª vez, sem `mysynth.idioma.v1`): Idioma + Tema com miniaturas; tocar só
      marca (LED); "Seguir · Continue" guarda os dois e recarrega se mudou (interface/abertura.js).
      Deitado: Idioma e Tema lado a lado. Configurações: seção Tema (trocar recarrega).
-   - DESFAZER/REFAZER + HOLD (25/09/2026, em teste), barra de cima `.grupo-acoes` [↶][↷][Hold]:
+   - DESFAZER/REFAZER + HOLD (25/09/2026, APROVADO), barra de cima `.grupo-acoes` [↶][↷][Hold]:
      interface/historico.js guarda "fotos" { som, visor } (visor = preset no visor + "*"), tiradas
      450 ms depois de parar de mexer (girar um knob = 1 passo); carregar preset também é passo; só
      o visor mudar (salvar) não é passo. Máx. 60. `aplicarSom(som, { manterNotas: true })` não
      solta as notas. Ctrl/Cmd+Z, Ctrl+Shift+Z / Ctrl+Y. presets.js: `lerVisor`/`definirVisor`.
      Hold = pedal de sustain: soltar a tecla não solta a nota (fica em `sustentadas`, tecla acesa);
      desligar o Hold solta as que não têm dedo; tocar de novo reataca. Em pé a barra tem 3 linhas.
-   - MACROS M1–M4 (25/09/2026, em teste; maquete opção C): fontes de modulação novas no FIM de
+   - MACROS M1–M4 (25/09/2026, APROVADO; maquete opção C): fontes de modulação novas no FIM de
      `FONTES_MOD` (`INDICES_MACRO` [5,6,7,8]); valor = knob do macro (0–1, unipolar), igual para
      todas as notas E para os efeitos (valem sem nota tocando). Motor: `macrosAlvo` → `macros`
      suavizados ~10 ms por bloco (`comum.macros`). Estado: `fontes.macroN.valor` (vai no preset).
@@ -203,6 +203,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    restaurar tudo).
 4. Depois: item 7 (o "DAW"): 7a Gravar .wav → 7b sequenciador (piano roll) → 7c gravar no
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
+   DECISÃO DO DONO (25/09/2026): "Gravar .wav" (7a) NÃO vai ser feito por enquanto. Não propor de
+   novo sem ele pedir. (As opções "em breve" do menu da logo continuam lá.)
 
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
 (o dono decide o que entra). Ainda abertos (menores):
