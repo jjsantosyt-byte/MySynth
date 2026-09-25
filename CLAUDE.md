@@ -84,6 +84,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      desenhado no fundo dela e o capotraste por cima na posição `--pos` (principal.js). Segurando
      (`.segurando`, pointerdown → pointerup/cancel), ele cresce 1,4× com sombra maior ("vem para
      perto da tela"), em 0,14 s. Altura = a da barra (44 px em pé, 30 deitado, 24 no Safari deitado).
+   - V2 (25/09/2026, em teste): ondas dos osciladores em VERDE (rgb 70, 240, 110; linha, brilho e
+     preenchimento). `linhaComBrilho(..., cor)` em visualizacao.js (AZUL/VERDE); filtro, envelopes
+     e LFO continuam azuis. (O verde é parecido com a cor da ficha LFO 1.)
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
    outras (tamanho do teclado, oitavas, letras do teclado do PC, qualidade do som, vibração,
    restaurar tudo).

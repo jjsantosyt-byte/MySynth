@@ -4,8 +4,10 @@
 import { amortecimento, compensacaoResonancia } from './dsp/filtro.js';
 
 // Cores do desenho (combinam com as de estilo.css)
-const COR_LINHA = '#3fb8ff';
-const COR_BRILHO = 'rgba(63, 184, 255, 0.7)';
+// Cor de cada desenho: o [vermelho, verde, azul] da linha (o brilho e o preenchimento usam a
+// mesma cor, mais transparente). Ondas dos osciladores em verde; o resto em azul.
+const AZUL = [63, 184, 255];
+const VERDE = [70, 240, 110];
 const COR_LINHA_APAGADA = '#56607a';
 const COR_GUIA = '#3d4661';
 
@@ -40,7 +42,8 @@ function linhaGuia(g, x1, y1, x2, y2) {
 
 // Desenha uma lista de pontos [x, y] como linha brilhante, com preenchimento
 // em degradê até a altura "base".
-function linhaComBrilho(g, pontos, base, altura, apagada = false) {
+function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = AZUL) {
+  const rgba = (alfa) => `rgba(${cor[0]}, ${cor[1]}, ${cor[2]}, ${alfa})`;
   const tracar = () => {
     g.beginPath();
     pontos.forEach(([x, y], k) => (k === 0 ? g.moveTo(x, y) : g.lineTo(x, y)));
@@ -48,9 +51,9 @@ function linhaComBrilho(g, pontos, base, altura, apagada = false) {
 
   if (!apagada) {
     const degrade = g.createLinearGradient(0, 0, 0, altura);
-    degrade.addColorStop(0, 'rgba(63, 184, 255, 0.35)');
-    degrade.addColorStop(base / altura, 'rgba(63, 184, 255, 0.04)');
-    degrade.addColorStop(1, 'rgba(63, 184, 255, 0.35)');
+    degrade.addColorStop(0, rgba(0.35));
+    degrade.addColorStop(base / altura, rgba(0.04));
+    degrade.addColorStop(1, rgba(0.35));
     tracar();
     g.lineTo(pontos[pontos.length - 1][0], base);
     g.lineTo(pontos[0][0], base);
@@ -62,10 +65,10 @@ function linhaComBrilho(g, pontos, base, altura, apagada = false) {
   tracar();
   g.save();
   if (!apagada) {
-    g.shadowColor = COR_BRILHO;
+    g.shadowColor = rgba(0.7);
     g.shadowBlur = 8;
   }
-  g.strokeStyle = apagada ? COR_LINHA_APAGADA : COR_LINHA;
+  g.strokeStyle = apagada ? COR_LINHA_APAGADA : rgba(1);
   g.lineWidth = 2.5;
   g.lineJoin = 'round';
   g.stroke();
@@ -118,7 +121,7 @@ export function desenharOnda(canvas, amostras, marcasUnison = []) {
     pontos.push([(k / qtd) * largura, meio - amostras[indice] * amplitude]);
   }
   desenharMarcasUnison(g, largura, altura, marcasUnison);
-  linhaComBrilho(g, pontos, meio, altura);
+  linhaComBrilho(g, pontos, meio, altura, false, VERDE);
 }
 
 // ---------- Forma do LFO ----------
