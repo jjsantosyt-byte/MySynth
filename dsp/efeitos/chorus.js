@@ -57,6 +57,11 @@ export class Chorus {
     return memoria[i0] + (posicao - i0) * (memoria[i1] - memoria[i0]);
   }
 
+  // Efeito "parado" no silêncio (o motor nem chama processar): o balanço continua andando.
+  pular(tamanhoBloco) {
+    this.fase = (this.fase + (this.ajustes.rate / this.taxa) * tamanhoBloco) % 1;
+  }
+
   processar(saidaE, saidaD, tamanhoBloco) {
     if (this.dormindo) return;
 

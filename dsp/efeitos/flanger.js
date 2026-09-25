@@ -64,6 +64,11 @@ export class Flanger {
     return ((c3 * t + c2) * t + c1) * t + y1;
   }
 
+  // Efeito "parado" no silêncio (o motor nem chama processar): o LFO continua andando.
+  pular(tamanhoBloco) {
+    this.fase = (this.fase + (this.ajustes.rate / this.taxa) * tamanhoBloco) % 1;
+  }
+
   processar(saidaE, saidaD, tamanhoBloco) {
     if (this.dormindo) return;
 

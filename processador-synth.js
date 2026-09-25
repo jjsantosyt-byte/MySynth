@@ -36,6 +36,24 @@ const PEDACO = 32; // amostras por pedaço de modulação (igual ao da voz)
 // A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
 const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 30);
 
+// Efeitos parados no silêncio: abaixo deste nível (-120 dB) é silêncio. A espera é maior que o
+// maior "buraco" possível dentro de um efeito (Delay de 2 s + folga), para não parar um eco
+// que ainda vai voltar.
+const LIMIAR_SILENCIO = 1e-6;
+const ESPERA_SILENCIO = 2.5; // segundos
+
+// Maior valor (sem sinal) do bloco, nos dois lados
+function picoDoBloco(e, d, n) {
+  let pico = 0;
+  for (let i = 0; i < n; i++) {
+    const a = e[i] < 0 ? -e[i] : e[i];
+    const b = d[i] < 0 ? -d[i] : d[i];
+    if (a > pico) pico = a;
+    if (b > pico) pico = b;
+  }
+  return pico;
+}
+
 class ProcessadorSynth extends AudioWorkletProcessor {
   // Controles que a página pode mexer de forma suave.
   static get parameterDescriptors() {
@@ -186,6 +204,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       delay: this.delay,
       reverb: this.reverb,
     };
+    // A ordem do caminho do som (cada efeito com o seu contador de silêncio)
+    this.cadeiaEfeitos = ['saturacao', 'distorcao', 'eq', 'compressor', 'phaser', 'flanger', 'chorus', 'delay', 'reverb'].map(
+      (id) => ({ efeito: this.efeitos[id], silencio: 0, parado: false })
+    );
+    this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
 
     this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
     this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
@@ -495,15 +518,25 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
-    this.saturacao.processar(saidaE, saidaD, tamanhoBloco);
-    this.distorcao.processar(saidaE, saidaD, tamanhoBloco);
-    this.eq.processar(saidaE, saidaD, tamanhoBloco);
-    this.compressor.processar(saidaE, saidaD, tamanhoBloco);
-    this.phaser.processar(saidaE, saidaD, tamanhoBloco);
-    this.flanger.processar(saidaE, saidaD, tamanhoBloco);
-    this.chorus.processar(saidaE, saidaD, tamanhoBloco);
-    this.delay.processar(saidaE, saidaD, tamanhoBloco);
-    this.reverb.processar(saidaE, saidaD, tamanhoBloco);
+    // Economia (bateria): um efeito que está recebendo silêncio e soltando silêncio há mais
+    // de ESPERA_SILENCIO fica "parado" (nem é chamado) até chegar som de novo. Mesmo LIGADO.
+    let pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
+    for (const item of this.cadeiaEfeitos) {
+      const entradaSilenciosa = pico < LIMIAR_SILENCIO;
+      if (item.parado) {
+        if (entradaSilenciosa) {
+          // silêncio entra, silêncio sai: nada a fazer (só o LFO dos efeitos que têm um anda)
+          if (!item.efeito.dormindo) item.efeito.pular?.(tamanhoBloco);
+          continue;
+        }
+        item.parado = false; // chegou som: acorda
+        item.silencio = 0;
+      }
+      item.efeito.processar(saidaE, saidaD, tamanhoBloco);
+      pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
+      item.silencio = entradaSilenciosa && pico < LIMIAR_SILENCIO ? item.silencio + tamanhoBloco : 0;
+      if (item.silencio > this.esperaSilencio) item.parado = true;
+    }
 
     this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
     return true;

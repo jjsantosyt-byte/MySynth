@@ -418,6 +418,7 @@ function vigiarSaida(medidor) {
   let ultimoAviso = -Infinity;
   // Lê a cada 50 ms um trecho de ~85 ms (4096 amostras): nenhum pico escapa.
   setInterval(() => {
+    if (document.hidden) return; // app no fundo: nada para medir (e economiza bateria)
     medidor.getFloatTimeDomainData(amostras);
     let pico = 0;
     for (let i = 0; i < amostras.length; i++) {
@@ -1749,9 +1750,15 @@ window.addEventListener('resize', () => {
 });
 
 // Se o app for para o fundo (trocar de aba, bloquear a tela), solta todas as notas.
+// Com o app no fundo, o motor de áudio é pausado (economiza bateria: no Android ele
+// continuaria rodando). Ao voltar, religa.
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) soltarTudo();
-  else garantirSomRodando(); // voltou para o app: religa o áudio se o sistema o parou
+  if (document.hidden) {
+    soltarTudo();
+    if (estado.contexto?.state === 'running') estado.contexto.suspend().catch(() => {});
+  } else {
+    garantirSomRodando(); // voltou para o app: religa o áudio (pausado aqui ou pelo sistema)
+  }
 });
 
 montarTeclado();

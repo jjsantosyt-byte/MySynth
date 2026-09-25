@@ -72,6 +72,13 @@ export class Phaser {
     this.passoD = (this.coefNaFase(faseAlvo + deslocamento) - this.coefD) / PASSO_COEF;
   }
 
+  // Efeito "parado" no silêncio (o motor nem chama processar): o LFO continua andando,
+  // para o balanço estar no mesmo ponto de sempre quando o som voltar.
+  pular(tamanhoBloco) {
+    this.fase = (this.fase + (this.ajustes.rate / this.taxa) * tamanhoBloco) % 1;
+    this.acordou = true; // na volta, os filtros começam já na posição certa do LFO
+  }
+
   processar(saidaE, saidaD, tamanhoBloco) {
     if (this.dormindo) return;
 
