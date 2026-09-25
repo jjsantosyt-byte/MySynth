@@ -1667,16 +1667,18 @@ const PRETAS = [
 // ---------- Teclado do computador ----------
 // Mesmo padrão do FL Studio. Usa a POSIÇÃO da tecla (funciona em teclado
 // brasileiro ABNT ou americano): [código da tecla, semitons a partir do 1º C da tela, letra].
-//   Linha Q W E R T Y U I O P [ ]  = notas brancas (Q = C) · números 2 3 5 6 7 9 0 = = pretas
-//   Linha Z X C V B N M           = uma oitava abaixo · S D G H J = pretas
+//   Linha Z X C V B N M , .       = a 1ª oitava da tela (Z = o primeiro C) · S D G H J L = pretas
+//   Linha Q W E R T Y U I O P [ ] = a oitava seguinte (Q = o segundo C) · 2 3 5 6 7 9 0 = = pretas
+//   (Nenhuma tecla toca abaixo do primeiro C da tela. ", L ." repetem o começo da linha do Q,
+//   como no FL Studio.)
 const TECLAS_PC = [
-  ['KeyQ', 0, 'Q'], ['Digit2', 1, '2'], ['KeyW', 2, 'W'], ['Digit3', 3, '3'], ['KeyE', 4, 'E'],
-  ['KeyR', 5, 'R'], ['Digit5', 6, '5'], ['KeyT', 7, 'T'], ['Digit6', 8, '6'], ['KeyY', 9, 'Y'],
-  ['Digit7', 10, '7'], ['KeyU', 11, 'U'], ['KeyI', 12, 'I'], ['Digit9', 13, '9'], ['KeyO', 14, 'O'],
-  ['Digit0', 15, '0'], ['KeyP', 16, 'P'], ['BracketLeft', 17, '['], ['Equal', 18, '='], ['BracketRight', 19, ']'],
-  ['KeyZ', -12, 'Z'], ['KeyS', -11, 'S'], ['KeyX', -10, 'X'], ['KeyD', -9, 'D'], ['KeyC', -8, 'C'],
-  ['KeyV', -7, 'V'], ['KeyG', -6, 'G'], ['KeyB', -5, 'B'], ['KeyH', -4, 'H'], ['KeyN', -3, 'N'],
-  ['KeyJ', -2, 'J'], ['KeyM', -1, 'M'],
+  ['KeyZ', 0, 'Z'], ['KeyS', 1, 'S'], ['KeyX', 2, 'X'], ['KeyD', 3, 'D'], ['KeyC', 4, 'C'],
+  ['KeyV', 5, 'V'], ['KeyG', 6, 'G'], ['KeyB', 7, 'B'], ['KeyH', 8, 'H'], ['KeyN', 9, 'N'],
+  ['KeyJ', 10, 'J'], ['KeyM', 11, 'M'], ['Comma', 12, ','], ['KeyL', 13, 'L'], ['Period', 14, '.'],
+  ['KeyQ', 12, 'Q'], ['Digit2', 13, '2'], ['KeyW', 14, 'W'], ['Digit3', 15, '3'], ['KeyE', 16, 'E'],
+  ['KeyR', 17, 'R'], ['Digit5', 18, '5'], ['KeyT', 19, 'T'], ['Digit6', 20, '6'], ['KeyY', 21, 'Y'],
+  ['Digit7', 22, '7'], ['KeyU', 23, 'U'], ['KeyI', 24, 'I'], ['Digit9', 25, '9'], ['KeyO', 26, 'O'],
+  ['Digit0', 27, '0'], ['KeyP', 28, 'P'], ['BracketLeft', 29, '['], ['Equal', 30, '='], ['BracketRight', 31, ']'],
 ];
 const SEMITOM_DA_TECLA_PC = new Map(TECLAS_PC.map(([codigo, semitom]) => [codigo, semitom]));
 const LETRA_DO_SEMITOM = new Map(TECLAS_PC.filter(([, s]) => s >= 0).map(([, semitom, letra]) => [semitom, letra]));
