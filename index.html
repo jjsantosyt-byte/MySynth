@@ -288,7 +288,8 @@
         </div>
       </section>
       <!-- Aba FX: efeitos na ordem do caminho do som
-           (Saturação → Distorção → Compressor → Chorus → Delay → Reverb), em 2 páginas:
+           (Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb),
+           em 2 páginas:
            "Cor" (mudam o timbre) e "Espaço" (movimento e ambiente). -->
       <section class="conteudo-aba" data-painel="fx" hidden>
         <div class="fx-paginado">
@@ -337,6 +338,22 @@
               <span id="compressor-reducao-db" class="medidor-numero">0 dB</span>
             </div>
             <div class="linha-knobs" data-knobs-efeito="compressor"></div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Phaser</h2>
+              <button class="chave" data-ligar-efeito="phaser" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="phaser"></div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Flanger</h2>
+              <button class="chave" data-ligar-efeito="flanger" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="flanger"></div>
           </article>
 
           <article class="cartao" data-pagina="2">

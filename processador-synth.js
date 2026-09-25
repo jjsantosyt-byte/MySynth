@@ -25,6 +25,8 @@ import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
 import { Saturacao } from './dsp/efeitos/saturacao.js';
 import { Eq } from './dsp/efeitos/eq.js';
+import { Phaser } from './dsp/efeitos/phaser.js';
+import { Flanger } from './dsp/efeitos/flanger.js';
 import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
@@ -161,10 +163,13 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
-    // Efeitos (depois das notas somadas): Saturação → Distorção → EQ → Compressor → Chorus → Delay → Reverb
+    // Efeitos (depois das notas somadas):
+    // Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
     this.eq = new Eq(sampleRate);
     this.saturacao = new Saturacao(sampleRate);
     this.distorcao = new Distorcao(sampleRate);
+    this.phaser = new Phaser(sampleRate);
+    this.flanger = new Flanger(sampleRate);
     this.chorus = new Chorus(sampleRate);
     this.delay = new Delay(sampleRate);
     this.reverb = new Reverb(sampleRate);
@@ -175,6 +180,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       distorcao: this.distorcao,
       eq: this.eq,
       compressor: this.compressor,
+      phaser: this.phaser,
+      flanger: this.flanger,
       chorus: this.chorus,
       delay: this.delay,
       reverb: this.reverb,
@@ -490,6 +497,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.distorcao.processar(saidaE, saidaD, tamanhoBloco);
     this.eq.processar(saidaE, saidaD, tamanhoBloco);
     this.compressor.processar(saidaE, saidaD, tamanhoBloco);
+    this.phaser.processar(saidaE, saidaD, tamanhoBloco);
+    this.flanger.processar(saidaE, saidaD, tamanhoBloco);
     this.chorus.processar(saidaE, saidaD, tamanhoBloco);
     this.delay.processar(saidaE, saidaD, tamanhoBloco);
     this.reverb.processar(saidaE, saidaD, tamanhoBloco);

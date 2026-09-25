@@ -73,8 +73,9 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    - E2: Compressor — FEITO (ver "Efeitos E2"). Páginas na aba FX ficam para quando passar de
      5 efeitos (hoje: 5 cartões lado a lado cabem).
    - E3: Saturação + páginas "Cor"/"Espaço" na aba FX — FEITO (ver "Efeitos E3").
-   - E4a: EQ 3 bandas — FEITO (ver "Efeitos E4a"). E4b: Phaser e Flanger (página Espaço).
-   - Ordem fixa proposta: Saturação → Distorção → EQ → Compressor → Chorus/Phaser → Delay → Reverb
+   - E4a: EQ 3 bandas — FEITO (ver "Efeitos E4a"). E4b: Phaser e Flanger — FEITO (ver "Efeitos E4b").
+     → Upgrade dos efeitos completo (versão BETA, aguardando os testes).
+   - Ordem fixa: Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
      (reordenar arrastando fica para depois).
 2. **Ajustes visuais e de espaço** — o dono decide cada um, aos poucos.
 3. **Configurações gerais do app** (tela/aba "Ajustes"): idioma, tema (escuro/claro/cores) e
@@ -226,7 +227,8 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
   `presets/fabrica/` (de fábrica), `presets/usuario/` (seus, trazidos para o projeto) e
   `presets/lista.json` (categorias + ordem dos arquivos; todo .synth novo precisa entrar aqui)
 - `interface/presets-projeto.js` — lê os .synth das pastas ao abrir o app
-- `dsp/efeitos/` — distorcao.js, chorus.js, delay.js, reverb.js
+- `dsp/efeitos/` — saturacao.js, distorcao.js, eq.js, compressor.js, phaser.js, flanger.js,
+  chorus.js, delay.js, reverb.js (+ comum.js)
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `sw.js` + `manifest.json` — app instalável que funciona sem internet (PWA)
@@ -331,6 +333,25 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 - Troca com nota tocando: o motor abaixa as notas (~3 ms), troca e sobe (sem estalo).
 - Celular deitado: OSC A = [A ‹ wavetable ›] / desenho / WT Pos / unison (atalhos escondidos).
 - Medido: chiado em C7 entre -85 e -101 dB nas 5 tabelas.
+
+**Efeitos E4b (Phaser + Flanger) — feito, em teste. Upgrade dos efeitos completo (9 efeitos).**
+- `dsp/efeitos/phaser.js`: 6 filtros passa-tudo de 1ª ordem em série por lado, LFO seno.
+  Rate 0,02–10 Hz, Depth (100% = ±2 oitavas), Freq (centro, 100 Hz–4 kHz), Feedback 0–90%,
+  Stereo (0 = lados iguais, 100% = LFO da direita meio ciclo adiantado), Mix. Coeficientes
+  recalculados a cada 16 amostras e em linha reta entre eles.
+- `dsp/efeitos/flanger.js`: atraso curto balançando (seno) em escala de oitavas: centro Delay
+  0,5–10 ms, Depth 100% = de 1/4 a 4× o Delay (mínimo 3 amostras); leitura cúbica (Hermite);
+  Feedback -95% a +95%; Stereo e Mix como no Phaser. O som entra na memória com rampa ao ligar
+  (sem isso havia um tique 2 ms depois de ligar).
+- Os dois: Mix "em cruz" (`ganhosCruzados`: 50% = metade/metade, buracos mais fundos; 100% = só
+  efeito) e o efeito é multiplicado por √(1 − feedback²) (volume médio igual com Feedback).
+  Dormem desligados.
+- Cadeia: Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb.
+- Página "Espaço" com 5 cartões (Phaser, Flanger, Chorus, Delay, Reverb), ~148 px cada a 852 px.
+- Medido: desligados = som igual; Phaser parado em 800 Hz com Mix 50% → buraco de -155 dB em
+  800 Hz (e em ~200 Hz e ~3,2 kHz); ruído com Mix 100%: mesmo volume com Feedback 0/50/90%;
+  Feedback -95% estável; ligar/desligar sem estalo; peso: Flanger ~2%, Phaser ~0,6%;
+  852×340, 852×393 e em pé sem rolagem.
 
 **Efeitos E4a (EQ 3 bandas) — feito, em teste:**
 - `dsp/efeitos/eq.js`: 3 biquads (receitas de R. Bristow-Johnson) em série, estéreo: prateleira

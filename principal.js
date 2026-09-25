@@ -193,6 +193,8 @@ const estado = {
     distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 },
     eq: { ligado: false, grave: 0, medio: 0, agudo: 0, freq: 1000, q: 1, saida: 0, mix: 1 },
     compressor: { ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1 },
+    phaser: { ligado: false, rate: 0.5, depth: 0.7, freq: 800, feedback: 0.5, stereo: 0.5, mix: 0.5 },
+    flanger: { ligado: false, rate: 0.3, depth: 0.7, atraso: 0.002, feedback: 0.5, stereo: 0.5, mix: 0.5 },
     chorus: { ligado: false, rate: 0.8, depth: 0.5, mix: 0.5, atraso: 0.012, feedback: 0, width: 1 },
     delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false, lowcut: 20, highcut: 6000, width: 1 },
     reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 },
@@ -1060,7 +1062,8 @@ const knobEfeito = (id, rotulo, nome, escala, formatar) =>
     ler: () => estado.efeitos[id][nome],
   });
 
-// Páginas da aba FX: "Cor" (Saturação, Distorção, Compressor) e "Espaço" (Chorus, Delay, Reverb)
+// Páginas da aba FX: "Cor" (Saturação, Distorção, EQ, Compressor) e
+// "Espaço" (Phaser, Flanger, Chorus, Delay, Reverb)
 const gradeFx = document.querySelector('.modulos-fx');
 document.querySelectorAll('[data-pagina-fx]').forEach((botao) => {
   botao.addEventListener('click', () => {
@@ -1146,6 +1149,28 @@ function mostrarReducaoCompressor(db) {
   barraReducao.style.width = Math.min(100, (db / 20) * 100) + '%';
   numeroReducao.textContent = db < 0.1 ? '0 dB' : '-' + db.toFixed(1).replace('.', ',') + ' dB';
 }
+
+// Phaser e Flanger: Stereo = diferença de balanço entre os lados (100% = opostos)
+const escalaRateFx = escalaExponencial(0.02, 10);
+document.querySelector('[data-knobs-efeito="phaser"]').append(
+  knobEfeito('phaser', 'Rate', 'rate', escalaRateFx, formatarRate),
+  knobEfeito('phaser', 'Depth', 'depth', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('phaser', 'Freq', 'freq', escalaExponencial(100, 4000), formatarFrequencia),
+  knobEfeito('phaser', 'Feedback', 'feedback', escalaLinear(0, 0.9), formatarPorcentagem),
+  knobEfeito('phaser', 'Stereo', 'stereo', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('phaser', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+document.querySelector('[data-knobs-efeito="flanger"]').append(
+  knobEfeito('flanger', 'Rate', 'rate', escalaRateFx, formatarRate),
+  knobEfeito('flanger', 'Depth', 'depth', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('flanger', 'Delay', 'atraso', escalaExponencial(0.0005, 0.01), formatarTempo),
+  // Feedback com sinal: + e − soam diferentes (− = mais oco)
+  knobEfeito('flanger', 'Feedback', 'feedback', escalaLinear(-0.95, 0.95), (v) =>
+    (v > 0.005 ? '+' : '') + formatarPorcentagem(v)
+  ),
+  knobEfeito('flanger', 'Stereo', 'stereo', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('flanger', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
 
 document.querySelector('[data-knobs-efeito="chorus"]').append(
   knobEfeito('chorus', 'Rate', 'rate', escalaExponencial(0.05, 5), formatarRate),
