@@ -6,7 +6,6 @@
   "android": {
     "backgroundColor": "#0b0c0f",
     "allowMixedContent": false,
-    "captureInput": false,
-    "webContentsDebuggingEnabled": false
+    "captureInput": false
   }
 }
