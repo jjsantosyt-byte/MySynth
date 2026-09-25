@@ -3329,3 +3329,128 @@ html[data-tema='claro'] .presets-linha-nome {
     background: rgba(247, 248, 251, 0.96);
   }
 }
+
+/* ---------- Tema BÁSICO: parecido com as primeiras versões ----------
+   Cantos arredondados (sem o corte em 45°), ondas azuis, nome do preset sem visor LCD,
+   chaves que acendem inteiras (sem LED), knobs de arco grosso sem marcas, abas só com texto e
+   fichas só com contorno. (Os controles novos — setas, barras, curvas dos filtros — ficam.) */
+html[data-tema='basico'] {
+  --desenho-onda: 63, 184, 255;
+}
+
+/* Sem o corte em 45°: cantos redondos e a borda normal (a camada do contorno some) */
+html[data-tema='basico']
+  :is(.cartao, .janela, .menu-logo, .idioma-botao, .abas, .botao, .presets-nome, .campo, .ficha,
+    .seletor-controle, .chave, .tela-grafico, .seletor-wt, .recado, .aviso, .dica-modulacao,
+    .botao-pagina, .janela-fechar, .presets-item, .presets-apagar, .linha-mod-remover, .aba,
+    .menu-item, .nome-onda, .menu-em-breve, .linha-mod, .tecla, .seletor-setas .seletor-botao) {
+  clip-path: none;
+}
+html[data-tema='basico']
+  :is(.cartao, .janela, .idioma-botao, .presets-nome, .ficha, .seletor-controle, .chave,
+    .tela-grafico, .seletor-wt, .recado, .dica-modulacao, .botao-pagina)::after {
+  display: none;
+}
+html[data-tema='basico']
+  :is(.cartao, .janela, .idioma-botao, .presets-nome, .ficha, .seletor-controle, .chave,
+    .tela-grafico, .seletor-wt, .recado, .dica-modulacao, .botao-pagina) {
+  border-color: var(--contorno) !important;
+}
+html[data-tema='basico'] :is(.cartao, .janela, .abas, .idioma-botao) {
+  border-radius: 12px !important;
+}
+html[data-tema='basico']
+  :is(.botao, .presets-nome, .campo, .seletor-controle, .tela-grafico, .seletor-wt, .recado, .aviso,
+    .dica-modulacao, .botao-pagina, .janela-fechar, .presets-item, .presets-apagar, .aba, .menu-item,
+    .linha-mod) {
+  border-radius: 9px !important;
+}
+html[data-tema='basico'] :is(.ficha, .chave) {
+  border-radius: 999px !important;
+}
+html[data-tema='basico']
+  :is(.linha-mod-remover, .nome-onda, .menu-em-breve, .seletor-setas .seletor-botao, .atalhos-wt .botao) {
+  border-radius: 6px !important;
+}
+html[data-tema='basico'] .tecla {
+  border-radius: 0 0 6px 6px !important;
+}
+html[data-tema='basico'] .menu-logo {
+  border-radius: 0 12px 12px 0 !important;
+}
+
+/* Nome do preset numa caixa simples (sem visor LCD, sem categoria/número) */
+html[data-tema='basico'] .presets-nome {
+  background: var(--tela-onda);
+  color: var(--texto);
+  font-family: inherit;
+}
+html[data-tema='basico'] .presets-topo {
+  display: none;
+}
+html[data-tema='basico'] .presets-linha-nome {
+  text-transform: none;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+/* Chaves liga/desliga: acendem inteiras (contorno e texto azuis), sem LED */
+html[data-tema='basico'] .chave[aria-pressed]::before {
+  display: none;
+}
+html[data-tema='basico'] .chave {
+  background: transparent;
+}
+html[data-tema='basico'] .chave[aria-pressed='true'] {
+  --contorno: var(--destaque);
+  background: rgba(var(--azul-rgb), 0.15);
+  color: var(--destaque);
+}
+
+/* Knobs: arco grosso, sem marcas e sem o "corpo" */
+html[data-tema='basico'] .knob-marcas,
+html[data-tema='basico'] .knob-corpo {
+  display: none;
+}
+html[data-tema='basico'] :is(.knob-trilho, .knob-valor) {
+  stroke-width: 4;
+}
+html[data-tema='basico'] .knob-ponteiro {
+  stroke-width: 3;
+}
+
+/* Abas só com texto; a escolhida com a linha azul embaixo */
+html[data-tema='basico'] .aba-icone {
+  display: none;
+}
+html[data-tema='basico'] .aba.ativa {
+  background: var(--botao-apertado);
+  color: var(--texto);
+  box-shadow: inset 0 -3px 0 var(--destaque);
+}
+
+/* Fichas: só contorno e texto coloridos (armada = cheia), sem o desenhinho */
+html[data-tema='basico'] .ficha {
+  background: transparent;
+  color: var(--cor);
+}
+html[data-tema='basico'] .ficha[aria-pressed='true'],
+html[data-tema='basico'] .ficha-fantasma {
+  background: var(--cor);
+  color: var(--texto-sobre-cor);
+}
+html[data-tema='basico'] .ficha-forma {
+  display: none;
+}
+
+/* Tecla tocando: azul claro, sem afundar */
+html[data-tema='basico'] .tecla.branca.ativa {
+  background: #8fd3ff;
+  transform: none;
+  box-shadow: none;
+}
+html[data-tema='basico'] .tecla.preta.ativa {
+  background: var(--destaque-escuro);
+  transform: none;
+  box-shadow: none;
+}
