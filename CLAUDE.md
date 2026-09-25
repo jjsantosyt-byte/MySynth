@@ -329,6 +329,15 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
   `npm run abrir` (Android Studio). Saídas: android/app/build/outputs/apk/debug/app-debug.apk e
   android/app/build/outputs/bundle/release/app-release.aab.
 - A CADA versão enviada ao Play: subir `versionCode` (+1) e `versionName` em android/app/build.gradle.
+- Teste no celular do dono (Infinix X6531, Android 14, 760×360 deitado, fonte do sistema 145%,
+  MediaTek/Mali): depuração USB + `_antigo/teste/cel.ps1` (-Instalar, -Print, -Js via CDP da
+  WebView), `cel-audio.ps1` (estado do AudioContext e amostras da saída), `medir-audio.ps1` (CPU da
+  linha AudioWorklet). Consertos: `setTextZoom(100)` (fonte do sistema não encavala), layout
+  deitado estreito (max-width 820), e autoconserto de NaN no motor (`temInvalido`/`consertar` no
+  processador: vozes, cada efeito e o clipper; avisa `consertado` → console "valores inválidos
+  consertados em X"). CAUSA DO NaN AINDA NÃO ACHADA: ler o logcat (Capacitor/Console) quando
+  acontecer. Também visto 1 vez: tela a 3–6 fps + "MALI BAD ALLOC" (não reproduzido).
+- Com Capacitor NÃO precisa de assetlinks.json (isso era do TWA).
 - Atualizações do app deixam de ser automáticas (cada mudança = novo .aab no Play); a versão web
   no GitHub Pages continua igual (git push). Presets da web e do app são separados (exportar/importar).
 
