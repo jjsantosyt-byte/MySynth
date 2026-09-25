@@ -74,6 +74,11 @@ export class Reverb {
     // Pre-delay: memória da entrada (até 200 ms)
     this.pre = new Float32Array(Math.ceil(PRE_DELAY_MAXIMO * taxaAmostragem) + 2);
     this.posPre = 0;
+    this.preAtual = 0; // atraso do pre-delay em uso (amostras)
+    this.preNovo = null; // atraso novo, durante a rampa de troca
+    this.rampaPre = 0;
+    this.passoRampaPre = 1 / (0.02 * taxaAmostragem); // rampa de ~20 ms
+    this.acordou = true; // primeira amostra depois de dormir (memória limpa)
     this.par = [0, 0]; // rascunho do Width
 
     this.ajustes = { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 };
@@ -114,6 +119,13 @@ export class Reverb {
     }
   }
 
+  // Lê a memória do pre-delay "atraso" amostras atrás (0 = a amostra que acabou de entrar).
+  lerPre(atraso) {
+    let leitura = this.posPre - atraso;
+    if (leitura < 0) leitura += this.pre.length;
+    return this.pre[leitura];
+  }
+
   // Aplica o reverb nas saídas (esquerda e direita), no lugar.
   processar(saidaE, saidaD, tamanhoBloco) {
     if (this.dormindo) return;
@@ -145,11 +157,27 @@ export class Reverb {
 
       // Pre-delay. A memória é gravada SEMPRE, mesmo com Pre-delay 0: se ela parasse, ao
       // subir o Pre-delay de novo o reverb receberia um som antigo guardado lá ("fantasma").
+      // Mudou o Pre-delay? Passa do tempo antigo para o novo numa rampa de ~20 ms (como o
+      // Delay), em vez de pular: girar o knob com som passando não dá "tique".
       this.pre[this.posPre] = x;
-      if (atrasoPre > 0) {
-        let leitura = this.posPre - atrasoPre;
-        if (leitura < 0) leitura += tamanhoPre;
-        x = this.pre[leitura];
+      if (this.acordou) {
+        // Começando (memória vazia): já usa o Pre-delay escolhido, sem rampa
+        this.preAtual = atrasoPre;
+        this.preNovo = null;
+        this.acordou = false;
+      }
+      if (this.preNovo === null && atrasoPre !== this.preAtual) {
+        this.preNovo = atrasoPre;
+        this.rampaPre = 0;
+      }
+      if (this.preAtual > 0) x = this.lerPre(this.preAtual); // 0 = o x que entrou, direto
+      if (this.preNovo !== null) {
+        this.rampaPre = Math.min(1, this.rampaPre + this.passoRampaPre);
+        x += (this.lerPre(this.preNovo) - x) * this.rampaPre;
+        if (this.rampaPre >= 1) {
+          this.preAtual = this.preNovo;
+          this.preNovo = null;
+        }
       }
       this.posPre = this.posPre + 1 === tamanhoPre ? 0 : this.posPre + 1;
 
@@ -202,6 +230,7 @@ export class Reverb {
       for (const difusor of this.difusores) difusor.fill(0);
       this.baixas.fill(0);
       this.pre.fill(0);
+      this.acordou = true;
       this.graveEntrada = 0;
       this.seco = 1;
     }
