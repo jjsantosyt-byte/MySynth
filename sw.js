@@ -93,6 +93,30 @@ self.addEventListener('activate', (evento) => {
   );
 });
 
+// Internet ruim: depois que um pedido passa do tempo, os próximos (por 15 s) usam direto a
+// cópia guardada e atualizam por trás. Antes, CADA arquivo esperava 3 s: o app podia levar
+// muitos segundos para abrir com uma rede lenta.
+const TEMPO_REDE_RUIM_MS = 15000;
+let redeRuimAte = 0;
+
+// A cópia guardada deste pedido (abrir o app por outro endereço, ex.: com "?algo",
+// recebe a página principal)
+async function copiaGuardada(gaveta, pedido) {
+  let guardada = await gaveta.match(pedido, { ignoreSearch: true });
+  if (!guardada && pedido.mode === 'navigate') guardada = await gaveta.match('./');
+  return guardada;
+}
+
+// Busca na rede e atualiza a cópia (usado "por trás", sem esperar)
+function atualizarCopia(gaveta, pedido) {
+  return fetch(pedido)
+    .then((resposta) => {
+      if (resposta.ok) gaveta.put(pedido, resposta.clone());
+      return resposta;
+    })
+    .catch(() => null);
+}
+
 self.addEventListener('fetch', (evento) => {
   const pedido = evento.request;
   // Só arquivos do próprio app, lidos com GET (o resto passa direto)
@@ -101,6 +125,16 @@ self.addEventListener('fetch', (evento) => {
   evento.respondWith(
     (async () => {
       const gaveta = await caches.open(GAVETA);
+
+      // Sem internet (o aparelho sabe) ou rede ruim há pouco: cópia primeiro, sem esperar.
+      if (self.navigator.onLine === false || Date.now() < redeRuimAte) {
+        const guardada = await copiaGuardada(gaveta, pedido);
+        if (guardada) {
+          if (self.navigator.onLine !== false) evento.waitUntil(atualizarCopia(gaveta, pedido));
+          return guardada;
+        }
+      }
+
       try {
         // Rede primeiro (com limite de tempo)
         const resposta = await Promise.race([
@@ -110,11 +144,9 @@ self.addEventListener('fetch', (evento) => {
         if (resposta.ok) gaveta.put(pedido, resposta.clone());
         return resposta;
       } catch {
-        // Sem rede: a cópia guardada. Abrir o app por outro endereço (ex.: com "?algo")
-        // recebe a página principal.
-        let guardada = await gaveta.match(pedido, { ignoreSearch: true });
-        if (!guardada && pedido.mode === 'navigate') guardada = await gaveta.match('./');
-        return guardada || Response.error();
+        // Sem rede ou lenta demais: a cópia guardada (e os próximos pedidos nem esperam)
+        redeRuimAte = Date.now() + TEMPO_REDE_RUIM_MS;
+        return (await copiaGuardada(gaveta, pedido)) || Response.error();
       }
     })()
   );

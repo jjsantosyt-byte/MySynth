@@ -85,9 +85,18 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
 
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
-(o dono decide o que entra). Ainda abertos: acordes estouram sem limitador (decidir volume/limitador);
-wavetable grande copiada inteira a cada troca; service worker lento com internet ruim; Distorção/
-Saturação mais leves (polifásico); detalhes da tela (sombras, JSON nos knobs).
+(o dono decide o que entra). Ainda abertos (menores): 8 notas × Unison 8 ainda estoura no volume
+padrão; detalhes da tela (sombras nos desenhos, JSON nos knobs); FM com troca da wavetable do
+modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no motor.
+**Revisão, 3ª rodada (25/09/2026) — feita, em teste:**
+- Distorção/Saturação: `Interpolador` em dsp/meia-banda.js sobe a taxa sem multiplicar zeros (16
+  coeficientes pares + o do meio); compensação só recalculada quando o ganho/tipo mudam. Som igual
+  (-490 dB); peso: Distorção 10,1% → 8,1%, Saturação 8,1% → 6,1% (teste isolado no PC).
+- Wavetables: o motor guarda as recebidas (`this.tabelas`, id → tabela); a tela manda a tabela
+  inteira só na 1ª vez (`tabelasNoMotor`), depois só `{ id }`; `esquecerWavetable` + `esquecerMontada`
+  para importadas fora de uso; setas rápidas (< 300 ms entre trocas) mandam só a última (~120 ms).
+- sw.js: sem internet (`navigator.onLine`) ou depois de um pedido lento (> 3 s), usa a cópia por 15 s
+  e atualiza por trás (`redeRuimAte`). Sem servidor: app abriu em 0,13 s, 20 presets, som liga.
 **Consertos pequenos e seguros (25/09/2026) — feitos, em teste:**
 - Reverb: a memória do Pre-delay é gravada sempre (antes, com Pre-delay 0 ela parava e, ao subir
   de novo, o reverb recebia som antigo). Medido: fantasma 198 dB → nada; Pre-delay segue igual.
