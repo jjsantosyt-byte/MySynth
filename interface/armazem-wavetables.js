@@ -15,6 +15,10 @@ const GAVETA = 'wavetables';
 
 let abrindo = null;
 
+// Se o armário não responder nesse tempo, desiste (alguns navegadores/modos de app nunca
+// respondem): o app abre mesmo assim, só sem as wavetables guardadas.
+const ESPERA_MAXIMA_MS = 4000;
+
 function abrir() {
   if (!abrindo) {
     abrindo = new Promise((resolver, rejeitar) => {
@@ -22,13 +26,27 @@ function abrir() {
         rejeitar(new Error('sem IndexedDB'));
         return;
       }
-      const pedido = indexedDB.open(BANCO, VERSAO);
+      const desistir = setTimeout(() => rejeitar(new Error('o armário não respondeu')), ESPERA_MAXIMA_MS);
+      let pedido;
+      try {
+        pedido = indexedDB.open(BANCO, VERSAO);
+      } catch (erro) {
+        clearTimeout(desistir);
+        rejeitar(erro);
+        return;
+      }
       pedido.onupgradeneeded = () => {
         const banco = pedido.result;
         if (!banco.objectStoreNames.contains(GAVETA)) banco.createObjectStore(GAVETA, { keyPath: 'nome' });
       };
-      pedido.onsuccess = () => resolver(pedido.result);
-      pedido.onerror = () => rejeitar(pedido.error);
+      pedido.onsuccess = () => {
+        clearTimeout(desistir);
+        resolver(pedido.result);
+      };
+      pedido.onerror = () => {
+        clearTimeout(desistir);
+        rejeitar(pedido.error);
+      };
     });
     abrindo.catch(() => (abrindo = null)); // deixa tentar de novo depois
   }
