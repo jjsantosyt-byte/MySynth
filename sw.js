@@ -40,6 +40,7 @@ const ARQUIVOS = [
   'dsp/efeitos/compressor.js',
   'dsp/efeitos/saturacao.js',
   'dsp/efeitos/eq.js',
+  'dsp/efeitos/filtro-track.js',
   'dsp/efeitos/phaser.js',
   'dsp/efeitos/flanger.js',
   'dsp/efeitos/chorus.js',

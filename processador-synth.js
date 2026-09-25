@@ -24,6 +24,7 @@ import { EstadoLFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
 import { Saturacao } from './dsp/efeitos/saturacao.js';
+import { FiltroTrack } from './dsp/efeitos/filtro-track.js';
 import { Eq } from './dsp/efeitos/eq.js';
 import { Phaser } from './dsp/efeitos/phaser.js';
 import { Flanger } from './dsp/efeitos/flanger.js';
@@ -186,7 +187,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     ];
     // Efeitos (depois das notas somadas):
-    // Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
+    // Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
+    this.filtroTrack = new FiltroTrack(sampleRate);
     this.eq = new Eq(sampleRate);
     this.saturacao = new Saturacao(sampleRate);
     this.distorcao = new Distorcao(sampleRate);
@@ -200,6 +202,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.efeitos = {
       saturacao: this.saturacao,
       distorcao: this.distorcao,
+      filtroTrack: this.filtroTrack,
       eq: this.eq,
       compressor: this.compressor,
       phaser: this.phaser,
@@ -209,7 +212,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       reverb: this.reverb,
     };
     // A ordem do caminho do som (cada efeito com o seu contador de silêncio)
-    this.cadeiaEfeitos = ['saturacao', 'distorcao', 'eq', 'compressor', 'phaser', 'flanger', 'chorus', 'delay', 'reverb'].map(
+    this.cadeiaEfeitos = ['saturacao', 'distorcao', 'filtroTrack', 'eq', 'compressor', 'phaser', 'flanger', 'chorus', 'delay', 'reverb'].map(
       (id) => ({ efeito: this.efeitos[id], silencio: 0, parado: false })
     );
     this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
@@ -541,6 +544,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
     // Economia (bateria): um efeito que está recebendo silêncio e soltando silêncio há mais
     // de ESPERA_SILENCIO fica "parado" (nem é chamado) até chegar som de novo. Mesmo LIGADO.
+    // Filtro Track: a nota de referência é a da voz da nota tocada por último ("ruidoDona" é
+    // essa voz, nos dois modos), já com o Glide (altura em semitons)
+    if (this.ruidoDona) this.filtroTrack.notaReferencia = this.ruidoDona.altura;
     let pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
     for (const item of this.cadeiaEfeitos) {
       const entradaSilenciosa = pico < LIMIAR_SILENCIO;

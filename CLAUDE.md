@@ -172,10 +172,20 @@ modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no
 - Tela: sem nenhuma ligação e com a aba LFO fechada, as mensagens ao vivo não redesenham nada
   (desenha 1 vez sem modulação ao tirar a última ligação: `telaSemAoVivo`).
 
+**Efeito Filtro Track (25/09/2026) — feito, em teste:** a ideia do "Cutoff em notas + keytracking"
+virou um EFEITO (os Filtros 1 e 2 das vozes não mudaram). `dsp/efeitos/filtro-track.js`, página Cor,
+depois da Distorção: Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger →
+Chorus → Delay → Reverb. Mesmo filtro das vozes (LP12/LP24/HP/BP, Reso, troca suave de tipo).
+Cutoff em notas MIDI (24 = C1 a 132 = C10, anda de semitom em semitom); Track 0–100%:
+cutoff = Cutoff + Track × (nota de referência − C4). Nota de referência = a ÚLTIMA nota tocada
+(decidido pelo dono), com Glide (`ruidoDona.altura` no processador). O cutoff anda ~5 ms ao trocar
+de nota; Reso suavizado por bloco; Mix em cruz. Tela: Track 100% mostra "+12 st" (distância da
+nota), senão o nome da nota ("C5"). Padrão: LP 24, +12 st, Track 100%, Reso 20%, Mix 100%.
+Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Track 100%); com Track 0%
+-20 dB (C3) × -52,7 dB (C5). Página Cor com 5 cartões (148 px a 852), sem cortes a 852×340.
+
 ## Ideias para o futuro (sem data)
-- Filtro: opção de ajustar/mostrar o Cutoff em semitons/notas musicais
-  (ex.: "C4 + 7 st"), em vez de só Hz. Combina bem com keytracking
-  (o Cutoff acompanhar a nota tocada).
+- (Feito como efeito "Filtro Track".) Filtros das vozes: talvez também keytracking por nota.
 - Qualidade (aba Global): escolher a taxa de amostragem (44,1/48 kHz — exige religar o
   motor de som por um instante) e/ou um modo "qualidade alta" (mais limpo, mais pesado).
 - Aviso de proteção no celular ao escolher mais de 8 vozes de unison (pode pesar/estalar).

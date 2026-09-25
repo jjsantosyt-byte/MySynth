@@ -148,6 +148,7 @@ const TEXTOS = new Map(
 
     // Efeitos
     Cor: 'Color',
+    'Filtro Track': 'Track Filter',
     Espaço: 'Space',
     Saturação: 'Saturation',
     Distorção: 'Distortion',

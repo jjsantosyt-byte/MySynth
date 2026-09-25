@@ -25,6 +25,7 @@ import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 import { TIPOS_SATURACAO } from './dsp/efeitos/saturacao.js';
+import { NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK } from './dsp/efeitos/filtro-track.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
 import {
@@ -201,6 +202,7 @@ const estado = {
     // Os valores iniciais dos knobs novos reproduzem o som de antes (presets antigos iguais)
     saturacao: { ligado: false, tipo: 'fita', drive: 0.3, tom: 1, mix: 1 },
     distorcao: { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 },
+    filtroTrack: { ligado: false, tipo: 'lp24', nota: 72, track: 1, reso: 0.2, mix: 1 },
     eq: { ligado: false, grave: 0, medio: 0, agudo: 0, freq: 1000, q: 1, saida: 0, mix: 1 },
     compressor: { ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1 },
     phaser: { ligado: false, rate: 0.5, depth: 0.7, freq: 800, feedback: 0.5, stereo: 0.5, mix: 0.5 },
@@ -1169,6 +1171,43 @@ document.querySelector('[data-knobs-efeito="distorcao"]').append(
   knobEfeito('distorcao', 'Tom', 'tom', escalaLinear(0, 1), formatarAberto),
   knobEfeito('distorcao', 'Low Cut', 'lowcut', escalaExponencial(20, 1000), formatarCorte),
   knobEfeito('distorcao', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
+);
+
+// Filtro Track: tipo + Cutoff em NOTAS (anda de semitom em semitom), Track, Reso, Mix.
+// Com Track 100%, o Cutoff aparece como distância da nota tocada ("+12 st" = uma oitava
+// acima); senão, como a nota fixa ("C5").
+const NOMES_NOTAS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const nomeDaNota = (nota) => NOMES_NOTAS[((nota % 12) + 12) % 12] + (Math.floor(nota / 12) - 1); // 60 = C4
+botoesDeTipo('filtroTrack', document.getElementById('tipos-filtro-track'), TIPOS_FILTRO, {
+  lp12: 'LP12', // sem espaço: cabem numa linha no cartão estreito
+  lp24: 'LP24',
+  hp: 'HP',
+  bp: 'BP',
+});
+const knobCutoffTrack = criarKnob({
+  rotulo: 'Cutoff',
+  escala: escalaLinear(NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK),
+  padrao: estado.efeitos.filtroTrack.nota,
+  formatar: (v) => {
+    const nota = Math.round(v);
+    if (estado.efeitos.filtroTrack.track >= 0.995) {
+      const d = nota - 60;
+      return (d > 0 ? '+' : '') + d + ' st';
+    }
+    return nomeDaNota(nota);
+  },
+  aoMudar: (v) => definirEfeito('filtroTrack', 'nota', Math.round(v)),
+  ler: () => estado.efeitos.filtroTrack.nota,
+});
+document.querySelector('[data-knobs-efeito="filtroTrack"]').append(
+  knobCutoffTrack,
+  knobEfeito('filtroTrack', 'Track', 'track', escalaLinear(0, 1), (v) => {
+    // O Cutoff muda de "C5" para "+12 st" quando o Track chega a 100%
+    queueMicrotask(() => knobCutoffTrack.sincronizar());
+    return formatarPorcentagem(v);
+  }),
+  knobEfeito('filtroTrack', 'Reso', 'reso', escalaLinear(0, 1), formatarPorcentagem),
+  knobEfeito('filtroTrack', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
 
 // EQ: ganhos das 3 bandas (±15 dB), Freq e Q do Médio, Saída

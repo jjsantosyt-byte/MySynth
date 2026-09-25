@@ -348,7 +348,7 @@
         </div>
       </section>
       <!-- Aba FX: efeitos na ordem do caminho do som
-           (Saturação → Distorção → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb),
+           (Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb),
            em 2 páginas:
            "Cor" (mudam o timbre) e "Espaço" (movimento e ambiente). -->
       <section class="conteudo-aba" data-painel="fx" hidden>
@@ -376,6 +376,16 @@
             <!-- Tipo: Suave (arredonda), Dura (corta), Válvula (assimétrica) -->
             <div id="tipos-distorcao" class="grupo-botoes"></div>
             <div class="linha-knobs" data-knobs-efeito="distorcao"></div>
+          </article>
+
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Filtro Track</h2>
+              <button class="chave" data-ligar-efeito="filtroTrack" aria-pressed="false">Off</button>
+            </div>
+            <!-- Filtro de efeito com o Cutoff em notas, que pode acompanhar a última nota tocada -->
+            <div id="tipos-filtro-track" class="grupo-botoes"></div>
+            <div class="linha-knobs" data-knobs-efeito="filtroTrack"></div>
           </article>
 
           <article class="cartao" data-pagina="1">
