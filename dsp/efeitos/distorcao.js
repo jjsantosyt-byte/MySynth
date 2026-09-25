@@ -20,7 +20,7 @@
 //   fica SEMPRE ligado: se ele sumisse ao desligar, o som daria um pulinho (estalo).
 
 import { ganhosMix } from './delay.js';
-import { TAPS, MEIO, filtrarMeiaBanda } from '../meia-banda.js';
+import { TAPS, MEIO, filtrarMeiaBanda, Interpolador } from '../meia-banda.js';
 import { coefPolo } from './comum.js';
 
 // Low Cut (antes de distorcer): tira o grave que entra (distorção mais "limpa" e firme).
@@ -89,9 +89,9 @@ function ganhoDoDrive(drive) {
 // Um lado (esquerdo ou direito): sobe a taxa, satura, filtra e desce.
 class Canal {
   constructor(taxaAmostragem) {
-    this.hSubir = new Float64Array(TAPS); // histórico na taxa dobrada (subida)
+    this.subir = new Interpolador(); // sobe para a taxa dobrada
+    this.altas = new Float64Array(2); // as 2 amostras na taxa dobrada
     this.hDescer = new Float64Array(TAPS); // histórico na taxa dobrada (descida)
-    this.pSubir = 0;
     this.pDescer = 0;
     this.anterior = 0; // amostra anterior (para o ADAA)
     this.integralAnterior = 0; // e a integral dela (guardada para não recalcular)
@@ -102,7 +102,7 @@ class Canal {
   }
 
   limpar() {
-    this.hSubir.fill(0);
+    this.subir.limpar();
     this.hDescer.fill(0);
     this.anterior = 0;
     this.integralAnterior = 0;
@@ -115,12 +115,11 @@ class Canal {
   }
 
   processar(x, tipo, ganho, compensacao) {
-    // Subir: amostra, zero, amostra, zero... (×2 para manter o volume) e filtra
+    // Subir: 1 amostra vira 2 na taxa dobrada (ver Interpolador em dsp/meia-banda.js)
+    this.subir.processar(x, this.altas);
     let saida = 0;
     for (let fase = 0; fase < 2; fase++) {
-      this.pSubir = this.pSubir + 1 === TAPS ? 0 : this.pSubir + 1;
-      this.hSubir[this.pSubir] = fase === 0 ? 2 * x : 0;
-      const alto = this.filtrar(this.hSubir, this.pSubir);
+      const alto = this.altas[fase];
 
       // Satura na taxa dobrada (com ADAA)
       const empurrado = alto * ganho;
@@ -164,6 +163,9 @@ export class Distorcao {
     this.tomE = 0;
     this.tomD = 0;
     this.ganho = ganhoDoDrive(0.4);
+    this.ganhoCompensado = -1; // ganho e tipo usados na última conta da compensação
+    this.tipoCompensado = null;
+    this.compensacao = 1;
     this.seco = 1;
     this.molhado = 0;
     this.suavizar = 1 - Math.exp(-1 / (0.01 * taxaAmostragem));
@@ -206,8 +208,14 @@ export class Distorcao {
       this.ganho += (alvoGanho - this.ganho) * s;
       // Compensação: um sinal de 0,5 sai com 0,5 em qualquer Drive.
       // A Válvula (assimétrica) soa mais alta com a mesma conta: leva um desconto.
-      const desconto = a.tipo === 'valvula' ? 0.7 : 1;
-      const compensacao = (desconto * 0.5) / Math.abs(saturar(a.tipo, 0.5 * this.ganho) || 1);
+      // (Recalculada só quando o Drive ou o tipo mudam: com o knob parado, é sempre a mesma.)
+      if (this.ganho !== this.ganhoCompensado || a.tipo !== this.tipoCompensado) {
+        const desconto = a.tipo === 'valvula' ? 0.7 : 1;
+        this.compensacao = (desconto * 0.5) / Math.abs(saturar(a.tipo, 0.5 * this.ganho) || 1);
+        this.ganhoCompensado = this.ganho;
+        this.tipoCompensado = a.tipo;
+      }
+      const compensacao = this.compensacao;
 
       // Low Cut antes de distorcer (só no caminho distorcido)
       let entradaE = saidaE[i];

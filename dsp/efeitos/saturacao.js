@@ -15,7 +15,7 @@
 // (sempre, mesmo dormindo: ligar/desligar nunca dá "pulinho").
 
 import { ganhosMix } from './delay.js';
-import { TAPS, MEIO, filtrarMeiaBanda } from '../meia-banda.js';
+import { TAPS, MEIO, filtrarMeiaBanda, Interpolador } from '../meia-banda.js';
 import { coefPolo } from './comum.js';
 
 export const TIPOS_SATURACAO = ['fita', 'valvula', 'transistor'];
@@ -73,9 +73,9 @@ const ganhoDoDrive = (drive) => 1 + 5 * drive; // 1× a 6×
 // Um lado: sobe a taxa, satura, filtra e desce
 class Canal {
   constructor(taxaAmostragem) {
-    this.hSubir = new Float64Array(TAPS);
+    this.subir = new Interpolador(); // sobe para a taxa dobrada
+    this.altas = new Float64Array(2); // as 2 amostras na taxa dobrada
     this.hDescer = new Float64Array(TAPS);
-    this.pSubir = 0;
     this.pDescer = 0;
     this.anterior = 0;
     this.integralAnterior = 0;
@@ -86,7 +86,7 @@ class Canal {
   }
 
   limpar() {
-    this.hSubir.fill(0);
+    this.subir.limpar();
     this.hDescer.fill(0);
     this.anterior = 0;
     this.integralAnterior = 0;
@@ -94,11 +94,11 @@ class Canal {
   }
 
   processar(x, tipo, ganho, compensacao) {
+    // Subir: 1 amostra vira 2 na taxa dobrada (ver Interpolador em dsp/meia-banda.js)
+    this.subir.processar(x, this.altas);
     let saida = 0;
     for (let fase = 0; fase < 2; fase++) {
-      this.pSubir = this.pSubir + 1 === TAPS ? 0 : this.pSubir + 1;
-      this.hSubir[this.pSubir] = fase === 0 ? 2 * x : 0;
-      const alto = filtrarMeiaBanda(this.hSubir, this.pSubir) * ganho;
+      const alto = this.altas[fase] * ganho;
       if (tipo !== this.tipoAnterior) {
         this.integralAnterior = integral(tipo, this.anterior);
         this.tipoAnterior = tipo;
@@ -128,6 +128,9 @@ export class Saturacao {
 
     this.ajustes = { ligado: false, tipo: 'fita', drive: 0.3, tom: 1, mix: 1 };
     this.ganho = ganhoDoDrive(0.3);
+    this.ganhoCompensado = -1; // ganho e tipo usados na última conta da compensação
+    this.tipoCompensado = null;
+    this.compensacao = 1;
     this.seco = 1;
     this.molhado = 0;
     this.tomE = 0;
@@ -170,7 +173,13 @@ export class Saturacao {
       this.molhado += (alvoMolhado - this.molhado) * s;
       this.ganho += (alvoGanho - this.ganho) * s;
       // Compensação: um sinal de 0,5 sai com 0,5 em qualquer Drive
-      const compensacao = 0.5 / Math.abs(curva(tipo, 0.5 * this.ganho) || 1);
+      // (Recalculada só quando o Drive ou o tipo mudam: com o knob parado, é sempre a mesma.)
+      if (this.ganho !== this.ganhoCompensado || tipo !== this.tipoCompensado) {
+        this.compensacao = 0.5 / Math.abs(curva(tipo, 0.5 * this.ganho) || 1);
+        this.ganhoCompensado = this.ganho;
+        this.tipoCompensado = tipo;
+      }
+      const compensacao = this.compensacao;
 
       let satE = this.esquerdo.processar(saidaE[i], tipo, this.ganho, compensacao);
       let satD = this.direito.processar(saidaD[i], tipo, this.ganho, compensacao);
