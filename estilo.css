@@ -21,6 +21,29 @@
   --cor-lfo3: #f2d94e; /* amarelo */
   --cor-env2: #ffa94d; /* laranja */
   --cor-env3: #ff6fae; /* rosa */
+
+  /* Mais cores com nome (cada TEMA troca estas; ver "TEMAS" no fim do arquivo) */
+  --verde: #46f06e; /* logo e ondas dos osciladores */
+  --verde-rgb: 70, 240, 110;
+  --azul-rgb: 63, 184, 255; /* = --destaque, em números (brilhos e transparências) */
+  --texto-sobre-destaque: #07121b; /* texto em cima do azul (aba escolhida) */
+  --texto-sobre-cor: #0b0c0f; /* texto em cima das fichas coloridas */
+  --lcd-fundo: #06141c; /* visor LCD */
+  --lcd-texto: #8fdcff;
+  --led-apagado: #3a3f4c;
+  --rolagem: #3a4152; /* barras de rolagem, marcas da barra do WT Pos */
+  --tecla-branca: #ececef;
+  --tecla-preta: #22252e;
+  --ponto-aovivo: #fff; /* ponto da modulação ao vivo */
+
+  /* Desenhos (canvas: onda, filtro, envelopes, LFO) — lidos pelo visualizacao.js */
+  --desenho-onda: 70, 240, 110; /* ondas dos osciladores */
+  --desenho-linha: 63, 184, 255; /* filtro, envelopes, LFO */
+  --desenho-apagado: #56607a;
+  --desenho-guia: #3d4661;
+  --desenho-marca: 255, 200, 87; /* marcas do unison */
+  --desenho-ponto: 255, 255, 255;
+  --desenho-alca: #0b0d12; /* miolo das bolinhas dos envelopes */
 }
 
 html,
@@ -424,7 +447,7 @@ h1 {
   border: 1px solid var(--cor);
   border-radius: 999px;
   background: var(--cor);
-  color: var(--fundo);
+  color: var(--texto-sobre-cor);
   font-size: 13px;
   font-weight: 700;
   touch-action: none; /* arrastar a ficha não rola a página */
@@ -484,7 +507,7 @@ h1 {
   padding: 0 14px;
   transform: translate(-50%, -130%); /* fica acima do dedo, para não ficar escondida */
   background: var(--cor);
-  color: var(--fundo);
+  color: var(--texto-sobre-cor);
   pointer-events: none;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
 }
@@ -778,7 +801,7 @@ h1 {
 
 .chave[aria-pressed='true'] {
   border-color: var(--destaque);
-  background: rgba(63, 184, 255, 0.15);
+  background: rgba(var(--azul-rgb), 0.15);
   color: var(--destaque);
 }
 
@@ -946,7 +969,7 @@ h1 {
 }
 
 .knob-aovivo {
-  fill: #fff;
+  fill: var(--ponto-aovivo);
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
 }
 
@@ -1027,7 +1050,7 @@ h1 {
   height: 10px;
   margin-left: -5px;
   border-radius: 50%;
-  background: #fff;
+  background: var(--ponto-aovivo);
   box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
@@ -1261,7 +1284,7 @@ h1 {
   justify-content: flex-end;
   gap: 4px;
   padding-bottom: 10px;
-  background: #ececef;
+  background: var(--tecla-branca);
   border: 1px solid var(--fundo);
   border-radius: 0 0 10px 10px;
   color: #666;
@@ -1273,7 +1296,7 @@ h1 {
   top: 0;
   height: 60%;
   transform: translateX(-50%);
-  background: #22252e;
+  background: var(--tecla-preta);
   border: 1px solid var(--fundo);
   border-radius: 0 0 8px 8px;
   z-index: 2;
@@ -2151,7 +2174,7 @@ h1 {
 
 .carregando-onda path {
   fill: none;
-  stroke: #46f06e;
+  stroke: var(--verde);
   stroke-width: 2.5;
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -2187,7 +2210,7 @@ h1 {
   width: 8%;
   height: 100%;
   border-radius: 2px;
-  background: #46f06e;
+  background: var(--verde);
   transition: width 0.3s ease-out;
 }
 
@@ -2244,7 +2267,7 @@ h1 {
 }
 
 .idioma-botao:active {
-  border-color: #46f06e;
+  border-color: var(--verde);
   background: var(--botao-apertado);
 }
 
@@ -2294,7 +2317,7 @@ h1 {
 
 .botao-logo path {
   fill: none;
-  stroke: #46f06e;
+  stroke: var(--verde);
   stroke-width: 2.6;
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -2302,7 +2325,7 @@ h1 {
 
 .botao-logo.aberto {
   background: var(--botao-apertado);
-  box-shadow: inset 0 0 0 1px #46f06e;
+  box-shadow: inset 0 0 0 1px var(--verde);
 }
 
 .menu-logo {
@@ -2547,7 +2570,7 @@ h1 {
   transform: translateY(3px);
   box-shadow:
     inset 0 -5px 0 var(--destaque),
-    inset 0 0 14px rgba(63, 184, 255, 0.55);
+    inset 0 0 14px rgba(var(--azul-rgb), 0.55);
 }
 
 .tecla.preta.ativa {
@@ -2555,13 +2578,13 @@ h1 {
   transform: translateY(2px);
   box-shadow:
     inset 0 -4px 0 var(--destaque),
-    inset 0 0 10px rgba(63, 184, 255, 0.8);
+    inset 0 0 10px rgba(var(--azul-rgb), 0.8);
 }
 
 /* 2) Aba escolhida: azul cheia (texto escuro) */
 .aba.ativa {
   background: var(--destaque);
-  color: #07121b;
+  color: var(--texto-sobre-destaque);
   box-shadow: none;
 }
 
@@ -2604,7 +2627,7 @@ h1 {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #3a3f4c;
+  background: var(--led-apagado);
   transition:
     background 0.12s,
     box-shadow 0.12s;
@@ -2635,13 +2658,13 @@ h1 {
 
 /* Nome do preset num visor LCD azul: categoria e número em cima, nome embaixo */
 .presets-nome {
-  --contorno: rgba(63, 184, 255, 0.45);
+  --contorno: rgba(var(--azul-rgb), 0.45);
   flex-direction: column;
   align-items: stretch;
   justify-content: center;
   gap: 1px;
-  background: #06141c;
-  color: #8fdcff;
+  background: var(--lcd-fundo);
+  color: var(--lcd-texto);
   font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
   text-align: left;
 }
@@ -2665,7 +2688,7 @@ h1 {
   line-height: 1.15;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  text-shadow: 0 0 6px rgba(63, 184, 255, 0.45);
+  text-shadow: 0 0 6px rgba(var(--azul-rgb), 0.45);
 }
 
 @media (orientation: landscape) and (max-height: 500px) {
@@ -2891,9 +2914,9 @@ h1 {
   cursor: pointer;
   --preenche: calc(6px + (100% - 12px) * var(--pos, 0));
   --trilho-wt:
-    repeating-linear-gradient(to right, var(--cor-marca, #3a4152) 0 1px, transparent 1px var(--passo, 100%)) 6px 0 /
+    repeating-linear-gradient(to right, var(--cor-marca, var(--rolagem)) 0 1px, transparent 1px var(--passo, 100%)) 6px 0 /
       calc(100% - 11px) 100% no-repeat,
-    linear-gradient(to right, rgba(70, 240, 110, 0.75) var(--preenche), transparent var(--preenche)),
+    linear-gradient(to right, rgba(var(--verde-rgb), 0.75) var(--preenche), transparent var(--preenche)),
     var(--fundo);
 }
 
@@ -3041,7 +3064,7 @@ h1 {
 
 .menu-cabecalho path {
   fill: none;
-  stroke: #46f06e;
+  stroke: var(--verde);
   stroke-width: 2.6;
   stroke-linejoin: round;
   stroke-linecap: round;
@@ -3073,7 +3096,7 @@ h1 {
 @supports not selector(::-webkit-scrollbar) {
   * {
     scrollbar-width: thin;
-    scrollbar-color: #3a4152 transparent;
+    scrollbar-color: var(--rolagem) transparent;
   }
 }
 
@@ -3087,7 +3110,7 @@ h1 {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3a4152;
+  background: var(--rolagem);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -3201,7 +3224,7 @@ h1 {
   width: 44px;
   height: 44px;
   fill: none;
-  stroke: #46f06e;
+  stroke: var(--verde);
   stroke-width: 2.6;
   stroke-linejoin: round;
   stroke-linecap: round;

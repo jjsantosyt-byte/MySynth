@@ -15,6 +15,16 @@
     <link rel="apple-touch-icon" href="icones/icone-180.png" />
     <link rel="icon" type="image/png" href="icones/icone-192.png" />
     <link rel="stylesheet" href="estilo.css" />
+    <!-- Tema (Básico / Comum / Claro): aplicado ANTES de desenhar a tela, para não piscar o
+         tema errado. O mesmo nome de gaveta do interface/tema.js. -->
+    <script>
+      try {
+        var tema = localStorage.getItem('mysynth.tema.v1');
+        document.documentElement.dataset.tema = tema === 'basico' || tema === 'claro' ? tema : 'comum';
+      } catch (e) {
+        document.documentElement.dataset.tema = 'comum';
+      }
+    </script>
   </head>
   <body>
     <!-- Tela de carregamento: aparece na hora (só HTML e CSS) e some quando o app está pronto

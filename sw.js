@@ -53,6 +53,7 @@ const ARQUIVOS = [
   'interface/idioma.js',
   'interface/envelope-arrastar.js',
   'interface/icones.js',
+  'interface/tema.js',
   'interface/menu-app.js',
   'interface/janela.js',
   'interface/knob.js',

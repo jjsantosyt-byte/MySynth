@@ -3,13 +3,27 @@
 
 import { amortecimento, compensacaoResonancia } from './dsp/filtro.js';
 
-// Cores do desenho (combinam com as de estilo.css)
-// Cor de cada desenho: o [vermelho, verde, azul] da linha (o brilho e o preenchimento usam a
-// mesma cor, mais transparente). Ondas dos osciladores em verde; o resto em azul.
-const AZUL = [63, 184, 255];
-const VERDE = [70, 240, 110];
-const COR_LINHA_APAGADA = '#56607a';
-const COR_GUIA = '#3d4661';
+// Cores dos desenhos: vêm do TEMA (variáveis --desenho-* no estilo.css), lidas na primeira vez
+// que algo é desenhado (trocar de tema recarrega o app). Cores em números "r, g, b" viram
+// listas [r, g, b] (para montar as transparências do brilho).
+let coresTema = null;
+function cores() {
+  if (coresTema) return coresTema;
+  const css = getComputedStyle(document.documentElement);
+  const ler = (nome, padrao) => css.getPropertyValue(nome).trim() || padrao;
+  const rgb = (nome, padrao) => ler(nome, padrao).split(',').map(Number);
+  coresTema = {
+    onda: rgb('--desenho-onda', '70, 240, 110'), // ondas dos osciladores
+    linha: rgb('--desenho-linha', '63, 184, 255'), // filtro, envelopes, LFO
+    apagado: ler('--desenho-apagado', '#56607a'),
+    guia: ler('--desenho-guia', '#3d4661'),
+    marca: rgb('--desenho-marca', '255, 200, 87'), // marcas do unison
+    ponto: rgb('--desenho-ponto', '255, 255, 255'), // pontinho ao vivo, contorno das bolinhas
+    alca: ler('--desenho-alca', '#0b0d12'), // miolo das bolinhas dos envelopes
+  };
+  return coresTema;
+}
+const rgbaDe = (cor, alfa) => `rgba(${cor[0]}, ${cor[1]}, ${cor[2]}, ${alfa})`;
 
 // Prepara o canvas na resolução certa da tela. Devolve null se estiver escondido.
 function prepararCanvas(canvas) {
@@ -32,7 +46,7 @@ function prepararCanvas(canvas) {
 
 // Linha-guia reta (ex.: linha do zero).
 function linhaGuia(g, x1, y1, x2, y2) {
-  g.strokeStyle = COR_GUIA;
+  g.strokeStyle = cores().guia;
   g.lineWidth = 1;
   g.beginPath();
   g.moveTo(x1, y1);
@@ -42,7 +56,7 @@ function linhaGuia(g, x1, y1, x2, y2) {
 
 // Desenha uma lista de pontos [x, y] como linha brilhante, com preenchimento
 // em degradê até a altura "base".
-function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = AZUL) {
+function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = cores().linha) {
   const rgba = (alfa) => `rgba(${cor[0]}, ${cor[1]}, ${cor[2]}, ${alfa})`;
   const tracar = () => {
     g.beginPath();
@@ -68,7 +82,7 @@ function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = AZUL) {
     g.shadowColor = rgba(0.7);
     g.shadowBlur = 8;
   }
-  g.strokeStyle = apagada ? COR_LINHA_APAGADA : rgba(1);
+  g.strokeStyle = apagada ? cores().apagado : rgba(1);
   g.lineWidth = 2.5;
   g.lineJoin = 'round';
   g.stroke();
@@ -79,14 +93,13 @@ function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = AZUL) {
 
 // Marcas das cópias de unison (risquinhos verticais, como no Serum).
 // "posicoes" vão de -1 a +1: 0 = afinada; pontas = detune máximo.
-const COR_MARCA = 'rgba(255, 200, 87, 0.85)';
 
 function desenharMarcasUnison(g, largura, altura, posicoes) {
   if (posicoes.length < 2) return;
   const meio = largura / 2;
   const espalhamento = largura * 0.42;
   g.save();
-  g.strokeStyle = COR_MARCA;
+  g.strokeStyle = rgbaDe(cores().marca, 0.85);
   g.lineWidth = 2;
   g.lineCap = 'round';
   g.beginPath();
@@ -121,7 +134,7 @@ export function desenharOnda(canvas, amostras, marcasUnison = []) {
     pontos.push([(k / qtd) * largura, meio - amostras[indice] * amplitude]);
   }
   desenharMarcasUnison(g, largura, altura, marcasUnison);
-  linhaComBrilho(g, pontos, meio, altura, false, VERDE);
+  linhaComBrilho(g, pontos, meio, altura, false, cores().onda);
 }
 
 // ---------- Forma do LFO ----------
@@ -174,8 +187,8 @@ export function desenharLFO(canvas, forma, aoVivo = null) {
     const x = margem + aoVivo.fase * (largura - 2 * margem);
     const y = meio - aoVivo.valor * amplitude;
     g.save();
-    g.fillStyle = '#fff';
-    g.shadowColor = 'rgba(255, 255, 255, 0.9)';
+    g.fillStyle = rgbaDe(cores().ponto, 1);
+    g.shadowColor = rgbaDe(cores().ponto, 0.9);
     g.shadowBlur = 8;
     g.beginPath();
     g.arc(x, y, 4.5, 0, 2 * Math.PI);
@@ -259,12 +272,12 @@ function desenharAlcas(g, pontos, ativa) {
     g.save();
     g.beginPath();
     g.arc(x, y, acesa ? 6 : 4.5, 0, 2 * Math.PI);
-    g.fillStyle = acesa ? `rgb(${AZUL.join(', ')})` : '#0b0d12';
+    g.fillStyle = acesa ? rgbaDe(cores().linha, 1) : cores().alca;
     g.fill();
     g.lineWidth = 1.5;
-    g.strokeStyle = acesa ? '#ffffff' : 'rgba(255, 255, 255, 0.85)';
+    g.strokeStyle = rgbaDe(cores().ponto, acesa ? 1 : 0.85);
     if (acesa) {
-      g.shadowColor = `rgba(${AZUL.join(', ')}, 0.9)`;
+      g.shadowColor = rgbaDe(cores().linha, 0.9);
       g.shadowBlur = 10;
     }
     g.stroke();
