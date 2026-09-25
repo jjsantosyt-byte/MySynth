@@ -24,6 +24,9 @@ public class MainActivity extends BridgeActivity {
         WebSettings ajustes = webView.getSettings();
         ajustes.setMediaPlaybackRequiresUserGesture(false);
         ajustes.setDomStorageEnabled(true); // localStorage (presets) — o padrão do Capacitor, garantido
+        // O tamanho de fonte do Android (Configurações → Tela → Tamanho da fonte, ex.: 145%) NÃO
+        // aumenta as letras do app: o painel do synth tem tamanhos fixos e as letras encavalavam.
+        ajustes.setTextZoom(100);
         telaCheia();
     }
 
