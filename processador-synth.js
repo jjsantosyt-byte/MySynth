@@ -11,7 +11,7 @@
 //   deslizar entre teclas não reinicia o envelope.
 // - Glide: a nota escorrega até a nova altura (tempo igual para qualquer
 //   intervalo). Por padrão só quando as notas estão emendadas; "Sempre" = toda vez.
-// - Modulação: LFO 1 e 2, ENV 2 e 3 ligados a controles (ver dsp/modulacao.js).
+// - Modulação: LFO 1, 2 e 3, ENV 2 e 3 ligados a controles (ver dsp/modulacao.js).
 //   LFO em modo Retrig vive dentro de cada voz; em modo Livre, fica aqui
 //   (um só para todas as notas, rodando sem parar).
 
@@ -19,7 +19,7 @@ import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
-import { MatrizModulacao } from './dsp/modulacao.js';
+import { MatrizModulacao, INDICES_LFO } from './dsp/modulacao.js';
 import { EstadoLFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
@@ -181,6 +181,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.ajustesLfo = [
       { forma: 'seno', rate: 2, modo: 'retrig' },
       { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
+      { forma: 'seno', rate: 1, modo: 'retrig' }, // LFO 3
     ];
     this.ajustesEnv = [
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
@@ -224,8 +225,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.silencioSaida = 0; // amostras seguidas de silêncio na saída (clipper descansa)
     this.enviouPico = false;
 
-    this.lfosLivres = [new EstadoLFO(), new EstadoLFO()];
-    this.valoresLivres = [new Float64Array(4), new Float64Array(4)]; // 1 valor por pedaço
+    this.lfosLivres = this.ajustesLfo.map(() => new EstadoLFO());
+    this.valoresLivres = this.ajustesLfo.map(() => new Float64Array(4)); // 1 valor por pedaço
 
     // Valores "ao vivo" para a tela (pontinhos que se mexem)
     this.blocosDesdeEnvio = 0;
@@ -283,7 +284,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   // Ajustes de uma fonte de modulação (LFO: forma, rate, modo; ENV: A, D, S, R).
   definirFonte(id, ajustes) {
-    const lfo = { lfo1: 0, lfo2: 1 }[id];
+    const lfo = { lfo1: 0, lfo2: 1, lfo3: 2 }[id];
     if (lfo !== undefined) Object.assign(this.ajustesLfo[lfo], ajustes);
     const env = { env2: 0, env3: 1 }[id];
     if (env !== undefined) Object.assign(this.ajustesEnv[env], ajustes);
@@ -506,7 +507,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     saidaD.fill(0);
 
     // LFOs livres rodam sempre, mesmo em silêncio (as notas pegam eles andando).
-    for (let l = 0; l < 2; l++) {
+    for (let l = 0; l < this.ajustesLfo.length; l++) {
       const ajustes = this.ajustesLfo[l];
       for (let pedaco = 0; pedaco * PEDACO < tamanhoBloco; pedaco++) {
         this.lfosLivres[l].avancar((ajustes.rate * PEDACO) / sampleRate);
@@ -668,7 +669,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const algumLivre = this.ajustesLfo.some((a) => a.modo === 'livre');
     if (!voz && !algumLivre) {
       // Nada acontecendo: avisa uma vez só, para a tela esconder os pontinhos.
-      if (this.enviouAtivo) this.port.postMessage({ tipo: 'aoVivo', mod: null, lfos: [null, null] });
+      if (this.enviouAtivo) this.port.postMessage({ tipo: 'aoVivo', mod: null, lfos: [null, null, null] });
       this.enviouAtivo = false;
       return;
     }
@@ -677,7 +678,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       if (ajustes.modo === 'livre') {
         return { fase: this.lfosLivres[l].fase, valor: this.valoresLivres[l][this.valoresLivres[l].length - 1] };
       }
-      return voz ? { fase: voz.lfos[l].fase, valor: voz.valoresFontes[l] } : null;
+      return voz ? { fase: voz.lfos[l].fase, valor: voz.valoresFontes[INDICES_LFO[l]] } : null;
     });
     this.port.postMessage({ tipo: 'aoVivo', mod: voz ? Array.from(voz.mod) : null, lfos });
     this.enviouAtivo = true;

@@ -1,5 +1,5 @@
 // interface/modulacao.js
-// Ligações de modulação na tela: as fichas (LFO 1, LFO 2, ENV 2, ENV 3),
+// Ligações de modulação na tela: as fichas (LFO 1, 2, 3, ENV 2, ENV 3),
 // arrastar e soltar em cima de um knob, o modo "tocar para ligar" e as
 // listas de ligações (com a quantidade e o botão ✕) dentro de cada cartão.
 //
@@ -12,6 +12,7 @@ import { DESTINOS_MOD } from '../dsp/modulacao.js';
 export const FONTES = [
   { id: 'lfo1', nome: 'LFO 1' },
   { id: 'lfo2', nome: 'LFO 2' },
+  { id: 'lfo3', nome: 'LFO 3' },
   { id: 'env2', nome: 'ENV 2' },
   { id: 'env3', nome: 'ENV 3' },
 ];

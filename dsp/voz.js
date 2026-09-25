@@ -17,7 +17,7 @@ import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
 import { OsciladorVoz, MAX_UNISON } from './oscilador-voz.js';
 import { EstadoLFO } from './lfo.js';
-import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
+import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
 import { NOTA_BASE_RUIDO } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
@@ -64,7 +64,7 @@ export class Voz {
     this.usadas = []; // rotas com som neste bloco (reaproveitada, sem criar lixo na memória)
 
     // Fontes de modulação desta nota
-    this.lfos = [new EstadoLFO(), new EstadoLFO()];
+    this.lfos = [new EstadoLFO(), new EstadoLFO(), new EstadoLFO()]; // LFO 1, 2, 3
     this.envsMod = [new Envelope(taxaAmostragem), new Envelope(taxaAmostragem)]; // ENV 2 e 3
     this.valoresFontes = new Float64Array(FONTES_MOD.length);
     this.modAlvo = new Float64Array(DESTINOS_MOD.length); // soma "crua" das ligações
@@ -197,24 +197,26 @@ export class Voz {
   // Lê as fontes de modulação no fim de um pedaço de "qtd" amostras.
   lerFontes(qtd, comum, pedaco) {
     const { ajustesLfo, lfosLivres } = comum;
-    for (let l = 0; l < 2; l++) {
+    for (let l = 0; l < INDICES_LFO.length; l++) {
       const ajustes = ajustesLfo[l];
+      const i = INDICES_LFO[l];
       if (ajustes.modo === 'livre') {
         // Livre: todas as notas usam o mesmo LFO, que roda sem parar.
-        this.valoresFontes[l] = lfosLivres[l][pedaco];
+        this.valoresFontes[i] = lfosLivres[l][pedaco];
       } else {
         this.lfos[l].avancar((ajustes.rate * qtd) / this.taxa);
-        this.valoresFontes[l] = this.lfos[l].valor(ajustes.forma);
+        this.valoresFontes[i] = this.lfos[l].valor(ajustes.forma);
       }
     }
-    for (let e = 0; e < 2; e++) {
+    for (let e = 0; e < INDICES_ENV.length; e++) {
       const env = this.envsMod[e];
-      if (comum.matriz.usaFonte(2 + e)) {
+      const i = INDICES_ENV[e];
+      if (comum.matriz.usaFonte(i)) {
         for (let k = 0; k < qtd; k++) env.proximo(); // ligado a algo: amostra por amostra (exato)
       } else {
         env.avancar(qtd); // sem ligação: anda o pedaço de uma vez (ninguém ouve o valor)
       }
-      this.valoresFontes[2 + e] = env.nivel;
+      this.valoresFontes[i] = env.nivel;
     }
   }
 

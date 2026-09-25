@@ -192,6 +192,7 @@ const estado = {
   fontes: {
     lfo1: { forma: 'seno', rate: 2, modo: 'retrig' },
     lfo2: { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
+    lfo3: { forma: 'seno', rate: 1, modo: 'retrig' },
     env2: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     env3: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
   },
@@ -213,7 +214,7 @@ const estado = {
   },
   // O que a nota mais recente está fazendo agora (vem do motor ~30 vezes por segundo):
   // mod = quanto cada controle está sendo modulado; lfos = fase e valor de cada LFO.
-  aoVivo: { mod: null, lfos: [null, null] },
+  aoVivo: { mod: null, lfos: [null, null, null] },
   contexto: null, // o "motor" de áudio do navegador
   synth: null, // nosso processador de som
   ganho: null, // volume geral
@@ -561,7 +562,7 @@ function pedirDesenho() {
     }
     telasLfo.forEach((tela) => {
       const id = tela.dataset.telaLfo;
-      desenharLFO(tela, estado.fontes[id].forma, estado.aoVivo.lfos[id === 'lfo1' ? 0 : 1]);
+      desenharLFO(tela, estado.fontes[id].forma, estado.aoVivo.lfos[{ lfo1: 0, lfo2: 1, lfo3: 2 }[id]]);
     });
     telasEnv.forEach((tela) => desenharEnvelope(tela, estado.fontes[tela.dataset.telaEnv]));
   });

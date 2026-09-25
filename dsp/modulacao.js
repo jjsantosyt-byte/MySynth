@@ -1,11 +1,15 @@
 // dsp/modulacao.js
 // As "ligações" de modulação: qual fonte mexe em qual controle, e quanto.
 //
-// Fontes: LFO 1, LFO 2 (de -1 a +1) e ENV 2, ENV 3 (de 0 a 1).
+// Fontes: LFO 1, 2, 3 (de -1 a +1) e ENV 2, ENV 3 (de 0 a 1).
 // Destinos: controles de som. A modulação soma na posição do knob (0 a 1):
 // quantidade +50% com a fonte no máximo = knob meio giro para cima.
 
-export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3'];
+// O LFO 3 veio depois: fica no fim (os índices antigos não mudam).
+export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3', 'lfo3'];
+// Onde cada LFO (1, 2, 3) e cada ENV (2, 3) fica na lista acima
+export const INDICES_LFO = [0, 1, 4];
+export const INDICES_ENV = [2, 3];
 // cutoff/resonancia = Filtro 1; cutoff2/resonancia2 = Filtro 2.
 // wtPos/detune/width/nivelOsc = OSC A; os do B e do C têm a letra no fim (sempre no fim da
 // lista: os índices antigos não mudam).
