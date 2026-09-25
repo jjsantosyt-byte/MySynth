@@ -3,7 +3,7 @@
   "versao": 2,
   "presets": [
     {
-      "nome": "Lead Quadrado",
+      "nome": "Square Lead",
       "categoria": "Lead",
       "som": {
         "parametros": { "wtPos": 1, "detune": 0.12, "width": 0.6, "cutoff": 3000, "resonancia": 0.2, "soltura": 0.2 },

@@ -3,7 +3,7 @@
   "versao": 2,
   "presets": [
     {
-      "nome": "Pad Suave",
+      "nome": "Soft Pad",
       "categoria": "Pad",
       "som": {
         "parametros": {
