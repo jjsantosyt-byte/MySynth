@@ -291,6 +291,18 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   17,0%; 3 osc U4 27,9% → 24,8% (só ~10% mais leve: a tradução direta não usa SIMD; o compilador não
   vetoriza sozinho, -msimd128 ligado ou não deu igual). No app: acorde toca, 5 wavetables trocam
   com nota segurada, sem erros no console. `teste-peso-f1.js` mede só o peso.
+  F1 APROVADA pelo dono (26/09/2026).
+- F1b (26/09/2026, em teste; versão 2): oscilador SEM Warp calcula as cópias de unison de 4 em 4
+  com SIMD (`quatroCopias<MISTURA, MORPH>` em motor.cpp; intrínsecos `wasm_simd128.h`). Dentro do
+  pedaço a fase é um inteiro de 32 bits (estoura = volta do ciclo; bits de cima = ponto, de baixo =
+  fração); no fim a fase exata (double) anda o pedaço de uma vez. Contas da onda em float (antes
+  double). Tabelas precisam ter tamanho potência de 2 (`Tabela.bits`; todas têm 2048).
+  Warp/FM continuam do jeito da F1 (candidatos a SIMD depois).
+  Medido (`_antigo/teste/teste-f1b.js`; peso contra `_antigo/motor-f1.wasm`): som × régua entre
+  -114 e -141 dB (arredondamento; Warp idêntico); peso 8 notas U8 13,8% → 8,4%; 3 osc U4 20,4% →
+  11,7%; 1 nota sem unison igual. App: "motor C++ carregado (versão 2)", acorde toca, sem erros.
+  `_antigo/teste/motor.js`: `carregar(raiz, wasm)` escolhe qual .wasm usar. Servidor de teste do
+  Claude também na porta 8093 (`mysynth-3` no launch.json).
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).

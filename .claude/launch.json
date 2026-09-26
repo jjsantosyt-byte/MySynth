@@ -12,6 +12,12 @@
       "runtimeExecutable": "powershell",
       "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "servidor.ps1", "-Porta", "8092"],
       "port": 8092
+    },
+    {
+      "name": "mysynth-3",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "servidor.ps1", "-Porta", "8093"],
+      "port": 8093
     }
   ]
 }

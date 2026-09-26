@@ -8,6 +8,7 @@
 // Etapa F1: os OSCILADORES das notas (leitura da wavetable sem chiado, WT Pos, unison,
 // Warp e FM). O resto da voz (filtros, envelopes, modulação) ainda está em dsp/voz.js e
 // chama estas funções a cada pedaço de modulação.
+// F1b: sem Warp, as cópias de unison são calculadas de 4 em 4 com SIMD (quatroCopias).
 //
 // Como o JavaScript conversa com o C++ ("mesa de troca"):
 //   - wavetables: o JS pede espaço (criarTabela) e copia as ondas para dentro, uma vez só;
@@ -22,6 +23,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <wasm_simd128.h>  // SIMD: contas em 4 números de uma vez
 
 // "EXPORTAR" = a função fica visível para o JavaScript (processador-synth.js).
 #define EXPORTAR extern "C" __attribute__((visibility("default")))
@@ -68,8 +70,9 @@ inline double arredondar(double v) { return std::floor(v + 0.5); }
 // Uma tabela = vários frames (formas de onda), cada frame com vários níveis (versões com
 // menos harmônicos, para notas agudas). As ondas ficam em "dados": [frame][nível][ponto].
 struct Tabela {
-  int tamanho;               // pontos por ciclo (2048)
+  int tamanho;               // pontos por ciclo (2048; sempre potência de 2)
   int mascara;               // tamanho - 1
+  int bits;                  // tamanho = 2^bits (usado pela leitura com SIMD)
   int qtdFrames;
   int qtdNiveis;
   int harmonicos[MAX_NIVEIS]; // quantos harmônicos cada nível tem
@@ -453,6 +456,117 @@ struct OscVoz {
     }
   }
 
+  // Lê 4 pontos da onda (um por cópia) e liga cada um ao vizinho por uma reta.
+  // j0/j1 = posição de cada ponto dentro do frame (já com o nível de cada cópia somado).
+  // O WebAssembly não tem "buscar 4 lugares diferentes de uma vez": as 4 leituras são uma
+  // a uma, mas as contas depois delas são feitas juntas.
+  static inline v128_t lerQuatro(const float* frame, v128_t j0, v128_t j1, v128_t frac) {
+    const v128_t a = wasm_f32x4_make(frame[wasm_i32x4_extract_lane(j0, 0)], frame[wasm_i32x4_extract_lane(j0, 1)],
+                                     frame[wasm_i32x4_extract_lane(j0, 2)], frame[wasm_i32x4_extract_lane(j0, 3)]);
+    const v128_t b = wasm_f32x4_make(frame[wasm_i32x4_extract_lane(j1, 0)], frame[wasm_i32x4_extract_lane(j1, 1)],
+                                     frame[wasm_i32x4_extract_lane(j1, 2)], frame[wasm_i32x4_extract_lane(j1, 3)]);
+    return wasm_f32x4_add(a, wasm_f32x4_mul(frac, wasm_f32x4_sub(b, a)));
+  }
+
+  // Sem Warp: 4 cópias de unison de uma vez (c0 a c0+3) com SIMD — cada conta é feita
+  // nas 4 cópias juntas. MISTURA = alguma cópia mistura 2 níveis anti-chiado;
+  // MORPH = mistura 2 frames vizinhos (WT Pos entre frames ou mudando).
+  // Dentro do pedaço, a fase de cada cópia é um número inteiro de 32 bits (a volta do ciclo
+  // acontece sozinha quando o número "estoura"; os bits de cima dizem o ponto da tabela e os
+  // de baixo a fração entre os pontos). No fim, a fase exata (double) anda o pedaço de uma vez.
+  // Cópias que não existem (4 além de qtdCopias) ficam com volume 0 e não andam.
+  template <bool MISTURA, bool MORPH>
+  void quatroCopias(int c0, int inicio, int fim, int unison, int qtdCopias, const Tabela* tab, bool wtParado,
+                    int f0Parado, double tParado) {
+    constexpr double DOIS_32 = 4294967296.0; // 2^32 = uma volta inteira do ciclo
+    const int ultimoFrame = tab->qtdFrames - 1;
+    const int bitsFrac = 32 - tab->bits;
+    const size_t tamanhoFrame = static_cast<size_t>(tab->qtdNiveis) * tab->tamanho;
+
+    alignas(16) uint32_t fase0[4], passo0[4];
+    alignas(16) int32_t nivelA[4], nivelB[4];
+    alignas(16) float mist[4], gE[4], gD[4], vol[4], alvo[4];
+    bool suavizando = false;
+    for (int l = 0; l < 4; l++) {
+      const int c = c0 + l;
+      const bool existe = c < qtdCopias;
+      fase0[l] = existe ? static_cast<uint32_t>(fases[c] * DOIS_32) : 0;
+      passo0[l] = existe ? static_cast<uint32_t>(passos[c] * DOIS_32 + 0.5) : 0;
+      nivelA[l] = existe ? niveis[c] * tab->tamanho : 0;
+      nivelB[l] = existe ? niveisB[c] * tab->tamanho : 0;
+      mist[l] = existe ? static_cast<float>(misturas[c]) : 0;
+      gE[l] = existe ? static_cast<float>(ganhosE[c]) : 0;
+      gD[l] = existe ? static_cast<float>(ganhosD[c]) : 0;
+      const double a = existe ? volumeDaCopia(c, unison) : 0;
+      const double v = existe ? volumes[c] : 0;
+      if (std::fabs(v - a) > 1e-4) suavizando = true;
+      vol[l] = static_cast<float>(std::fabs(v - a) > 1e-4 ? v : a);
+      alvo[l] = static_cast<float>(a);
+    }
+
+    v128_t vFase = wasm_v128_load(fase0);
+    const v128_t vPasso = wasm_v128_load(passo0);
+    const v128_t vNivelA = wasm_v128_load(nivelA), vNivelB = wasm_v128_load(nivelB);
+    const v128_t vMist = wasm_v128_load(mist), vGE = wasm_v128_load(gE), vGD = wasm_v128_load(gD);
+    v128_t vVol = wasm_v128_load(vol);
+    const v128_t vAlvo = wasm_v128_load(alvo);
+    const v128_t vSuavizar = wasm_f32x4_splat(static_cast<float>(suavizar));
+    const v128_t vUm = wasm_i32x4_splat(1);
+    const v128_t vMascara = wasm_i32x4_splat(tab->mascara);
+    const v128_t vBaixos = wasm_i32x4_splat(static_cast<int32_t>((1u << bitsFrac) - 1));
+    const v128_t vEscala = wasm_f32x4_splat(1.0f / static_cast<float>(1u << bitsFrac));
+
+    for (int i = inicio; i < fim; i++) {
+      const int f0 = wtParado ? f0Parado : framesBloco[i];
+      const int fB = f0 + 1 < ultimoFrame ? f0 + 1 : ultimoFrame;
+      const float* frameA = tab->dados + f0 * tamanhoFrame;
+
+      // Ponto da tabela (i0), o vizinho (i1) e a fração entre eles, nas 4 cópias
+      const v128_t i0 = wasm_u32x4_shr(vFase, bitsFrac);
+      const v128_t i1 = wasm_v128_and(wasm_i32x4_add(i0, vUm), vMascara);
+      const v128_t frac = wasm_f32x4_mul(wasm_f32x4_convert_i32x4(wasm_v128_and(vFase, vBaixos)), vEscala);
+      const v128_t a0 = wasm_i32x4_add(i0, vNivelA), a1 = wasm_i32x4_add(i1, vNivelA);
+      v128_t b0, b1;
+      if (MISTURA) {
+        b0 = wasm_i32x4_add(i0, vNivelB);
+        b1 = wasm_i32x4_add(i1, vNivelB);
+      }
+
+      v128_t y = lerQuatro(frameA, a0, a1, frac);
+      if (MISTURA) y = wasm_f32x4_add(y, wasm_f32x4_mul(vMist, wasm_f32x4_sub(lerQuatro(frameA, b0, b1, frac), y)));
+      if (MORPH) {
+        const float* frameB = tab->dados + fB * tamanhoFrame;
+        v128_t z = lerQuatro(frameB, a0, a1, frac);
+        if (MISTURA) z = wasm_f32x4_add(z, wasm_f32x4_mul(vMist, wasm_f32x4_sub(lerQuatro(frameB, b0, b1, frac), z)));
+        const v128_t t = wasm_f32x4_splat(static_cast<float>(wtParado ? tParado : tsBloco[i]));
+        y = wasm_f32x4_add(y, wasm_f32x4_mul(t, wasm_f32x4_sub(z, y)));
+      }
+
+      if (suavizando) vVol = wasm_f32x4_add(vVol, wasm_f32x4_mul(wasm_f32x4_sub(vAlvo, vVol), vSuavizar));
+      y = wasm_f32x4_mul(y, vVol);
+      const v128_t e = wasm_f32x4_mul(y, vGE);
+      const v128_t d = wasm_f32x4_mul(y, vGD);
+      // Soma das 4 cópias: [e0+e2, e1+e3, d0+d2, d1+d3] → lugar 0 = esquerda, lugar 2 = direita
+      const v128_t p = wasm_f32x4_add(wasm_i32x4_shuffle(e, d, 0, 1, 4, 5), wasm_i32x4_shuffle(e, d, 2, 3, 6, 7));
+      const v128_t q = wasm_f32x4_add(p, wasm_i32x4_shuffle(p, p, 1, 0, 3, 2));
+      somaE[i] += wasm_f32x4_extract_lane(q, 0);
+      somaD[i] += wasm_f32x4_extract_lane(q, 2);
+
+      vFase = wasm_i32x4_add(vFase, vPasso);
+    }
+
+    // Guarda a fase exata e o volume de cada cópia
+    wasm_v128_store(vol, vVol);
+    const int qtd = fim - inicio;
+    for (int l = 0; l < 4; l++) {
+      const int c = c0 + l;
+      if (c >= qtdCopias) break;
+      const double f = fases[c] + qtd * passos[c];
+      fases[c] = f - std::floor(f);
+      volumes[c] = suavizando ? vol[l] : volumeDaCopia(c, unison);
+    }
+  }
+
   // Calcula um pedaço (amostras "inicio" até "fim") do oscilador k e soma em somaE/somaD
   void processarPedaco(int k, int inicio, int fim, double frequencia, const double* mod, const double* modAnt) {
     const double* a = ajustes[k];
@@ -531,61 +645,21 @@ struct OscVoz {
       copiasComWarp(inicio, fim, unison, qtdCopias, tab, wtParado, f0Parado, tParado, modoWarp, forca);
     } else {
       usouWarp = false;
-      const int tamanho = tab->tamanho;
-      const int mascara = tab->mascara;
-      // Sem Warp: uma cópia inteira de cada vez
-      for (int c = 0; c < qtdCopias; c++) {
-        double fase = fases[c];
-        const double passo = passos[c];
-        const double gE = ganhosE[c], gD = ganhosD[c];
-        const int nv = niveis[c], nvB = niveisB[c];
-        const double mistura = misturas[c];
-        const double alvo = volumeDaCopia(c, unison);
-        double volume = volumes[c];
-        const bool suavizando = std::fabs(volume - alvo) > 1e-4;
-        if (!suavizando) volume = alvo;
-
-        if (wtParado) {
-          // Caminho rápido: as mesmas ondas no pedaço todo
-          const int fB = f0Parado + 1 < ultimoFrame ? f0Parado + 1 : ultimoFrame;
-          const float* oA = tab->onda(f0Parado, nv);
-          const float* oAB = tab->onda(f0Parado, nvB);
-          const float* oB = tab->onda(fB, nv);
-          const float* oBB = tab->onda(fB, nvB);
-          for (int i = inicio; i < fim; i++) {
-            if (suavizando) volume += (alvo - volume) * s;
-            const double posicao = fase * tamanho;
-            const int i0 = static_cast<int>(posicao);
-            const int i1 = (i0 + 1) & mascara;
-            const double frac = posicao - i0;
-            double amostra = oA[i0] + frac * (oA[i1] - oA[i0]);
-            if (mistura > 0) amostra += mistura * (oAB[i0] + frac * (oAB[i1] - oAB[i0]) - amostra);
-            if (tParado > 0) {
-              double amostraB = oB[i0] + frac * (oB[i1] - oB[i0]);
-              if (mistura > 0) amostraB += mistura * (oBB[i0] + frac * (oBB[i1] - oBB[i0]) - amostraB);
-              amostra += tParado * (amostraB - amostra);
-            }
-            amostra *= volume;
-            somaE[i] += amostra * gE;
-            somaD[i] += amostra * gD;
-            fase += passo;
-            if (fase >= 1) fase -= 1;
-          }
+      // Sem Warp: as cópias de unison de 4 em 4 (SIMD). Escolhe a versão do laço que faz
+      // só as contas necessárias: mistura entre níveis (alguma cópia no fim da faixa) e
+      // morphing entre 2 frames (WT Pos entre frames ou mudando).
+      bool comMistura = false;
+      for (int c = 0; c < qtdCopias; c++)
+        if (misturas[c] > 0) comMistura = true;
+      const bool comMorph = !wtParado || tParado > 0;
+      for (int c0 = 0; c0 < qtdCopias; c0 += 4) {
+        if (comMistura) {
+          if (comMorph) quatroCopias<true, true>(c0, inicio, fim, unison, qtdCopias, tab, wtParado, f0Parado, tParado);
+          else quatroCopias<true, false>(c0, inicio, fim, unison, qtdCopias, tab, wtParado, f0Parado, tParado);
         } else {
-          // WT Pos mudando: posição na wavetable a cada amostra (morphing suave)
-          for (int i = inicio; i < fim; i++) {
-            if (suavizando) volume += (alvo - volume) * s;
-            const int f0 = framesBloco[i];
-            const int fB = f0 + 1 < ultimoFrame ? f0 + 1 : ultimoFrame;
-            const double amostra = lerAmostra(tab, f0, fB, tsBloco[i], nv, nvB, mistura, fase) * volume;
-            somaE[i] += amostra * gE;
-            somaD[i] += amostra * gD;
-            fase += passo;
-            if (fase >= 1) fase -= 1;
-          }
+          if (comMorph) quatroCopias<false, true>(c0, inicio, fim, unison, qtdCopias, tab, wtParado, f0Parado, tParado);
+          else quatroCopias<false, false>(c0, inicio, fim, unison, qtdCopias, tab, wtParado, f0Parado, tParado);
         }
-        fases[c] = fase;
-        volumes[c] = volume;
       }
     }
 
@@ -608,7 +682,7 @@ OscVoz osciladores[MAX_VOZES][N_OSC];
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 1; }
+EXPORTAR int versao() { return 2; }
 
 // Liga o motor na taxa de amostragem do aparelho (chamada uma vez, ao nascer).
 EXPORTAR void iniciar(double taxaAmostragem) {
@@ -632,10 +706,14 @@ EXPORTAR int camposOsc() { return N_CAMPOS; }
 // Wavetables: pede espaço para uma tabela (o JS copia os harmônicos e as ondas para dentro)
 EXPORTAR Tabela* criarTabela(int qtdFrames, int qtdNiveis, int tamanho) {
   if (qtdNiveis > MAX_NIVEIS) return nullptr;
+  int bits = 0;
+  while ((1 << bits) < tamanho) bits++;
+  if ((1 << bits) != tamanho || bits < 1 || bits > 20) return nullptr; // precisa ser potência de 2
   Tabela* t = static_cast<Tabela*>(std::malloc(sizeof(Tabela)));
   if (!t) return nullptr;
   t->tamanho = tamanho;
   t->mascara = tamanho - 1;
+  t->bits = bits;
   t->qtdFrames = qtdFrames;
   t->qtdNiveis = qtdNiveis;
   t->dados = static_cast<float*>(std::malloc(sizeof(float) * static_cast<size_t>(qtdFrames) * qtdNiveis * tamanho));
