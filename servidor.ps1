@@ -14,6 +14,7 @@ $tipos = @{
   '.js'   = 'text/javascript; charset=utf-8'
   '.css'  = 'text/css; charset=utf-8'
   '.json' = 'application/json; charset=utf-8'
+  '.wasm' = 'application/wasm'
   '.png'  = 'image/png'
   '.svg'  = 'image/svg+xml'
   '.ico'  = 'image/x-icon'

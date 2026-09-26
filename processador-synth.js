@@ -135,9 +135,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     ];
   }
 
-  constructor() {
+  constructor(opcoes) {
     super();
-    this.vozes = Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
+    this.ligarWasm(opcoes?.processorOptions?.moduloWasm);
+    this.vozes =Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
     this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
     this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
     // Rota de filtro do ruído: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
@@ -285,6 +286,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     };
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
+  }
+
+  // Motor em C++ (motor/motor.wasm), já compilado pela tela e entregue aqui. As partes do som
+  // passam para o C++ etapa por etapa (e o JavaScript delas é apagado).
+  // Etapa F0: só liga o .wasm e avisa a tela; o som ainda é o de dsp/.
+  ligarWasm(modulo) {
+    this.wasm = new WebAssembly.Instance(modulo, {}).exports;
+    this.port.postMessage({ tipo: 'wasm', versao: this.wasm.versao() });
   }
 
   receberMensagem(msg) {

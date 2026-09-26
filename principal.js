@@ -337,13 +337,21 @@ async function ligarSom() {
   botaoLigar.textContent = 'Ligando...';
 
   try {
-    await contexto.audioWorklet.addModule('processador-synth.js');
+    // Motor em C++ (motor/motor.wasm): compilado aqui, junto com o carregamento do
+    // processador, e entregue a ele ao nascer. Sem ele não há som (cai no aviso abaixo).
+    const [moduloWasm] = await Promise.all([
+      fetch('motor/motor.wasm')
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('motor.wasm ' + r.status))))
+        .then((bytes) => WebAssembly.compile(bytes)),
+      contexto.audioWorklet.addModule('processador-synth.js'),
+    ]);
 
     const synth = new AudioWorkletNode(contexto, 'processador-synth', {
       numberOfInputs: 0,
       numberOfOutputs: 1,
       outputChannelCount: [2], // estéreo
       parameterData: { ...estado.parametros, volume: volumeDoControle() },
+      processorOptions: { moduloWasm },
     });
     // Se der um erro dentro do motor, o navegador o desliga de vez (fica mudo):
     // avisa na tela em vez de deixar o app "tocando" sem som.
@@ -368,6 +376,10 @@ async function ligarSom() {
       }
       if (evento.data.tipo === 'clipper') {
         avisarClipper(evento.data.pico);
+        return;
+      }
+      if (evento.data.tipo === 'wasm') {
+        console.info(`MySynth: motor C++ carregado (versão ${evento.data.versao})`);
         return;
       }
       if (evento.data.tipo === 'consertado') {

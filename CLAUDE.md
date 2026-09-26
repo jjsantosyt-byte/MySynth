@@ -256,6 +256,22 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
      (`_antigo/teste/teste-pedaco.js`, contra `_antigo/head`).
   E) Desenhos mais leves em TODOS os aparelhos (pedido do dono, sem opção de volta): sem sombra/
      brilho nas linhas, pontinho do LFO e bolinhas dos envelopes; canvas no máximo 2× a resolução.
+**Motor em C++ / WebAssembly (F) — começou em 26/09/2026 (aprovado pelo dono):**
+- Cópia da última versão com o som todo em JavaScript: pasta `Webaudio/` (fora do Git, via
+  .git/info/exclude) + etiqueta Git `versao-webaudio` (commit e39a083). É a RÉGUA dos testes A/B.
+- DECISÃO DO DONO: o som fica SÓ em C++, sem motor reserva em JavaScript. A cada etapa, a parte
+  que vai para o C++ tem o seu .js de dsp/ APAGADO na mesma etapa (sem código duplicado). Se o
+  .wasm falhar, o app avisa ("Não consegui ligar o som" / "O motor de som parou").
+- Ferramenta: wasi-sdk 34 em `%USERPROFILE%\ferramentas\wasi-sdk-34.0-x86_64-windows` (escolhido
+  pelo dono em vez do Zig). Compilar: `motor\compilar.bat` → `motor/motor.wasm` (vai no Git; o
+  Pages publica sem compilar). Opções: -O3, -msimd128 (SIMD), sem exceções/RTTI, sem "main".
+- Carregamento: principal.js baixa e compila o .wasm junto com o addModule e manda o módulo em
+  `processorOptions.moduloWasm`; o processador faz `new WebAssembly.Instance` (sem importações:
+  o C++ não depende de nada do navegador) e avisa `{ tipo: 'wasm', versao }` (console).
+- Etapas: F0 esqueleto (FEITO: versão 0, console "motor C++ carregado") → F1 oscilador (wavetable
+  + unison) → F2 voz inteira (filtros, envelopes, modulação) → F3 efeitos → F4 gerente de vozes +
+  clipper (o JS só repassa mensagens). Cada etapa: som comparado com a régua + peso antes/depois.
+- Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
 
@@ -461,6 +477,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques, abas e controles
 - `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
+- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly)
 - `dsp/voz.js` — uma voz completa (unison → filtro estéreo → envelope)
 - `dsp/oscilador.js` — leitura da wavetable sem aliasing
 - `dsp/oscilador-voz.js` — um oscilador dentro da nota (unison, WT Pos, nível, Warp)

@@ -20,6 +20,7 @@ const ARQUIVOS = [
   'manifest.json',
   'principal.js',
   'processador-synth.js',
+  'motor/motor.wasm',
   'wavetable.js',
   'importar-wav.js',
   'visualizacao.js',
