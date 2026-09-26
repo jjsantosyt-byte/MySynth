@@ -307,40 +307,6 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
     faixa de oitavas), em um arquivo por nota ou num arquivo só. Serve para montar
     instrumentos de sample em outros apps.
 
-## App Android (Capacitor) — desde 25/09/2026 (em teste)
-- Decisão do dono: app nativo com Capacitor (substitui o caminho TWA/PWABuilder). appId
-  `com.jayjaymusictools.mysynth`, nome MySynth, SÓ DEITADO (`sensorLandscape`), tela cheia imersiva,
-  tela não apaga. Os arquivos web vão DENTRO do app (offline; sem `server.url`).
-- Sem etapa de build: `scripts/copiar-web.mjs` copia os arquivos do app para `www/` (webDir).
-  ARQUIVO/PASTA NOVA DO APP → pôr na lista ITENS desse script (e na lista do sw.js).
-- `interface/nativo.js`: `NATIVO` (window.Capacitor), botão voltar (fecha janela de cima →
-  menu da logo → painel dos Macros → modo ligar; senão sai do app), `appStateChange` pausa/retoma
-  o som. No app o service worker não é registrado. `MainActivity.java`: sem gesto para mídia,
-  imersivo, tela ligada. Janelas: `fecharJanelaDoTopo()` (janela.js guarda a ordem das abertas).
-- Ícones/splash: `assets/` (gerados por `scripts/icone.html` no Edge) → `npx capacitor-assets
-  generate --android --iconBackgroundColor "#0b0c0f" ...`.
-- Assinatura: chave em `C:\Users\Eli Júlio\MySynth-chaves\mysynth-release.jks` (senha no
-  LEIA-ME-senha.txt ao lado; FORA do Git). `android/keystore.properties` (no .gitignore) guarda os
-  caminhos/senhas; o "ú" nos caminhos vai como `\u00fa` (arquivos .properties do Java).
-- Build no Windows: `scripts/gradle.mjs` (usa o Java 21 do Android Studio; pasta temporária sem
-  acento, senão "Unable to establish loopback connection"); `android.overridePathCheck=true`
-  (projeto com acento no caminho). Precisa rodar FORA do sandbox do Claude (o Gradle usa conexão local).
-- Comandos: `npm run web` · `npm run sync` · `npm run apk` (debug) · `npm run aab` (release) ·
-  `npm run abrir` (Android Studio). Saídas: android/app/build/outputs/apk/debug/app-debug.apk e
-  android/app/build/outputs/bundle/release/app-release.aab.
-- A CADA versão enviada ao Play: subir `versionCode` (+1) e `versionName` em android/app/build.gradle.
-- Teste no celular do dono (Infinix X6531, Android 14, 760×360 deitado, fonte do sistema 145%,
-  MediaTek/Mali): depuração USB + `_antigo/teste/cel.ps1` (-Instalar, -Print, -Js via CDP da
-  WebView), `cel-audio.ps1` (estado do AudioContext e amostras da saída), `medir-audio.ps1` (CPU da
-  linha AudioWorklet). Consertos: `setTextZoom(100)` (fonte do sistema não encavala), layout
-  deitado estreito (max-width 820), e autoconserto de NaN no motor (`temInvalido`/`consertar` no
-  processador: vozes, cada efeito e o clipper; avisa `consertado` → console "valores inválidos
-  consertados em X"). CAUSA DO NaN AINDA NÃO ACHADA: ler o logcat (Capacitor/Console) quando
-  acontecer. Também visto 1 vez: tela a 3–6 fps + "MALI BAD ALLOC" (não reproduzido).
-- Com Capacitor NÃO precisa de assetlinks.json (isso era do TWA).
-- Atualizações do app deixam de ser automáticas (cada mudança = novo .aab no Play); a versão web
-  no GitHub Pages continua igual (git push). Presets da web e do app são separados (exportar/importar).
-
 ## Aparelhos de teste
 - Android: do dono do projeto. FUNCIONA: Chrome → ⋮ → "Instalar app" (o Chrome cria o app,
   com ícone, tela cheia e sem internet) — aprovado pelo dono ("bem legal", 24/09/2026).

@@ -24,7 +24,6 @@ import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
 import { envelopeArrastavel } from './interface/envelope-arrastar.js';
 import { icone, botaoComIcone } from './interface/icones.js';
 import { criarHistorico } from './interface/historico.js';
-import { NATIVO, ligarNativo } from './interface/nativo.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
 import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
@@ -39,7 +38,7 @@ import {
   wavetablesDosPresets,
   receberWavetables,
 } from './interface/wavetables.js';
-import { mostrarRecado, fecharJanelaDoTopo } from './interface/janela.js';
+import { mostrarRecado } from './interface/janela.js';
 import { MODOS_WARP, W_NENHUM, codigoWarp, forcaWarp, faseWarp, faseFM, moduladorFM } from './dsp/warp.js';
 
 // Nomes dos modos de Warp na tela
@@ -58,7 +57,7 @@ import { avancarCarregamento, terminarCarregamento } from './interface/abertura.
 import { criarMenuApp } from './interface/menu-app.js';
 
 avancarCarregamento('Montando a tela…', 0.2);
-const menuApp = criarMenuApp(); // logo no canto superior esquerdo: Configurações, Sobre, Privacidade
+criarMenuApp(); // logo no canto superior esquerdo: Configurações e Arquivo
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -309,8 +308,7 @@ function aplicarSom(som, { manterNotas = false } = {}) {
 // ---------- Funcionar sem internet (sw.js) ----------
 // O "service worker" guarda os arquivos do app no aparelho: depois da primeira vez,
 // o app abre mesmo sem internet (com internet, sempre busca a versão nova).
-// No app Android (Capacitor) os arquivos já vêm dentro do app: não precisa dele.
-if ('serviceWorker' in navigator && window.isSecureContext && !NATIVO) {
+if ('serviceWorker' in navigator && window.isSecureContext) {
   navigator.serviceWorker.register('sw.js').catch((erro) => console.warn('Não consegui ativar o modo sem internet:', erro));
 }
 
@@ -366,12 +364,6 @@ async function ligarSom() {
       }
       if (evento.data.tipo === 'clipper') {
         avisarClipper(evento.data.pico);
-        return;
-      }
-      if (evento.data.tipo === 'consertado') {
-        // O motor achou uma conta inválida e limpou a peça (o som seguiu). Fica registrado
-        // para achar a causa (no Android: logcat "Capacitor/Console").
-        console.warn(`MySynth: valores inválidos consertados em "${evento.data.origem}"`);
         return;
       }
       if (evento.data.tipo !== 'aoVivo') return;
@@ -2041,13 +2033,13 @@ window.addEventListener('resize', () => {
 // Se o app for para o fundo (trocar de aba, bloquear a tela), solta todas as notas.
 // Com o app no fundo, o motor de áudio é pausado (economiza bateria: no Android ele
 // continuaria rodando). Ao voltar, religa.
-function irParaFundo() {
-  soltarTudo();
-  if (estado.contexto?.state === 'running') estado.contexto.suspend().catch(() => {});
-}
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) irParaFundo();
-  else garantirSomRodando(); // voltou para o app: religa o áudio (pausado aqui ou pelo sistema)
+  if (document.hidden) {
+    soltarTudo();
+    if (estado.contexto?.state === 'running') estado.contexto.suspend().catch(() => {});
+  } else {
+    garantirSomRodando(); // voltou para o app: religa o áudio (pausado aqui ou pelo sistema)
+  }
 });
 
 montarTeclado();
@@ -2125,30 +2117,6 @@ document.addEventListener('keydown', (evento) => {
   else if ((tecla === 'z' && evento.shiftKey) || tecla === 'y') historico.refazer();
   else return;
   evento.preventDefault();
-});
-
-// ---------- App Android (Capacitor) ----------
-// Botão voltar: fecha o que estiver aberto por cima, nesta ordem; na tela principal, sai do app.
-// Segundo plano: pausa o som e solta as notas; ao voltar, religa.
-ligarNativo({
-  fecharAlgo: () => {
-    if (fecharJanelaDoTopo()) return true; // confirmar, presets, salvar, wavetables, Configurações, Sobre
-    if (menuApp.aberto()) {
-      menuApp.fechar();
-      return true;
-    }
-    if (!painelMacros.hidden) {
-      mostrarPainelMacros(false);
-      return true;
-    }
-    if (telaModulacao.armada()) {
-      telaModulacao.desarmar();
-      return true;
-    }
-    return false;
-  },
-  aoIrParaFundo: irParaFundo,
-  aoVoltar: garantirSomRodando,
 });
 
 // Tudo pronto: some a tela de carregamento (e, na primeira vez, aparece a escolha de idioma)

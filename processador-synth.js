@@ -57,28 +57,7 @@ function picoDoBloco(e, d, n) {
   return pico;
 }
 
-// Algum valor inválido no bloco (NaN ou infinito)? "v - v" só é 0 para números normais.
-function temInvalido(e, d, n) {
-  for (let i = 0; i < n; i++) {
-    if (e[i] - e[i] !== 0 || d[i] - d[i] !== 0) return true;
-  }
-  return false;
-}
-
 class ProcessadorSynth extends AudioWorkletProcessor {
-  // Uma peça do motor (vozes, um efeito, o clipper) soltou valores inválidos: o bloco vira
-  // silêncio (quem chamou limpa a memória da peça) e a tela é avisada de qual peça foi
-  // (aparece no registro do Android / console: serve para achar a causa). No máximo 1 aviso
-  // por segundo para cada peça.
-  consertar(origem, saidaE, saidaD, tamanhoBloco) {
-    saidaE.fill(0, 0, tamanhoBloco);
-    saidaD.fill(0, 0, tamanhoBloco);
-    this.ultimoConserto ??= {};
-    if ((this.ultimoConserto[origem] ?? -1) > currentTime - 1) return;
-    this.ultimoConserto[origem] = currentTime;
-    this.port.postMessage({ tipo: 'consertado', origem });
-  }
-
   // Controles que a página pode mexer de forma suave.
   static get parameterDescriptors() {
     return [
@@ -236,7 +215,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     };
     // A ordem do caminho do som (cada efeito com o seu contador de silêncio)
     this.cadeiaEfeitos = ['saturacao', 'distorcao', 'filtroTrack', 'eq', 'compressor', 'phaser', 'flanger', 'chorus', 'delay', 'reverb'].map(
-      (id) => ({ id, efeito: this.efeitos[id], silencio: 0, parado: false })
+      (id) => ({ efeito: this.efeitos[id], silencio: 0, parado: false })
     );
     this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
 
@@ -587,12 +566,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       }
     }
     if (algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
-    // Proteção: uma conta inválida (NaN/infinito) numa voz se espalharia para sempre (tudo mudo)
-    if (algumaAtiva && temInvalido(saidaE, saidaD, tamanhoBloco)) {
-      this.consertar('vozes', saidaE, saidaD, tamanhoBloco);
-      for (const voz of this.vozes) Object.assign(voz, new Voz(sampleRate));
-      this.ruidoDona = null;
-    }
     this.modularEfeitos();
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
@@ -615,13 +588,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         item.silencio = 0;
       }
       item.efeito.processar(saidaE, saidaD, tamanhoBloco);
-      if (temInvalido(saidaE, saidaD, tamanhoBloco)) {
-        // Conta inválida neste efeito: limpa a memória dele (fica como novo, com os mesmos ajustes)
-        this.consertar(item.id, saidaE, saidaD, tamanhoBloco);
-        const ajustes = { ...item.efeito.ajustes };
-        Object.assign(item.efeito, new item.efeito.constructor(sampleRate));
-        item.efeito.definir(ajustes);
-      }
       pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
       item.silencio = entradaSilenciosa && pico < LIMIAR_SILENCIO ? item.silencio + tamanhoBloco : 0;
       if (item.silencio > this.esperaSilencio) item.parado = true;
@@ -644,11 +610,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Silêncio há um tempo (mais que o atraso do clipper): nem passa por ele
     this.silencioSaida = pico * (volume[0] || 1) < LIMIAR_SILENCIO ? this.silencioSaida + tamanhoBloco : 0;
     if (this.silencioSaida < 4 * tamanhoBloco) this.clipper.processar(saidaE, saidaD, tamanhoBloco);
-    // O clipper guarda um pouco de memória: um valor inválido o deixaria mudo para sempre
-    if (temInvalido(saidaE, saidaD, tamanhoBloco)) {
-      this.consertar('clipper', saidaE, saidaD, tamanhoBloco);
-      Object.assign(this.clipper, new Clipper(sampleRate));
-    }
 
     this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
     return true;

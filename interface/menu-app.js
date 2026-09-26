@@ -116,5 +116,5 @@ export function criarMenuApp() {
     criar('p', 'config-texto', 'Versão beta · setembro de 2026')
   );
 
-  return { fechar, aberto: () => !menu.hidden };
+  return { fechar };
 }

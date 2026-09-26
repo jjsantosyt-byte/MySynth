@@ -56,17 +56,6 @@ export function confirmar(texto, textoBotao = 'Apagar') {
   });
 }
 
-// Janelas abertas, da mais antiga para a mais nova (a de cima é a última)
-const abertas = [];
-
-// Fecha a janela de cima (botão voltar do Android). Devolve true se havia alguma aberta.
-export function fecharJanelaDoTopo() {
-  const ultima = abertas[abertas.length - 1];
-  if (!ultima) return false;
-  ultima();
-  return true;
-}
-
 // Fecha no X, tocando fora ou com Esc. "aoFechar" (opcional): chamado sempre que ela fecha.
 export function criarJanela(titulo, { aoFechar } = {}) {
   const fundo = criar('div', 'janela-fundo');
@@ -88,8 +77,6 @@ export function criarJanela(titulo, { aoFechar } = {}) {
   const esconder = () => {
     if (fundo.hidden) return;
     fundo.hidden = true;
-    const i = abertas.indexOf(esconder);
-    if (i >= 0) abertas.splice(i, 1);
     aoFechar?.();
   };
   fechar.addEventListener('click', esconder);
@@ -106,9 +93,6 @@ export function criarJanela(titulo, { aoFechar } = {}) {
     abrir: () => {
       aviso.hidden = true;
       fundo.hidden = false;
-      const i = abertas.indexOf(esconder);
-      if (i >= 0) abertas.splice(i, 1);
-      abertas.push(esconder);
     },
     fechar: esconder,
     avisar: (texto) => {
