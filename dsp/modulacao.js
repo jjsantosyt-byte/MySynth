@@ -54,12 +54,8 @@ export const D_RATE_LFO = [35, 36, 37]; // LFO 1, 2, 3
 export const D_RUIDO_PITCH = 38;
 export const D_RUIDO_DURACAO = 39;
 
-// Destinos de cada oscilador (A, B, C), na ordem acima
-export const DESTINOS_OSC = [
-  { wtPos: 0, detune: 1, width: 2, nivel: 6, oitava: 17, semi: 18, fine: 19, pan: 26, blend: 27, warp: 32 },
-  { wtPos: 9, detune: 10, width: 11, nivel: 12, oitava: 20, semi: 21, fine: 22, pan: 28, blend: 29, warp: 33 },
-  { wtPos: 13, detune: 14, width: 15, nivel: 16, oitava: 23, semi: 24, fine: 25, pan: 30, blend: 31, warp: 34 },
-];
+// Os destinos de cada oscilador (A, B, C: WT Pos, Detune... Warp) ficam na tabela DESTINOS em
+// motor/motor.cpp (os osciladores estão no C++). Mudou algum índice acima? Mudar lá também.
 
 export class MatrizModulacao {
   constructor(taxaAmostragem, tamanhoBloco = 128) {

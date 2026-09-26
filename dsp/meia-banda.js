@@ -75,23 +75,4 @@ export class Interpolador {
   }
 }
 
-// Desce da taxa dobrada para a original: recebe 2 amostras, devolve 1 (já filtrada).
-// Atraso: MEIO / 2 = 7,5 amostras na taxa original.
-export class Decimador {
-  constructor() {
-    this.h = new Float64Array(TAPS);
-    this.p = 0;
-  }
-
-  limpar() {
-    this.h.fill(0);
-  }
-
-  processar(a, b) {
-    this.p = this.p + 1 === TAPS ? 0 : this.p + 1;
-    this.h[this.p] = a;
-    this.p = this.p + 1 === TAPS ? 0 : this.p + 1;
-    this.h[this.p] = b;
-    return filtrarMeiaBanda(this.h, this.p);
-  }
-}
+// (A descida da taxa dobrada dos osciladores com Warp — o "Decimador" — está em motor/motor.cpp.)

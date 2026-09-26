@@ -1,6 +1,6 @@
 // dsp/voz.js
 // Uma "voz" = uma nota tocando, completa:
-//   OSC A, B, C (cópias de unison, ver oscilador-voz.js) ─┐
+//   OSC A, B, C (cópias de unison; calculados no C++, motor/motor.cpp) ─┐
 //                                                          ├─ cada um pela sua rota de filtro ─→ ENV 1 (volume)
 //   ruído ─────────────────────────────────────────────────┘
 // e as fontes de modulação da própria nota: LFO 1, 2 e 3 (modo Retrig), ENV 2 e 3.
@@ -15,12 +15,14 @@
 
 import { Envelope } from './envelope.js';
 import { Filtro, CoeficientesFiltro } from './filtro.js';
-import { OsciladorVoz, MAX_UNISON } from './oscilador-voz.js';
 import { EstadoLFO, rateModulado } from './lfo.js';
-import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, INDICES_MACRO, D_RATE_LFO, D_RUIDO_PITCH, D_RUIDO_DURACAO, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
+import { BLOCO, N_MOD_OSC } from '../motor/ponte.js';
+import { DESTINOS_MOD, FONTES_MOD, INDICES_LFO, INDICES_ENV, INDICES_MACRO, D_RATE_LFO, D_RUIDO_PITCH, D_RUIDO_DURACAO, D_CUTOFF, D_RESO, D_RUIDO, D_CUTOFF2, D_RESO2 } from './modulacao.js';
 import { NOTA_BASE_RUIDO } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
+const MAX_UNISON = 16;
+const N_OSC = 3;
 const PEDACO = 64; // amostras por pedaço de modulação (antes 32: cada nota ficava mais pesada)
 
 // Cutoff: a modulação anda na mesma escala do knob (20 Hz a 20 kHz, exponencial).
@@ -40,8 +42,14 @@ function notaParaFrequencia(nota) {
 }
 
 export class Voz {
-  constructor(taxaAmostragem) {
+  // "indice" = número desta voz (0 a 15): os osciladores dela ficam no C++ com esse número.
+  // "ponte" = ligação com o motor em C++ (motor/ponte.js).
+  constructor(taxaAmostragem, indice, ponte) {
     this.taxa = taxaAmostragem;
+    this.indice = indice;
+    this.ponte = ponte;
+    // Onde o C++ deixa o som de cada oscilador desta voz (posição na memória)
+    this.saidas = [0, 1, 2].map((k) => ponte.saida(indice, k));
     this.envelope = new Envelope(taxaAmostragem); // ENV 1: volume
     // Ruído: posição no trecho de ruído (dsp/ruido.js), nível suavizado e o nível do
     // One Shot (1 no ataque, caindo até sumir)
@@ -49,9 +57,7 @@ export class Voz {
     this.nivelRuido = 0;
     this.ruidoOneShot = 1;
     this.ruidoNovo = false;
-    // Osciladores A, B e C (cada um com os seus destinos de modulação)
-    this.oscs = DESTINOS_OSC.map((destinos) => new OsciladorVoz(taxaAmostragem, TAMANHO_BLOCO, destinos));
-    this.tocou = [false, false, false]; // cada oscilador fez som neste bloco?
+    this.tocou = [false, false, false]; // cada oscilador (A, B, C) fez som neste bloco?
     this.fasesSorteadas = new Float64Array(MAX_UNISON); // ponto de início de cada cópia (sorteado por nota)
     this.fasesPendentes = false; // nota nova: os osciladores ainda não receberam o ponto de início
 
@@ -76,6 +82,9 @@ export class Voz {
     this.modAlvo = new Float64Array(DESTINOS_MOD.length); // soma "crua" das ligações
     this.mod = new Float64Array(DESTINOS_MOD.length); // modulação deste pedaço (suavizada)
     this.modAnterior = new Float64Array(DESTINOS_MOD.length); // do pedaço anterior
+    // Parte da modulação que vai para os osciladores no C++ (destinos 0 a 34)
+    this.modOsc = this.mod.subarray(0, N_MOD_OSC);
+    this.modAnteriorOsc = this.modAnterior.subarray(0, N_MOD_OSC);
     this.modNova = true; // true = ainda não tem "pedaço anterior"
     this.modZerada = true; // true = mod e modAnterior estão todos em zero (ver processar)
 
@@ -254,9 +263,11 @@ export class Voz {
 
     const { cortes, resonancias, cortes2, resonancias2, coef, coef2 } = comum;
     const { matriz, rotaRuido, ruidoLigado, ruidoNivel, ruidoTipo } = comum;
-    // Ajustes de cada oscilador neste bloco (ver OsciladorVoz.processarPedaco)
+    // Ajustes de cada oscilador (aqui só a rota de filtro; o resto já está no C++)
     const ajustesOscs = comum.oscs;
-    const oscs = this.oscs;
+    const ponte = this.ponte;
+    const motor = ponte.c;
+    const v = this.indice;
     // Nota nova (com ataque): o ruído recomeça. One Shot = do início do trecho (todo ataque
     // igual); Loop = de um ponto sorteado (cada nota com um ruído diferente).
     if (this.ruidoNovo) {
@@ -265,14 +276,14 @@ export class Voz {
       this.ruidoOneShot = 1;
       this.ruidoNovo = false;
     }
+    // Nota nova: os osciladores (no C++) recebem os pontos de início sorteados
     if (this.fasesPendentes) {
-      for (let k = 0; k < oscs.length; k++) oscs[k].reiniciar(this.fasesSorteadas, ajustesOscs[k]);
+      ponte.f64.set(this.fasesSorteadas, ponte.iFases);
+      motor.oscReiniciar(v);
       this.fasesPendentes = false;
     }
-    for (let k = 0; k < oscs.length; k++) {
-      oscs[k].limpar(tamanhoBloco);
-      this.tocou[k] = false;
-    }
+    motor.oscComecarBloco(v, tamanhoBloco);
+    for (let k = 0; k < N_OSC; k++) this.tocou[k] = false;
 
     const s = this.suavizar;
     const ruidoBloco = this.ruidoBloco;
@@ -319,12 +330,13 @@ export class Voz {
         }
       }
 
-      // 2) Osciladores A, B, C (unison, WT Pos, nível; tudo com modulação).
-      // Desligado e já em silêncio: não calcula nada.
-      for (let k = 0; k < oscs.length; k++) {
-        oscs[k].processarPedaco(inicio, fim, this.frequencia, ajustesOscs[k], this.mod, this.modAnterior, ajustesOscs);
-        if (!oscs[k].calado) this.tocou[k] = true;
-      }
+      // 2) Osciladores A, B, C no C++ (unison, WT Pos, nível, Warp; tudo com modulação).
+      // A modulação dos osciladores vai para a mesa de troca; o C++ devolve quais tocaram
+      // (desligado e já em silêncio: não calcula nada).
+      ponte.f64.set(this.modOsc, ponte.iModAtual);
+      ponte.f64.set(this.modAnteriorOsc, ponte.iModAnterior);
+      const tocaram = motor.oscPedaco(v, inicio, fim, this.frequencia);
+      for (let k = 0; k < N_OSC; k++) if (tocaram & (1 << k)) this.tocou[k] = true;
 
       // 3) Ruído (mono), guardado separado do oscilador: pode ir para outro filtro.
       // É um trecho de ruído tocado como sample (dsp/ruido.js), na velocidade do Pitch
@@ -400,13 +412,16 @@ export class Voz {
     for (const rota of this.listaRotas) rota.usada = false;
     const usadas = this.usadas;
     usadas.length = 0;
-    for (let k = 0; k < oscs.length; k++) {
+    // (o som dos osciladores é lido direto da memória do C++: esquerda em "e", direita BLOCO depois)
+    const f64 = ponte.f64;
+    for (let k = 0; k < N_OSC; k++) {
       if (!this.tocou[k]) continue;
       const rota = this.caixa(ajustesOscs[k].rota, tamanhoBloco);
-      const { somaE, somaD } = oscs[k];
+      const e = this.saidas[k];
+      const d = e + BLOCO;
       for (let i = 0; i < tamanhoBloco; i++) {
-        rota.somaE[i] += somaE[i];
-        rota.somaD[i] += somaD[i];
+        rota.somaE[i] += f64[e + i];
+        rota.somaD[i] += f64[d + i];
       }
     }
     if (temRuido) {

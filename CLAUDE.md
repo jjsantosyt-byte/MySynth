@@ -259,6 +259,7 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
 **Motor em C++ / WebAssembly (F) — começou em 26/09/2026 (aprovado pelo dono):**
 - Cópia da última versão com o som todo em JavaScript: pasta `Webaudio/` (fora do Git, via
   .git/info/exclude) + etiqueta Git `versao-webaudio` (commit e39a083). É a RÉGUA dos testes A/B.
+  O `Webaudio/Iniciar.bat` abre a cópia na porta 8081 (a versão principal fica na 8080).
 - DECISÃO DO DONO: o som fica SÓ em C++, sem motor reserva em JavaScript. A cada etapa, a parte
   que vai para o C++ tem o seu .js de dsp/ APAGADO na mesma etapa (sem código duplicado). Se o
   .wasm falhar, o app avisa ("Não consegui ligar o som" / "O motor de som parou").
@@ -271,6 +272,25 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
 - Etapas: F0 esqueleto (FEITO: versão 0, console "motor C++ carregado") → F1 oscilador (wavetable
   + unison) → F2 voz inteira (filtros, envelopes, modulação) → F3 efeitos → F4 gerente de vozes +
   clipper (o JS só repassa mensagens). Cada etapa: som comparado com a régua + peso antes/depois.
+- F1 (26/09/2026, FEITA, em teste; versão 1): osciladores das notas em C++ (`OscVoz` em motor.cpp:
+  unison, WT Pos, níveis anti-chiado, Warp, FM, Decimador). APAGADOS: dsp/oscilador.js,
+  dsp/oscilador-voz.js, `Decimador` (meia-banda.js) e `DESTINOS_OSC` (a tabela DESTINOS está no C++).
+  dsp/warp.js FICA (a tela desenha com ele; o C++ tem a cópia das contas).
+  `motor/ponte.js` (classe Ponte): funções do C++ + vistas da memória (f64/f32/i32; `renovar()` no
+  começo de cada bloco e depois de guardar tabela, porque a memória do C++ pode crescer e mudar de
+  lugar). Mesa de troca: `CAMPOS_OSC` (mesma ordem do enum Campo no C++) escritos por bloco em
+  processarVozes; WT Pos em `posicoes`; a voz copia mod[0..34] (`modOsc`) a cada pedaço e chama
+  `oscPedaco(v, inicio, fim, freq)` (devolve bits de quem tocou); som lido de `saidas` (esq.; dir. =
+  +128). Wavetables: `guardarTabela` copia as ondas para o C++ (o motor guarda só o endereço, id →
+  endereço); substituídas/esquecidas vão para `tabelasSoltas` e são apagadas (`apagarTabela`) quando
+  nenhum oscilador usa. Voz = `new Voz(taxa, indice, ponte)`; recriar vozes zera o C++ (`oscZerarVoz`).
+- Medido F1 (`_antigo/teste/teste-f1.js` contra `Webaudio/`, mesmos sorteios): 14 cenários (Init,
+  U8, morphing, WT Pos por amostra, LFO em WT Pos/Detune/Pan/Blend, Oct/Semi/Fine, Warp sync/bend±/
+  pwm, FM ← B, 3 osc, Unison/Nível/troca de wavetable no meio, glide + C8) → 10 IDÊNTICOS, 4 com
+  diferença entre -144 e -251 dB (arredondamento). Peso (5 rodadas lado a lado): 8 notas U8 18,4% →
+  17,0%; 3 osc U4 27,9% → 24,8% (só ~10% mais leve: a tradução direta não usa SIMD; o compilador não
+  vetoriza sozinho, -msimd128 ligado ou não deu igual). No app: acorde toca, 5 wavetables trocam
+  com nota segurada, sem erros no console. `teste-peso-f1.js` mede só o peso.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).

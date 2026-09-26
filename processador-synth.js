@@ -33,6 +33,7 @@ import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
+import { Ponte, CAMPOS_OSC } from './motor/ponte.js';
 
 const MAX_VOZES = 16;
 const PEDACO = 64; // amostras por pedaço de modulação (igual ao da voz)
@@ -80,8 +81,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   // Vozes recriadas do zero (depois de um conserto): voltam com o tipo e o liga/desliga
   // dos filtros que estavam escolhidos.
   recriarVozes() {
-    for (const voz of this.vozes) {
-      Object.assign(voz, new Voz(sampleRate));
+    for (let v = 0; v < this.vozes.length; v++) {
+      const voz = this.vozes[v];
+      Object.assign(voz, new Voz(sampleRate, v, this.ponte));
+      this.ponte.c.oscZerarVoz(v); // os osciladores dela (no C++) também voltam do zero
       for (const [numero, nome, valor] of Object.values(this.escolhasFiltro)) voz.definirFiltro(numero, nome, valor);
     }
     this.ruidoDona = null;
@@ -137,8 +140,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
   constructor(opcoes) {
     super();
-    this.ligarWasm(opcoes?.processorOptions?.moduloWasm);
-    this.vozes =Array.from({ length: MAX_VOZES }, () => new Voz(sampleRate));
+    // Motor em C++ (motor/motor.wasm), já compilado pela tela e entregue aqui. As partes do
+    // som passam para o C++ etapa por etapa (e o JavaScript delas é apagado).
+    // F1: os osciladores das notas estão no C++ (ver motor/ponte.js).
+    this.ponte = new Ponte(opcoes.processorOptions.moduloWasm, sampleRate);
+    this.port.postMessage({ tipo: 'wasm', versao: this.ponte.c.versao() });
+    this.vozes = Array.from({ length: MAX_VOZES }, (_, v) => new Voz(sampleRate, v, this.ponte));
     this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
     this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
     // Rota de filtro do ruído: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
@@ -146,7 +153,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.escolhasFiltro = {}; // tipo e liga/desliga escolhidos para os filtros (nome → [nº, campo, valor])
     this.ultimoConserto = {}; // hora do último aviso de conserto de cada peça
 
-    // Osciladores A, B, C. "ajustes" vai para as vozes a cada bloco (ver OsciladorVoz).
+    // Osciladores A, B, C. "ajustes" vai para o C++ a cada bloco (ver processarVozes).
     // Nomes dos parâmetros: os do A sem letra (wtPos...), os do B e C com (wtPosB...).
     this.oscs = ['', 'B', 'C'].map((letra) => ({
       params: {
@@ -159,11 +166,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         blend: 'blendOsc' + letra,
         warp: 'warpOsc' + letra,
       },
-      tabelaNova: null, // wavetable esperando para entrar (troca sem estalo)
+      tabelaNova: 0, // wavetable esperando para entrar (troca sem estalo; 0 = nenhuma)
       warpNovo: null, // modo de Warp esperando para entrar (troca sem estalo, igual à wavetable)
       ajustes: {
-        tabela: null, // wavetable recebida da página
-        posicoesWT: null,
+        tabela: 0, // wavetable em uso: endereço dela no C++ (0 = nenhuma ainda)
         unison: 1,
         detune: 0,
         width: 1,
@@ -183,7 +189,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       },
     }));
     this.comum = { oscs: this.oscs.map((o) => o.ajustes) };
-    this.tabelas = new Map(); // wavetables recebidas da tela (id → tabela) // dados do bloco, compartilhados por todas as vozes
+    this.tabelas = new Map(); // wavetables recebidas da tela (id → endereço no C++)
+    this.tabelasSoltas = []; // substituídas/esquecidas: apagadas quando ninguém mais usa
 
     // Opções (a página manda os valores escolhidos logo ao ligar)
     this.modo = 'poly';
@@ -288,22 +295,22 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
   }
 
-  // Motor em C++ (motor/motor.wasm), já compilado pela tela e entregue aqui. As partes do som
-  // passam para o C++ etapa por etapa (e o JavaScript delas é apagado).
-  // Etapa F0: só liga o .wasm e avisa a tela; o som ainda é o de dsp/.
-  ligarWasm(modulo) {
-    this.wasm = new WebAssembly.Instance(modulo, {}).exports;
-    this.port.postMessage({ tipo: 'wasm', versao: this.wasm.versao() });
-  }
-
   receberMensagem(msg) {
     switch (msg.tipo) {
       case 'wavetable': {
         // Qual oscilador: 'A' (padrão), 'B' ou 'C'.
         // A tela manda a tabela inteira só na primeira vez (uma importada grande tem ~9 MB);
-        // depois, só o id: o motor guarda as que recebeu (this.tabelas).
-        if (msg.wavetable) this.tabelas.set(msg.id ?? msg.wavetable.id, msg.wavetable);
-        const tabela = this.tabelas.get(msg.id ?? msg.wavetable?.id);
+        // depois, só o id. As ondas são copiadas para dentro do C++ (ponte.guardarTabela):
+        // o motor guarda só o endereço delas (this.tabelas: id → endereço).
+        const id = msg.id ?? msg.wavetable?.id;
+        if (msg.wavetable) {
+          const endereco = this.ponte.guardarTabela(msg.wavetable);
+          if (endereco) {
+            if (this.tabelas.has(id)) this.tabelasSoltas.push(this.tabelas.get(id)); // substituída
+            this.tabelas.set(id, endereco);
+          }
+        }
+        const tabela = this.tabelas.get(id);
         if (!tabela) break;
         // Primeira tabela: entra direto. Trocas depois: passam por um "abaixa e sobe"
         // rápido só naquele oscilador (sem estalo), feito no process().
@@ -314,7 +321,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       }
       case 'esquecerWavetable':
         // A tela não usa mais esta tabela (libera memória; se um oscilador ainda estiver
-        // tocando com ela, ele continua até trocar)
+        // tocando com ela, ele continua até trocar: ver liberarTabelas)
+        if (this.tabelas.has(msg.id)) this.tabelasSoltas.push(this.tabelas.get(msg.id));
         this.tabelas.delete(msg.id);
         break;
       case 'notaOn':
@@ -569,6 +577,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const tamanhoBloco = saidaE.length;
     saidaE.fill(0);
     saidaD.fill(0);
+    this.ponte.renovar(); // (se a memória do C++ cresceu, as vistas são refeitas)
 
     // LFOs livres rodam sempre, mesmo em silêncio (as notas pegam eles andando).
     // Rate modulado: um LFO livre é um só para todas as notas, então segue a modulação
@@ -598,17 +607,20 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       const osc = this.oscs[k];
       if (!osc.tabelaNova && osc.warpNovo === null) continue;
       let silencio = true;
-      for (const voz of this.vozes) if (voz.ativa && voz.oscs[k].nivel > 0.001) silencio = false;
+      for (let v = 0; v < this.vozes.length; v++) {
+        if (this.vozes[v].ativa && this.ponte.c.oscNivel(v, k) > 0.001) silencio = false;
+      }
       if (!algumaAtiva || silencio) {
         if (osc.tabelaNova) osc.ajustes.tabela = osc.tabelaNova;
         if (osc.warpNovo !== null) osc.ajustes.warpModo = osc.warpNovo;
-        osc.tabelaNova = null;
+        osc.tabelaNova = 0;
         osc.warpNovo = null;
         osc.ajustes.ganho = 1;
       } else {
         osc.ajustes.ganho = 0;
       }
     }
+    if (this.tabelasSoltas.length) this.liberarTabelas();
     if (algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
     // Proteção: uma conta inválida (NaN/infinito) numa voz se espalharia para sempre (tudo mudo)
     if (algumaAtiva && temInvalido(saidaE, saidaD, tamanhoBloco)) {
@@ -676,6 +688,16 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     return true;
   }
 
+  // Apaga do C++ as wavetables soltas (substituídas ou esquecidas) que nenhum oscilador
+  // está usando nem esperando para usar.
+  liberarTabelas() {
+    this.tabelasSoltas = this.tabelasSoltas.filter((t) => {
+      const emUso = this.oscs.some((o) => o.ajustes.tabela === t || o.tabelaNova === t);
+      if (!emUso) this.ponte.c.apagarTabela(t);
+      return emUso;
+    });
+  }
+
   // Knobs dos efeitos ligados a LFO/ENV. Os efeitos tratam todas as notas juntas, então usam
   // as fontes da nota tocada por último (enquanto ela soa); um LFO Livre vale sempre, mesmo
   // sem nota. Sem nenhuma ligação nos efeitos, não faz nada.
@@ -729,15 +751,40 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
     this.coef2.calcular(parametros.cutoff2, parametros.resonancia2, tamanhoBloco);
     const comum = this.comum;
-    for (const { params, ajustes } of this.oscs) {
+    // Ajustes dos 3 osciladores → mesa de troca do C++ (motor/ponte.js), uma vez por bloco
+    const ponte = this.ponte;
+    const f64 = ponte.f64;
+    const C = CAMPOS_OSC;
+    for (let k = 0; k < this.oscs.length; k++) {
+      const { params, ajustes } = this.oscs[k];
       ajustes.fine = parametros[params.fine][0];
       ajustes.pan = parametros[params.pan][0];
       ajustes.blend = parametros[params.blend][0];
       ajustes.warp = parametros[params.warp][0];
-      ajustes.posicoesWT = parametros[params.wtPos];
       ajustes.detune = parametros[params.detune][0];
       ajustes.width = parametros[params.width][0];
       ajustes.nivel = parametros[params.nivel][0];
+      const a = ponte.iAjustes + k * ponte.nCampos;
+      f64[a + C.tabela] = ajustes.tabela;
+      f64[a + C.unison] = ajustes.unison;
+      f64[a + C.detune] = ajustes.detune;
+      f64[a + C.width] = ajustes.width;
+      f64[a + C.ligado] = ajustes.ligado ? 1 : 0;
+      f64[a + C.nivel] = ajustes.nivel;
+      f64[a + C.ganho] = ajustes.ganho;
+      f64[a + C.oitava] = ajustes.oitava;
+      f64[a + C.semi] = ajustes.semi;
+      f64[a + C.fine] = ajustes.fine;
+      f64[a + C.pan] = ajustes.pan;
+      f64[a + C.blend] = ajustes.blend;
+      f64[a + C.fase] = ajustes.fase;
+      f64[a + C.rand] = ajustes.rand;
+      f64[a + C.warpModo] = ajustes.warpModo;
+      f64[a + C.warp] = ajustes.warp;
+      // WT Pos: 1 valor (parado) ou 1 por amostra (mexendo)
+      const posicoes = parametros[params.wtPos];
+      f64.set(posicoes, ponte.iPosicoes + k * 128);
+      f64[a + C.qtdPosicoes] = posicoes.length;
     }
     comum.cortes = parametros.cutoff;
     comum.resonancias = parametros.resonancia;

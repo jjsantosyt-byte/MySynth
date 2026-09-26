@@ -11,7 +11,8 @@
 //   pwm       — aperta a onda inteira na primeira parte do ciclo (até 10%) e o resto fica
 //               parado no ponto de início (como a largura de pulso, em qualquer onda).
 //
-// Só contas: usado pelo motor (dsp/oscilador-voz.js) e pelo desenho da onda na tela.
+// Só contas: usado pelo desenho da onda na tela (e pelo motor, para os números dos modos).
+// As contas que o SOM usa estão em motor/motor.cpp: mudou uma aqui? Mudar lá também.
 
 export const MODOS_WARP = ['nenhum', 'sync', 'bendMais', 'bendMenos', 'pwm', 'fmA', 'fmB', 'fmC'];
 
