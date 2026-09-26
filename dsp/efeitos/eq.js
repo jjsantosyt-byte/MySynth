@@ -143,7 +143,9 @@ export class Eq {
     this.bandaGrave.prateleiraGrave(FREQ_GRAVE, atual.grave, this.taxa);
     this.bandaMedia.sino(atual.freq, atual.medio, atual.q, this.taxa);
     this.bandaAguda.prateleiraAguda(FREQ_AGUDO, atual.agudo, this.taxa);
-    this.calculado = { ...atual };
+    // Guarda os valores usados (reaproveita o mesmo objeto: sem lixo na memória)
+    if (c) Object.assign(c, atual);
+    else this.calculado = { ...atual };
   }
 
   processar(saidaE, saidaD, tamanhoBloco) {

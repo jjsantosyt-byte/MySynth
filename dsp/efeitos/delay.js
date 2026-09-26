@@ -18,8 +18,13 @@ const FEEDBACK_MAXIMO = 0.95; // abaixo de 1: os ecos sempre acabam sumindo
 
 // Volume do som original e do efeito conforme o Mix (0 a 1).
 // Até 50%, o original fica cheio; de 50% a 100%, ele vai sumindo.
+// Devolve sempre o MESMO objeto (sem criar lixo na memória a cada bloco): quem chama
+// lê os dois valores na hora, antes de chamar de novo.
+const MIX = { seco: 1, molhado: 0 };
 export function ganhosMix(mix) {
-  return { seco: Math.min(1, 2 * (1 - mix)), molhado: Math.min(1, 2 * mix) };
+  MIX.seco = Math.min(1, 2 * (1 - mix));
+  MIX.molhado = Math.min(1, 2 * mix);
+  return MIX;
 }
 
 export class Delay {

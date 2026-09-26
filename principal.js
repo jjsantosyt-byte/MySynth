@@ -326,8 +326,12 @@ async function ligarSom() {
   }
 
   // O contexto precisa ser criado logo no toque (exigência do celular).
-  const contexto = new AudioContext({ latencyHint: 'interactive' });
+  const contexto = new AudioContext({ latencyHint: latenciaPedida() });
   contexto.resume();
+  console.info(
+    `MySynth: áudio a ${contexto.sampleRate} Hz, latência pedida "${latenciaPedida()}", ` +
+      `base ${((contexto.baseLatency || 0) * 1000).toFixed(1)} ms`
+  );
   estado.contexto = contexto;
   botaoLigar.disabled = true;
   botaoLigar.textContent = 'Ligando...';
@@ -364,6 +368,12 @@ async function ligarSom() {
       }
       if (evento.data.tipo === 'clipper') {
         avisarClipper(evento.data.pico);
+        return;
+      }
+      if (evento.data.tipo === 'consertado') {
+        // O motor achou uma conta inválida e limpou a peça (o som seguiu). Fica registrado
+        // no console para achar a causa.
+        console.warn(`MySynth: valores inválidos consertados em "${evento.data.origem}"`);
         return;
       }
       if (evento.data.tipo !== 'aoVivo') return;
@@ -411,6 +421,18 @@ async function ligarSom() {
     botaoLigar.disabled = false;
     botaoLigar.textContent = 'Ligar som';
   }
+}
+
+// Tamanho do "buffer" de áudio que o app pede ao navegador:
+// - computador (mouse): 'interactive' = o menor atraso possível;
+// - celular/tablet (toque): 'balanced' = um pouco mais de atraso (~10–40 ms, depende do
+//   aparelho), mas bem mais folga para o motor calcular cada pedaço de som a tempo
+//   (menos estalos quando o som está pesado).
+// Para comparar de ouvido: abrir o app com ?latencia=interactive (ou balanced / playback).
+function latenciaPedida() {
+  const escolhida = new URLSearchParams(location.search).get('latencia');
+  if (['interactive', 'balanced', 'playback'].includes(escolhida)) return escolhida;
+  return matchMedia('(pointer: coarse)').matches ? 'balanced' : 'interactive';
 }
 
 // Religa o áudio se ele não estiver rodando. No iPhone, uma ligação, a Siri ou um alarme deixam

@@ -17,9 +17,13 @@ const PASSO_COEF = 16; // recalcula os filtros a cada 16 amostras (e anda em lin
 
 // Mistura "em cruz": 0 = só original, 0,5 = metade/metade, 1 = só efeito.
 // (Diferente do Delay/Reverb: aqui os buracos só aparecem com os dois em volumes iguais.)
+// Devolve sempre o MESMO objeto (sem lixo na memória): quem chama lê os valores na hora.
+const CRUZADOS = { seco: 1, molhado: 0 };
 export function ganhosCruzados(mix) {
   const m = Math.min(1, Math.max(0, mix));
-  return { seco: 1 - m, molhado: m };
+  CRUZADOS.seco = 1 - m;
+  CRUZADOS.molhado = m;
+  return CRUZADOS;
 }
 
 // Coeficiente do passa-tudo de 1ª ordem na frequência fc

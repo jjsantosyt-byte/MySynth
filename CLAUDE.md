@@ -210,6 +210,23 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
 (o dono decide o que entra). Ainda abertos (menores):
 detalhes da tela (sombras nos desenhos, JSON nos knobs); FM com troca da wavetable do
 modulador (a conferir de ouvido); casos estranhos de .wav; "lixo" de memória no motor.
+**Estabilidade no celular, 1ª etapa (26/09/2026) — feita, em teste (versão web pura, depois do
+rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-voltar`):**
+- Buffer de áudio: `latenciaPedida()` no principal.js — toque (`pointer: coarse`) = 'balanced',
+  mouse = 'interactive' (como antes). Comparar de ouvido: `?latencia=interactive|balanced|playback`.
+  O console mostra "MySynth: áudio a X Hz, latência pedida ..., base X ms".
+- Proteção contra NaN de volta (era do commit db030b7, sem nada de Capacitor): `temInvalido` /
+  `consertar` no processador (vozes, cada efeito, clipper) + console "valores inválidos consertados
+  em X". Corrigido: ao recriar as vozes, o tipo e o liga/desliga dos filtros voltam como estavam
+  (`escolhasFiltro`, `recriarVozes`); antes voltavam ao padrão.
+- Menos lixo de memória no motor: `ganhosMix`/`ganhosCruzados` devolvem sempre o mesmo objeto; EQ
+  reaproveita `calculado`; recado "aoVivo" reaproveita listas/objetos (`envioAoVivo`).
+- Medido no PC (`_antigo/teste/teste-otimizacao.js`, contra a cópia `_antigo/base-web`): som
+  IDÊNTICO em 5 cenários (8 notas U8; 3 osc U8 + LP24; 9 efeitos; modulação + efeitos; silêncio com
+  efeitos); peso igual (ex.: 8 notas × 3 osc × U8 + LP24 ≈ 28–29%). Conserto testado com NaN
+  forçado em delay, reverb, voz e clipper: o som volta e o aviso aparece.
+- Ainda NÃO medido no celular (o aparelho não estava conectado).
+
 **Revisão, 3ª rodada (25/09/2026) — feita, em teste:**
 - Distorção/Saturação: `Interpolador` em dsp/meia-banda.js sobe a taxa sem multiplicar zeros (16
   coeficientes pares + o do meio); compensação só recalculada quando o ganho/tipo mudam. Som igual

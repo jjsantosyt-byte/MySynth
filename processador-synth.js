@@ -57,7 +57,37 @@ function picoDoBloco(e, d, n) {
   return pico;
 }
 
+// Algum valor inválido no bloco (NaN ou infinito)? "v - v" só é 0 para números normais.
+function temInvalido(e, d, n) {
+  for (let i = 0; i < n; i++) {
+    if (e[i] - e[i] !== 0 || d[i] - d[i] !== 0) return true;
+  }
+  return false;
+}
+
 class ProcessadorSynth extends AudioWorkletProcessor {
+  // Uma peça do motor (vozes, um efeito, o clipper) soltou valores inválidos: o bloco vira
+  // silêncio (quem chamou limpa a memória da peça) e a tela é avisada de qual peça foi
+  // (aparece no console: serve para achar a causa). No máximo 1 aviso por segundo por peça.
+  consertar(origem, saidaE, saidaD, tamanhoBloco) {
+    saidaE.fill(0, 0, tamanhoBloco);
+    saidaD.fill(0, 0, tamanhoBloco);
+    if ((this.ultimoConserto[origem] ?? -1) > currentTime - 1) return;
+    this.ultimoConserto[origem] = currentTime;
+    this.port.postMessage({ tipo: 'consertado', origem });
+  }
+
+  // Vozes recriadas do zero (depois de um conserto): voltam com o tipo e o liga/desliga
+  // dos filtros que estavam escolhidos.
+  recriarVozes() {
+    for (const voz of this.vozes) {
+      Object.assign(voz, new Voz(sampleRate));
+      for (const [numero, nome, valor] of Object.values(this.escolhasFiltro)) voz.definirFiltro(numero, nome, valor);
+    }
+    this.ruidoDona = null;
+    this.notasPresas = [];
+  }
+
   // Controles que a página pode mexer de forma suave.
   static get parameterDescriptors() {
     return [
@@ -112,6 +142,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
     // Rota de filtro do ruído: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
     this.rotaRuido = 'f1';
+    this.escolhasFiltro = {}; // tipo e liga/desliga escolhidos para os filtros (nome → [nº, campo, valor])
+    this.ultimoConserto = {}; // hora do último aviso de conserto de cada peça
 
     // Osciladores A, B, C. "ajustes" vai para as vozes a cada bloco (ver OsciladorVoz).
     // Nomes dos parâmetros: os do A sem letra (wtPos...), os do B e C com (wtPosB...).
@@ -215,7 +247,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     };
     // A ordem do caminho do som (cada efeito com o seu contador de silêncio)
     this.cadeiaEfeitos = ['saturacao', 'distorcao', 'filtroTrack', 'eq', 'compressor', 'phaser', 'flanger', 'chorus', 'delay', 'reverb'].map(
-      (id) => ({ efeito: this.efeitos[id], silencio: 0, parado: false })
+      (id) => ({ id, efeito: this.efeitos[id], silencio: 0, parado: false })
     );
     this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
 
@@ -246,6 +278,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Valores "ao vivo" para a tela (pontinhos que se mexem)
     this.blocosDesdeEnvio = 0;
     this.enviouAtivo = false;
+    this.envioAoVivo = {
+      recado: { tipo: 'aoVivo', mod: null, lfos: this.ajustesLfo.map(() => null) },
+      mod: new Float64Array(DESTINOS_MOD.length),
+      itensLfo: this.ajustesLfo.map(() => ({ fase: 0, valor: 0 })),
+    };
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
   }
@@ -399,17 +436,15 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.ruidoTipo = TIPOS_RUIDO.includes(valor) ? valor : 'white';
         break;
       case 'filtroTipo':
-        for (const voz of this.vozes) voz.definirFiltro(1, 'tipo', valor);
-        break;
       case 'filtroLigado':
-        for (const voz of this.vozes) voz.definirFiltro(1, 'ligado', valor);
-        break;
       case 'filtro2Tipo':
-        for (const voz of this.vozes) voz.definirFiltro(2, 'tipo', valor);
+      case 'filtro2Ligado': {
+        const numero = nome.startsWith('filtro2') ? 2 : 1;
+        const campo = nome.endsWith('Tipo') ? 'tipo' : 'ligado';
+        this.escolhasFiltro[nome] = [numero, campo, valor]; // (para recriar as vozes: ver consertar)
+        for (const voz of this.vozes) voz.definirFiltro(numero, campo, valor);
         break;
-      case 'filtro2Ligado':
-        for (const voz of this.vozes) voz.definirFiltro(2, 'ligado', valor);
-        break;
+      }
       case 'rotaRuido':
         this.rotaRuido = valor;
         break;
@@ -566,6 +601,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       }
     }
     if (algumaAtiva) this.processarVozes(saidaE, saidaD, tamanhoBloco, parametros);
+    // Proteção: uma conta inválida (NaN/infinito) numa voz se espalharia para sempre (tudo mudo)
+    if (algumaAtiva && temInvalido(saidaE, saidaD, tamanhoBloco)) {
+      this.consertar('vozes', saidaE, saidaD, tamanhoBloco);
+      this.recriarVozes();
+    }
     this.modularEfeitos();
 
     // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
@@ -588,6 +628,13 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         item.silencio = 0;
       }
       item.efeito.processar(saidaE, saidaD, tamanhoBloco);
+      if (temInvalido(saidaE, saidaD, tamanhoBloco)) {
+        // Conta inválida neste efeito: limpa a memória dele (fica como novo, com os mesmos ajustes)
+        this.consertar(item.id, saidaE, saidaD, tamanhoBloco);
+        const ajustes = { ...item.efeito.ajustes };
+        Object.assign(item.efeito, new item.efeito.constructor(sampleRate));
+        item.efeito.definir(ajustes);
+      }
       pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
       item.silencio = entradaSilenciosa && pico < LIMIAR_SILENCIO ? item.silencio + tamanhoBloco : 0;
       if (item.silencio > this.esperaSilencio) item.parado = true;
@@ -610,6 +657,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Silêncio há um tempo (mais que o atraso do clipper): nem passa por ele
     this.silencioSaida = pico * (volume[0] || 1) < LIMIAR_SILENCIO ? this.silencioSaida + tamanhoBloco : 0;
     if (this.silencioSaida < 4 * tamanhoBloco) this.clipper.processar(saidaE, saidaD, tamanhoBloco);
+    // O clipper guarda um pouco de memória: um valor inválido o deixaria mudo para sempre
+    if (temInvalido(saidaE, saidaD, tamanhoBloco)) {
+      this.consertar('clipper', saidaE, saidaD, tamanhoBloco);
+      Object.assign(this.clipper, new Clipper(sampleRate));
+    }
 
     this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
     return true;
@@ -751,13 +803,26 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       return;
     }
 
-    const lfos = this.ajustesLfo.map((ajustes, l) => {
-      if (ajustes.modo === 'livre') {
-        return { fase: this.lfosLivres[l].fase, valor: this.valoresLivres[l][this.valoresLivres[l].length - 1] };
+    // O recado reaproveita as mesmas listas e objetos a cada envio (sem lixo na memória;
+    // o postMessage manda uma cópia para a tela)
+    const envio = this.envioAoVivo;
+    for (let l = 0; l < this.ajustesLfo.length; l++) {
+      const item = envio.itensLfo[l];
+      if (this.ajustesLfo[l].modo === 'livre') {
+        item.fase = this.lfosLivres[l].fase;
+        item.valor = this.valoresLivres[l][this.valoresLivres[l].length - 1];
+        envio.recado.lfos[l] = item;
+      } else if (voz) {
+        item.fase = voz.lfos[l].fase;
+        item.valor = voz.valoresFontes[INDICES_LFO[l]];
+        envio.recado.lfos[l] = item;
+      } else {
+        envio.recado.lfos[l] = null;
       }
-      return voz ? { fase: voz.lfos[l].fase, valor: voz.valoresFontes[INDICES_LFO[l]] } : null;
-    });
-    this.port.postMessage({ tipo: 'aoVivo', mod: voz ? Array.from(voz.mod) : null, lfos });
+    }
+    if (voz) envio.mod.set(voz.mod);
+    envio.recado.mod = voz ? envio.mod : null;
+    this.port.postMessage(envio.recado);
     this.enviouAtivo = true;
   }
 }
