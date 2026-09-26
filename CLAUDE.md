@@ -333,6 +333,38 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   ruído One Shot modulado, roubo de voz, Mono Legato + Glide, Sustain mudando) + os 14 da F1: todos
   entre -114 e -141 dB (arredondamento) ou idênticos. Peso igual ao da F1b (a modulação é leve;
   ganho esperado na F2b). Cópia da F1b para comparar peso: `_antigo/f1b` + `_antigo/motor-f1b.wasm`.
+- Plano F2b → F4 (aprovado 26/09/2026): F2b voz inteira + Filtro Track (junto, para o filtro não
+  ficar escrito em dobro); F3a Saturação/Distorção/EQ/Compressor; F3b Phaser/Flanger/Chorus/Delay/
+  Reverb + modulação dos knobs dos efeitos + "parado no silêncio" (tabela MOD_EFEITOS vai do JS para
+  o C++ ao ligar); F4 gerente de vozes, trocas sem estalo (wavetable/Warp), volume, soft clipper,
+  proteção NaN e TODOS os sorteios no C++ (testes com Rand 0 / One Shot + semente fixa só p/ testes).
+  Depois (opcional): F5 SIMD nas partes mais pesadas + medir no celular.
+- F2b (26/09/2026, FEITA, em teste; versão 4): a VOZ INTEIRA no C++ (`struct Voz` em motor.cpp:
+  envelopes/LFOs/modulação da F2a + `Filtro` (cópia exata do SVF), `CoefsBloco` (coeficientes por
+  bloco, `interpolar` para o Cutoff/Reso modulado), 4 `Rota`s com caixas, ruído (trechos de 4 s
+  montados no C++ ao ligar: `GeradorRuido`, `montarTrecho`, mesma receita e semente 12345) e glide).
+  JS → C++: `vozIniciar(v, nota, glideDe, glideTempo, doSilencio, recomecar, retrig, s0, s1, s2)`
+  (os 16 pontos de início vêm de `fasesSorteadas` na mesa), `vozesComecarBloco` (coeficientes dos
+  Filtros 1/2 a partir de `cortesResos` = Cutoff 1, Reso 1, Cutoff 2, Reso 2), `vozProcessar(v,
+  tamanho, sorteioRuido, dona)` → som em `enderecoVozSaida(v)` (o JS soma na saída), `vozAltura`,
+  `definirFiltro(0|1, campo 0 tipo/1 ligado, valor)` (guarda a escolha: `vozZerar` volta com ela).
+  Mesa `ajustesVoz` (`CAMPOS_VOZ` na ponte = enum CampoVoz: rotas, ruído, qtd de valores do Cutoff/
+  Reso). Filtro Track no C++ (`struct FiltroTrack`, `ftProcessar` sobre `somEfeito` [2][BLOCO]; os
+  valores passam por float como no JS antigo); no JS, classe `FiltroTrack` no processador só leva
+  ajustes/som (mesmo jeito dos outros efeitos; `zerar()` no conserto de NaN). A classe `Voz` do JS
+  (no processador) ficou só com nota/segurada/idade/pendente e os sorteios (fases, S&H, ruído),
+  na mesma ordem de antes. Constantes com log() viraram números fixos (o .wasm não roda contas
+  "ao nascer": sem construtores globais).
+  APAGADOS: dsp/voz.js, dsp/efeitos/filtro-track.js. Encolhidos: dsp/filtro.js (TIPOS_FILTRO +
+  fórmulas do desenho da curva) e dsp/ruido.js (TIPOS_RUIDO). NOTA_MINIMA/MAXIMA_TRACK agora em
+  dsp/efeitos/modulaveis.js.
+  Medido (`_antigo/teste/teste-f2b.js`; 10 cenários novos: troca LP24→LP12→HP→BP→LP24 e liga/
+  desliga com nota, rotas F1→F2/F2/F2→F1, Cutoff/Reso por amostra, ruído Loop 3 tipos + Track +
+  Pitch + "1 ruído", One Shot só ruído, glide Poly, Filtro Track seguindo notas/trocando tipo...) +
+  os 24 antigos: todos entre -114 e -141 dB ou idênticos; Filtro Track com LFO Livre = F2a idêntico
+  (-2 dB contra a régua é o conserto da F2a). PESO: 8 notas U4 + LP24→HP 18,9% → 9,0%; 8 notas U1 +
+  ENV 2 → LP24 16,0% → 8,7%; rotas + ruído 10,2% → 5,5%; 8 notas U8 sem filtro 8,5% → 7,4%.
+  Cópia da F2a para comparar: `_antigo/f2a` + `_antigo/motor-f2a.wasm`.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
@@ -539,13 +571,10 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques, abas e controles
 - `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
-- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly)
-- `dsp/voz.js` — uma voz completa (unison → filtro estéreo → envelope)
-- `dsp/oscilador.js` — leitura da wavetable sem aliasing
-- `dsp/oscilador-voz.js` — um oscilador dentro da nota (unison, WT Pos, nível, Warp)
+- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly): a voz inteira + Filtro Track
 - `dsp/warp.js` — contas do Warp (Sync, Bend, PWM)
 - `dsp/meia-banda.js` — filtro para trabalhar em taxa dobrada (Warp e Distorção)
-- `dsp/filtro.js` — filtro (usado pelas vozes); envelopes ADSR estão no motor.cpp (F2a)
+- `dsp/filtro.js`, `dsp/ruido.js` — tipos de filtro/ruído e a fórmula da curva desenhada (as contas estão no motor.cpp)
 - `dsp/lfo.js`, `dsp/modulacao.js` — listas de formas/fontes/destinos (as contas estão no motor.cpp)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
 - `interface/seletor.js` — seletor de número inteiro ‹ N ›

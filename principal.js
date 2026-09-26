@@ -25,11 +25,10 @@ import { envelopeArrastavel } from './interface/envelope-arrastar.js';
 import { icone, botaoComIcone } from './interface/icones.js';
 import { criarHistorico } from './interface/historico.js';
 import { DESTINOS_MOD } from './dsp/modulacao.js';
-import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
+import { MOD_EFEITOS, NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK } from './dsp/efeitos/modulaveis.js';
 import { tempoDoTamanho } from './dsp/efeitos/reverb.js';
 import { TIPOS_DISTORCAO } from './dsp/efeitos/distorcao.js';
 import { TIPOS_SATURACAO } from './dsp/efeitos/saturacao.js';
-import { NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK } from './dsp/efeitos/filtro-track.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { criarPresets } from './interface/presets.js';
 import {

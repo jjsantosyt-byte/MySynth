@@ -9,8 +9,9 @@
 // Warp e FM).
 // F1b: sem Warp, as cópias de unison são calculadas de 4 em 4 com SIMD (quatroCopias).
 // F2a: a MODULAÇÃO e os ENVELOPES: ENV 1 (volume), ENV 2/3, LFO 1/2/3 (Retrig e Livre),
-// Macros e a soma das ligações (matriz). O resto da voz (ruído, filtros, rotas, glide)
-// ainda está em dsp/voz.js e chama estas funções a cada pedaço de modulação.
+// Macros e a soma das ligações (matriz).
+// F2b: o resto da VOZ (ruído, Filtros 1 e 2, rotas, glide) e o efeito Filtro Track. A voz
+// inteira é calculada aqui (vozProcessar); o JavaScript só decide quem toca qual nota.
 //
 // Como o JavaScript conversa com o C++ ("mesa de troca"):
 //   - wavetables: o JS pede espaço (criarTabela) e copia as ondas para dentro, uma vez só;
@@ -18,8 +19,8 @@
 //   - ajustes dos 3 osciladores (Unison, Detune, Warp...), dos LFOs, dos envelopes e dos
 //     Macros: o JS escreve na mesa uma vez por bloco;
 //   - ligações de modulação: o JS escreve a lista (fonte, destino, quantidade) quando muda;
-//   - o som de cada oscilador de cada voz sai em "saidas" (esquerda e direita), o ENV 1 em
-//     "envSaida" e a modulação de cada voz fica em "mod" (o JS lê para o ruído e os filtros).
+//   - o som de cada voz sai em "saidaE/saidaD" dela (o JS soma na saída) e a modulação de
+//     cada voz fica em "mod" (a tela mostra ao vivo).
 //
 // Para compilar: motor\compilar.bat (gera motor\motor.wasm).
 
@@ -317,11 +318,11 @@ struct OscVoz {
   }
 
   // Nota começando do silêncio: ponto de início de cada cópia (Phase + Rand × sorteio)
-  void reiniciar(int k) {
+  void reiniciar(int k, const double* sorteios) {
     const double fase = ajustes[k][C_FASE];
     const double rand = ajustes[k][C_RAND];
     for (int c = 0; c < MAX_UNISON; c++) {
-      const double inicio = fase + rand * fasesSorteadas[c];
+      const double inicio = fase + rand * sorteios[c];
       fases[c] = inicio >= 1 ? inicio - 1 : inicio;
     }
     volumesDireto = true;
@@ -712,7 +713,7 @@ constexpr double ATAQUE_MINIMO = 0.0015; // mínimos anti-estalo
 constexpr double QUEDA_MINIMA = 0.006;
 constexpr double QUEDA_ROUBO = 0.004;    // voz roubada some neste tempo
 constexpr double FIM_SOLTURA = 1e-4;     // abaixo disso (-80 dB) a nota termina
-const double QUEDA_60DB = std::log(0.001);
+constexpr double QUEDA_60DB = -6.907755278982137; // log(0,001) (número fixo: o .wasm não roda contas "ao nascer")
 
 struct Envelope {
   int estagio;
@@ -829,7 +830,7 @@ struct Envelope {
 enum { F_SENO, F_TRIANGULO, F_SERRA_SOBE, F_SERRA_DESCE, F_QUADRADA, F_ALEATORIO };
 constexpr double RATE_MIN = 0.02;
 constexpr double RATE_MAX = 40;
-const double LOG_FAIXA_RATE = std::log(RATE_MAX / RATE_MIN);
+constexpr double LOG_FAIXA_RATE = 7.600902459542082; // log(40 / 0,02)
 
 // Rate com modulação: soma na posição do knob (0 a 1, escala exponencial)
 double rateModulado(double rate, double mod) {
@@ -871,7 +872,7 @@ double ajustesEnv[3][4];   // ENV 1 (volume), ENV 2, ENV 3: Attack, Decay, Susta
 double macrosAlvo[4];      // valor escolhido na tela
 double macros[4];          // valor em uso (suavizado ~10 ms)
 double suavizarMacros = 0;
-double envSaida[BLOCO];    // ENV 1 de uma voz no bloco (vozEnvelope; o JS lê)
+double suavizarMod = 0;    // ~2 ms por pedaço: saltos (LFO quadrado, S&H) viram rampas curtíssimas
 
 // LFOs Livres: um só para todas as notas, rodando sempre (1 valor por pedaço)
 EstadoLfo livres[N_LFO];
@@ -902,8 +903,261 @@ void somarLigacoes(const double* fontes, double* destino) {
   }
 }
 
-// ---------- Modulação de cada voz ----------
-struct VozMod {
+// =================== F2b: filtros, ruído, rotas e a voz inteira ===================
+
+// Destinos de modulação usados aqui (mesmos de dsp/modulacao.js)
+constexpr int D_CUTOFF = 3, D_RESO = 4, D_RUIDO = 5, D_CUTOFF2 = 7, D_RESO2 = 8;
+constexpr int D_RUIDO_PITCH = 38, D_RUIDO_DURACAO = 39;
+
+// ---------- Filtro (igual ao antigo dsp/filtro.js) ----------
+// SVF (state variable filter) na versão digital estável (TPT): aguenta o Cutoff mudando
+// rápido sem estalos, e com ressonância alta assobia sem "explodir".
+// Tipos (mesma ordem de TIPOS_FILTRO): LP 12, LP 24, HP, BP.
+enum { T_LP12, T_LP24, T_HP, T_BP };
+
+// Coeficientes (dependem só do Cutoff e da Reso)
+struct Coefs {
+  double k, compensacao, a1, a2, a3, b1, b2, b3;
+};
+double freqMaximaFiltro = 20000;
+
+inline double amortecimento(double reso) { return 2 - 1.9 * limitar01(reso); }
+// Com ressonância alta, o volume do LP/HP baixa (não estoura)
+inline double compensacaoResonancia(double reso) { return 1 / (1 + 1.5 * limitar01(reso)); }
+
+void calcularCoefs(Coefs& c, double corte, double reso) {
+  const double f = std::fmin(std::fmax(corte, 20.0), freqMaximaFiltro);
+  const double g = std::tan((PI * f) / taxa);
+  // Estágio 1: com a ressonância escolhida
+  c.k = amortecimento(reso);
+  c.compensacao = compensacaoResonancia(reso);
+  c.a1 = 1 / (1 + g * (g + c.k));
+  c.a2 = g * c.a1;
+  c.a3 = g * c.a2;
+  // Estágio 2 (só para o LP 24): sem ressonância extra, só aumenta o corte
+  c.b1 = 1 / (1 + g * (g + M_SQRT2));
+  c.b2 = g * c.b1;
+  c.b3 = g * c.b2;
+}
+
+// Coeficientes de um bloco: 1 valor (Cutoff/Reso parados) ou 1 por amostra (mudando)
+struct CoefsBloco {
+  Coefs c[BLOCO];
+  bool variavel;
+
+  void calcular(const double* cortes, int qtdCortes, const double* resos, int qtdResos, int tamanho) {
+    variavel = qtdCortes > 1 || qtdResos > 1;
+    const int n = variavel ? tamanho : 1;
+    for (int j = 0; j < n; j++) calcularCoefs(c[j], qtdCortes > 1 ? cortes[j] : cortes[0], qtdResos > 1 ? resos[j] : resos[0]);
+  }
+
+  // De "inicio" até "fim": em linha reta dos coeficientes "de" até "ate" (transição suave)
+  void interpolar(const Coefs& de, const Coefs& ate, int inicio, int fim) {
+    const int qtd = fim - inicio;
+    for (int i = inicio; i < fim; i++) {
+      const double t = static_cast<double>(i - inicio + 1) / qtd;
+      Coefs& d = c[i];
+      d.k = de.k + t * (ate.k - de.k);
+      d.compensacao = de.compensacao + t * (ate.compensacao - de.compensacao);
+      d.a1 = de.a1 + t * (ate.a1 - de.a1);
+      d.a2 = de.a2 + t * (ate.a2 - de.a2);
+      d.a3 = de.a3 + t * (ate.a3 - de.a3);
+      d.b1 = de.b1 + t * (ate.b1 - de.b1);
+      d.b2 = de.b2 + t * (ate.b2 - de.b2);
+      d.b3 = de.b3 + t * (ate.b3 - de.b3);
+    }
+  }
+};
+
+// A "memória" de um filtro (uma por lado, por etapa, por voz)
+struct Filtro {
+  double pesos[4], alvos[4]; // pesos de cada tipo: trocar de tipo = transição de ~5 ms
+  double mistura, alvoMistura; // liga/desliga gradual: 0 = som direto, 1 = filtrado
+  bool estagio2;               // o 2º estágio (LP 24) está sendo calculado
+  double ultimoPassaBaixas;
+  double s1, s2, s3, s4;
+
+  void nascer() {
+    for (int j = 0; j < 4; j++) pesos[j] = alvos[j] = j == T_LP24 ? 1 : 0;
+    mistura = alvoMistura = 0;
+    estagio2 = true;
+    ultimoPassaBaixas = 0;
+    reiniciar();
+  }
+
+  // Zera a memória (voz começando do silêncio); tipo e liga/desliga vão direto ao escolhido
+  void reiniciar() {
+    s1 = s2 = s3 = s4 = 0;
+    for (int j = 0; j < 4; j++) pesos[j] = alvos[j];
+    mistura = alvoMistura;
+    estagio2 = alvos[T_LP24] == 1;
+    ultimoPassaBaixas = 0;
+  }
+
+  void definirTipo(int indice) {
+    if (indice < 0 || indice > 3) return;
+    for (int j = 0; j < 4; j++) alvos[j] = j == indice ? 1 : 0;
+    if (indice == T_LP24 && !estagio2) {
+      // Voltando para o LP 24 com a nota tocando: o 2º estágio começa "carregado" com o som
+      // atual do 1º, para a troca continuar suave
+      s3 = 0;
+      s4 = ultimoPassaBaixas;
+      estagio2 = true;
+    }
+  }
+
+  void definirLigado(bool ligado) {
+    // Religando depois de totalmente desligado: começa com a memória limpa
+    if (ligado && alvoMistura == 0 && mistura < 1e-5) s1 = s2 = s3 = s4 = 0;
+    alvoMistura = ligado ? 1 : 0;
+  }
+
+  bool ativo() const { return !(alvoMistura == 0 && mistura < 1e-5); }
+
+  // Filtra uma amostra
+  double processar(double x, const Coefs& c) {
+    if (alvoMistura == 0 && mistura < 1e-5) return x; // desligado: passa direto
+    const double k = c.k;
+    // Estágio 1
+    const double v3 = x - s2;
+    const double v1 = c.a1 * s1 + c.a2 * v3;
+    const double v2 = s2 + c.a2 * s1 + c.a3 * v3;
+    s1 = 2 * v1 - s1;
+    s2 = 2 * v2 - s2;
+    const double passaBaixas = v2;
+    const double passaBanda = k * v1;
+    const double passaAltas = x - k * v1 - v2;
+    // Estágio 2: passa-baixas de novo, em cima do primeiro (LP 24)
+    double passaBaixas24 = 0;
+    if (estagio2) {
+      const double w3 = passaBaixas - s4;
+      const double w1 = c.b1 * s3 + c.b2 * w3;
+      const double w2 = s4 + c.b2 * s3 + c.b3 * w3;
+      s3 = 2 * w1 - s3;
+      s4 = 2 * w2 - s4;
+      passaBaixas24 = w2;
+    } else {
+      ultimoPassaBaixas = passaBaixas;
+    }
+    // Mistura os tipos conforme os pesos (que andam suavemente até o tipo escolhido)
+    const double s = suavizar;
+    pesos[0] += (alvos[0] - pesos[0]) * s;
+    pesos[1] += (alvos[1] - pesos[1]) * s;
+    if (estagio2 && alvos[1] == 0 && pesos[1] < 1e-6) {
+      pesos[1] = 0;
+      estagio2 = false;
+    }
+    pesos[2] += (alvos[2] - pesos[2]) * s;
+    pesos[3] += (alvos[3] - pesos[3]) * s;
+    const double filtrado =
+        (pesos[0] * passaBaixas + pesos[1] * passaBaixas24 + pesos[2] * passaAltas) * c.compensacao + pesos[3] * passaBanda;
+    mistura += (alvoMistura - mistura) * s;
+    return x + mistura * (filtrado - x);
+  }
+};
+
+// Tipo e liga/desliga escolhidos para os Filtros 1 e 2 (valem para todas as vozes; uma voz
+// recriada volta com eles)
+int tipoFiltroEscolhido[2] = { T_LP24, T_LP24 };
+bool filtroLigadoEscolhido[2] = { false, false };
+
+// ---------- Ruído (igual ao antigo dsp/ruido.js) ----------
+// Para cada tipo (White, Pink, Brown), UM trecho de 4 s montado ao ligar; as notas tocam o
+// trecho como um "sample" (em loop ou One Shot), mais rápido ou mais devagar.
+constexpr double SEGUNDOS_TRECHO = 4;
+constexpr int EMENDA = 4096; // mistura suave entre o fim e o começo (loop sem estalo)
+constexpr double NOTA_BASE_RUIDO = 60; // C4: nesta nota o ruído toca na velocidade normal
+float* trechosRuido[3] = { nullptr, nullptr, nullptr };
+int tamanhoTrecho = 0;
+
+struct GeradorRuido {
+  uint32_t estado;
+  double p0 = 0, p1 = 0, p2 = 0, marrom = 0;
+  explicit GeradorRuido(uint32_t semente) {
+    estado = static_cast<uint32_t>(static_cast<uint64_t>(semente) * 2654435761u);
+    if (!estado) estado = 1;
+  }
+  double sortear() { // -1 a 1
+    uint32_t x = estado;
+    x ^= x << 13;
+    x ^= x >> 17;
+    x ^= x << 5;
+    estado = x;
+    return estado / 2147483648.0 - 1;
+  }
+  double proximo(int tipo) {
+    const double branco = sortear();
+    switch (tipo) {
+      case 1: // pink: soma de 3 filtros suaves (receita de Paul Kellet, versão econômica)
+        p0 = 0.99765 * p0 + branco * 0.099046;
+        p1 = 0.963 * p1 + branco * 0.2965164;
+        p2 = 0.57 * p2 + branco * 1.0526913;
+        return (p0 + p1 + p2 + branco * 0.1848) * 0.197;
+      case 2: // brown: vai somando o branco devagar, com vazamento
+        marrom = (marrom + 0.02 * branco) / 1.02;
+        return marrom * 3.5 * 1.71;
+      default: // white
+        return branco * 0.6;
+    }
+  }
+};
+
+// Monta um trecho que dá a volta sem emenda (as últimas amostras entram misturadas no começo)
+void montarTrecho(int tipo, float* trecho, int tamanho) {
+  GeradorRuido gerador(12345);
+  for (int i = 0; i < 8192; i++) gerador.proximo(tipo); // aquece os filtros do pink/brown
+  float* cru = static_cast<float*>(std::malloc(sizeof(float) * (tamanho + EMENDA)));
+  for (int i = 0; i < tamanho + EMENDA; i++) cru[i] = static_cast<float>(gerador.proximo(tipo));
+  for (int i = 0; i < tamanho; i++) trecho[i] = cru[i];
+  for (int i = 0; i < EMENDA; i++) {
+    const double t = static_cast<double>(i) / EMENDA;
+    trecho[i] = static_cast<float>(cru[i] * std::sin((t * PI) / 2) + cru[tamanho + i] * std::cos((t * PI) / 2));
+  }
+  std::free(cru);
+}
+
+// ---------- Mesa: ajustes da voz (o JS escreve por bloco) ----------
+enum CampoVoz {
+  V_ROTA_A, V_ROTA_B, V_ROTA_C, V_ROTA_RUIDO, // rotas: 0 = F1, 1 = F2, 2 = F1→F2, 3 = F2→F1
+  V_RUIDO_LIGADO, V_RUIDO_TIPO, V_RUIDO_NIVEL, V_RUIDO_ONESHOT, V_RUIDO_DURACAO, V_RUIDO_TRACK,
+  V_RUIDO_PITCH, V_RUIDO_UNICO,
+  V_QTD_CORTES1, V_QTD_RESOS1, V_QTD_CORTES2, V_QTD_RESOS2, // 1 valor ou 1 por amostra
+  N_CAMPOS_VOZ
+};
+double ajustesVoz[N_CAMPOS_VOZ];
+double cortesResos[4][BLOCO]; // Cutoff 1, Reso 1, Cutoff 2, Reso 2 (dos knobs)
+CoefsBloco coefsGlobais[2];   // Filtros 1 e 2 sem modulação (iguais para todas as vozes)
+
+constexpr double CORTE_MIN = 20; // Cutoff modulado anda na escala do knob (20 Hz a 20 kHz)
+constexpr double LOG_FAIXA_CORTE = 6.907755278982137; // log(1000)
+constexpr double PITCH_RUIDO_MAX = 24;
+constexpr double DURACAO_RUIDO_MIN = 0.005;
+constexpr double LOG_FAIXA_DURACAO = 5.991464547107982; // log(2 / 0,005)
+
+inline double notaParaFrequencia(double nota) { return 440 * std::pow(2.0, (nota - 69) / 12); }
+
+// ---------- Uma voz (uma nota tocando) ----------
+//   OSC A, B, C ─┐
+//                ├─ cada um pela sua rota de filtro ─→ ENV 1 (volume)
+//   ruído ───────┘
+// + as fontes de modulação da própria nota (LFOs Retrig, ENV 2 e 3).
+struct Etapa {
+  int numero; // 0 = Filtro 1, 1 = Filtro 2
+  Filtro par[2]; // esquerdo, direito (memória própria desta etapa)
+};
+struct Rota {
+  int qtdEtapas;
+  Etapa etapas[2];
+  double somaE[BLOCO], somaD[BLOCO]; // "caixa": as fontes desta rota somam aqui
+  bool usada;
+};
+struct FiltroModulado { // Cutoff/Reso modulados: coeficientes próprios da voz
+  CoefsBloco coef;
+  Coefs pontas[2]; // início e fim do pedaço
+  bool novo;
+};
+
+struct Voz {
   Envelope envs[3];       // [0] = ENV 1 (volume), [1] = ENV 2, [2] = ENV 3
   EstadoLfo lfos[N_LFO];  // LFOs em modo Retrig (um por nota)
   double fontes[N_FONTES];
@@ -912,7 +1166,20 @@ struct VozMod {
   double modAnterior[MAX_DESTINOS]; // do pedaço anterior (os osciladores fazem rampa entre os dois)
   bool modNova;   // ainda não tem "pedaço anterior"
   bool modZerada; // mod e modAnterior todos em zero
-  bool pulouMod;  // este pedaço pulou a soma (sem ligações e tudo em zero)
+
+  Rota rotas[4];  // f1, f2, f12 (1 → 2), f21 (2 → 1)
+  int usadas[4];  // rotas com som neste bloco, na ordem em que foram usadas
+  int qtdUsadas;
+  FiltroModulado filtrosMod[2];
+
+  double ruidoPos, nivelRuido, ruidoOneShot; // posição no trecho, nível suavizado, queda do One Shot
+  double ruidoBloco[BLOCO];
+
+  double altura, alturaAlvo, passoGlide, frequencia; // Glide: em semitons
+  double fases[MAX_UNISON]; // pontos de início sorteados para a nota nova
+  bool fasesPendentes;      // os osciladores ainda não receberam os pontos de início
+  bool tocou[N_OSC];
+  double saidaE[BLOCO], saidaD[BLOCO]; // som desta voz no bloco (o JS soma na saída)
 
   void zerar() {
     for (auto& e : envs) e.zerar();
@@ -921,7 +1188,45 @@ struct VozMod {
     for (int d = 0; d < MAX_DESTINOS; d++) modAlvo[d] = mod[d] = modAnterior[d] = 0;
     modNova = true;
     modZerada = true;
-    pulouMod = false;
+    const int numeros[4][2] = { { 0, -1 }, { 1, -1 }, { 0, 1 }, { 1, 0 } };
+    for (int r = 0; r < 4; r++) {
+      Rota& rota = rotas[r];
+      rota.qtdEtapas = numeros[r][1] < 0 ? 1 : 2;
+      for (int e = 0; e < rota.qtdEtapas; e++) {
+        Etapa& etapa = rota.etapas[e];
+        etapa.numero = numeros[r][e];
+        for (Filtro& f : etapa.par) {
+          f.nascer();
+          f.definirTipo(tipoFiltroEscolhido[etapa.numero]);
+          f.definirLigado(filtroLigadoEscolhido[etapa.numero]);
+        }
+      }
+      rota.usada = false;
+    }
+    qtdUsadas = 0;
+    for (auto& f : filtrosMod) {
+      f.coef.variavel = true;
+      f.novo = true;
+    }
+    ruidoPos = nivelRuido = 0;
+    ruidoOneShot = 1;
+    altura = alturaAlvo = 69;
+    passoGlide = 0;
+    frequencia = 440;
+    fasesPendentes = false;
+  }
+
+  // Tipo (campo 0) ou liga/desliga (campo 1) do Filtro "numero": todas as etapas dele
+  void definirFiltro(int numero, int campo, int valor) {
+    for (Rota& rota : rotas) {
+      for (int e = 0; e < rota.qtdEtapas; e++) {
+        if (rota.etapas[e].numero != numero) continue;
+        for (Filtro& f : rota.etapas[e].par) {
+          if (campo == 0) f.definirTipo(valor);
+          else f.definirLigado(valor != 0);
+        }
+      }
+    }
   }
 
   // Lê as fontes no fim de um pedaço de "qtd" amostras
@@ -950,17 +1255,334 @@ struct VozMod {
     }
     for (int m = 0; m < 4; m++) fontes[INDICES_MACRO[m]] = macros[m];
   }
+
+  // Caixa de uma rota neste bloco (na primeira vez que é usada: zera e entra na lista)
+  Rota& caixa(int r, int tamanho) {
+    if (r < 0 || r > 3) r = 0;
+    Rota& rota = rotas[r];
+    if (!rota.usada) {
+      for (int i = 0; i < tamanho; i++) rota.somaE[i] = rota.somaD[i] = 0;
+      rota.usada = true;
+      usadas[qtdUsadas++] = r;
+    }
+    return rota;
+  }
+
+  // Coeficientes de um filtro com Cutoff/Reso modulados, em rampa suave no pedaço
+  void atualizarFiltroModulado(FiltroModulado& f, int n, double modCorte, double modReso, int inicio, int fim) {
+    const int j = fim - 1;
+    const double* cortes = cortesResos[2 * n];
+    const double* resos = cortesResos[2 * n + 1];
+    const double corteBase = ajustesVoz[V_QTD_CORTES1 + 2 * n] > 1 ? cortes[j] : cortes[0];
+    const double resoBase = ajustesVoz[V_QTD_RESOS1 + 2 * n] > 1 ? resos[j] : resos[0];
+    const double posicaoCorte = std::log(std::fmax(corteBase, CORTE_MIN) / CORTE_MIN) / LOG_FAIXA_CORTE;
+    const double corte = CORTE_MIN * std::exp(limitar01(posicaoCorte + modCorte) * LOG_FAIXA_CORTE);
+    const double reso = limitar01(resoBase + modReso);
+    calcularCoefs(f.pontas[1], corte, reso);
+    if (f.novo) {
+      f.pontas[0] = f.pontas[1];
+      f.novo = false;
+    }
+    f.coef.interpolar(f.pontas[0], f.pontas[1], inicio, fim);
+    f.pontas[0] = f.pontas[1];
+  }
+
+  // Calcula o som desta voz no bloco (em saidaE/saidaD). "v" = número dela.
+  // "sorteioRuido" (0 a 1, ou < 0 = nenhum): nota nova, o ruído recomeça (Loop: de um ponto
+  // sorteado; One Shot: do início). "dona" = é a voz da nota mais recente (o "1 ruído").
+  void processar(int v, int tamanho, double sorteioRuido, bool dona) {
+    const bool oneShot = ajustesVoz[V_RUIDO_ONESHOT] != 0;
+    const int tipoRuido = static_cast<int>(ajustesVoz[V_RUIDO_TIPO]);
+    const float* trecho = trechosRuido[tipoRuido >= 0 && tipoRuido < 3 ? tipoRuido : 0];
+    if (sorteioRuido >= 0) {
+      ruidoPos = oneShot ? 0 : std::floor(sorteioRuido * tamanhoTrecho);
+      ruidoOneShot = 1;
+    }
+    // Nota nova: os osciladores recebem os pontos de início sorteados
+    if (fasesPendentes) {
+      for (int k = 0; k < N_OSC; k++) osciladores[v][k].reiniciar(k, fases);
+      fasesPendentes = false;
+    }
+    for (int e = 0; e < 3; e++) envs[e].definir(ajustesEnv[e][0], ajustesEnv[e][1], ajustesEnv[e][2], ajustesEnv[e][3]);
+    for (auto& osc : osciladores[v]) osc.limpar(tamanho);
+    for (int k = 0; k < N_OSC; k++) tocou[k] = false;
+    for (int i = 0; i < tamanho; i++) ruidoBloco[i] = 0;
+    bool temRuido = false;
+
+    const bool modulaF1 = usos[D_CUTOFF] || usos[D_RESO];
+    const bool modulaF2 = usos[D_CUTOFF2] || usos[D_RESO2];
+    if (!modulaF1) filtrosMod[0].novo = true;
+    if (!modulaF2) filtrosMod[1].novo = true;
+    const bool semLigacoes = qtdLigacoes == 0;
+    const double s = suavizar;
+
+    for (int inicio = 0, pedaco = 0; inicio < tamanho; inicio += PEDACO, pedaco++) {
+      const int fim = inicio + PEDACO < tamanho ? inicio + PEDACO : tamanho;
+      const int qtd = fim - inicio;
+
+      // 0) Glide: a altura anda um pedaço em direção à nota de chegada
+      if (altura != alturaAlvo) {
+        const double passo = passoGlide * qtd;
+        const double falta = alturaAlvo - altura;
+        altura = std::fabs(falta) <= passo ? alturaAlvo : altura + (falta > 0 ? passo : -passo);
+        frequencia = notaParaFrequencia(altura);
+      }
+
+      // 1) Fontes e soma das ligações (sem ligações e tudo já em zero: pula, som idêntico)
+      lerFontes(qtd, pedaco);
+      const bool pularMod = semLigacoes && modZerada;
+      if (pularMod) {
+        modNova = false;
+      } else {
+        somarLigacoes(fontes, modAlvo);
+        if (modNova) {
+          for (int d = 0; d < qtdDestinos; d++) mod[d] = modAnterior[d] = modAlvo[d];
+          modNova = false;
+        } else {
+          for (int d = 0; d < qtdDestinos; d++) mod[d] += (modAlvo[d] - mod[d]) * suavizarMod;
+        }
+      }
+
+      // 2) Osciladores A, B, C (desligado e já em silêncio: não calcula nada)
+      for (int k = 0; k < N_OSC; k++) {
+        OscVoz& osc = osciladores[v][k];
+        osc.processarPedaco(k, inicio, fim, frequencia, mod, modAnterior);
+        if (!osc.calado) tocou[k] = true;
+      }
+
+      // 3) Ruído (mono), separado dos osciladores (pode ir para outro filtro). Com "1 ruído",
+      // só a nota mais recente toca: as outras somem em ~5 ms. One Shot: cai até sumir no
+      // tempo da Duração.
+      const bool donaDoRuido = ajustesVoz[V_RUIDO_UNICO] == 0 || dona;
+      const bool calouOneShot = oneShot && ruidoOneShot < 1e-5;
+      const double alvoRuido = ajustesVoz[V_RUIDO_LIGADO] != 0 && donaDoRuido && !calouOneShot
+                                   ? limitar01(ajustesVoz[V_RUIDO_NIVEL] + mod[D_RUIDO])
+                                   : 0;
+      if (alvoRuido > 0 || nivelRuido > 1e-5) {
+        temRuido = true;
+        // Pitch modulado: 100% = a faixa toda do knob (48 semitons), sem degraus
+        double pitch = ajustesVoz[V_RUIDO_PITCH];
+        if (mod[D_RUIDO_PITCH] != 0) pitch = limitar(pitch + mod[D_RUIDO_PITCH] * 2 * PITCH_RUIDO_MAX, -PITCH_RUIDO_MAX, PITCH_RUIDO_MAX);
+        const double semitons = pitch + (ajustesVoz[V_RUIDO_TRACK] != 0 ? altura - NOTA_BASE_RUIDO : 0);
+        const double velocidade = semitons == 0 ? 1 : std::pow(2.0, semitons / 12);
+        const double duracaoBase = ajustesVoz[V_RUIDO_DURACAO];
+        double queda = std::exp(QUEDA_60DB / (duracaoBase * taxa));
+        if (oneShot && mod[D_RUIDO_DURACAO] != 0) {
+          // Duração modulada (na escala do knob: exponencial de 5 ms a 2 s)
+          const double posicao = std::log(duracaoBase / DURACAO_RUIDO_MIN) / LOG_FAIXA_DURACAO + mod[D_RUIDO_DURACAO];
+          const double duracao = DURACAO_RUIDO_MIN * std::exp(limitar01(posicao) * LOG_FAIXA_DURACAO);
+          queda = std::exp(QUEDA_60DB / (duracao * taxa));
+        }
+        double pos = ruidoPos;
+        for (int i = inicio; i < fim; i++) {
+          nivelRuido += (alvoRuido - nivelRuido) * s;
+          const int i0 = static_cast<int>(pos);
+          const int i1 = i0 + 1 == tamanhoTrecho ? 0 : i0 + 1;
+          const double amostra = trecho[i0] + (pos - i0) * (static_cast<double>(trecho[i1]) - trecho[i0]);
+          double nivel = nivelRuido;
+          if (oneShot) {
+            nivel *= ruidoOneShot;
+            ruidoOneShot *= queda;
+          }
+          ruidoBloco[i] = amostra * nivel;
+          pos += velocidade;
+          if (pos >= tamanhoTrecho) pos -= tamanhoTrecho;
+        }
+        ruidoPos = pos;
+      } else {
+        nivelRuido = 0;
+      }
+
+      // 4) Filtros com Cutoff/Reso modulados: coeficientes próprios, em rampa suave
+      if (modulaF1) atualizarFiltroModulado(filtrosMod[0], 0, mod[D_CUTOFF], mod[D_RESO], inicio, fim);
+      if (modulaF2) atualizarFiltroModulado(filtrosMod[1], 1, mod[D_CUTOFF2], mod[D_RESO2], inicio, fim);
+
+      if (!pularMod) {
+        for (int d = 0; d < qtdDestinos; d++) modAnterior[d] = mod[d];
+        // Sem ligações: quando a modulação chega exatamente a zero, os próximos pedaços pulam
+        modZerada = false;
+        if (semLigacoes) {
+          bool zerada = true;
+          for (int d = 0; d < qtdDestinos; d++) {
+            if (mod[d] != 0) {
+              zerada = false;
+              break;
+            }
+          }
+          modZerada = zerada;
+        }
+      }
+    }
+
+    // --- Caixas das rotas: cada fonte soma o seu som na caixa da sua rota ---
+    for (Rota& rota : rotas) rota.usada = false;
+    qtdUsadas = 0;
+    for (int k = 0; k < N_OSC; k++) {
+      if (!tocou[k]) continue;
+      Rota& rota = caixa(static_cast<int>(ajustesVoz[V_ROTA_A + k]), tamanho);
+      const OscVoz& osc = osciladores[v][k];
+      for (int i = 0; i < tamanho; i++) {
+        rota.somaE[i] += osc.somaE[i];
+        rota.somaD[i] += osc.somaD[i];
+      }
+    }
+    if (temRuido) {
+      Rota& rota = caixa(static_cast<int>(ajustesVoz[V_ROTA_RUIDO]), tamanho);
+      for (int i = 0; i < tamanho; i++) {
+        rota.somaE[i] += ruidoBloco[i];
+        rota.somaD[i] += ruidoBloco[i];
+      }
+    }
+
+    // --- Filtros (estéreo) e envelope de volume ---
+    const CoefsBloco& c1 = modulaF1 ? filtrosMod[0].coef : coefsGlobais[0];
+    const CoefsBloco& c2 = modulaF2 ? filtrosMod[1].coef : coefsGlobais[1];
+    Envelope& envelope = envs[0];
+
+    // Nenhum filtro ativo nas rotas usadas (muitos sons): só soma as caixas e aplica o envelope
+    bool algumFiltro = false;
+    for (int g = 0; g < qtdUsadas; g++) {
+      const Rota& rota = rotas[usadas[g]];
+      for (int e = 0; e < rota.qtdEtapas; e++)
+        if (rota.etapas[e].par[0].ativo() || rota.etapas[e].par[1].ativo()) algumFiltro = true;
+    }
+    if (!algumFiltro) {
+      for (int i = 0; i < tamanho; i++) {
+        double e = 0, d = 0;
+        for (int g = 0; g < qtdUsadas; g++) {
+          e += rotas[usadas[g]].somaE[i];
+          d += rotas[usadas[g]].somaD[i];
+        }
+        const double env = envelope.proximo();
+        saidaE[i] = e * env;
+        saidaD[i] = d * env;
+      }
+      return;
+    }
+
+    for (int i = 0; i < tamanho; i++) {
+      const Coefs& k1 = c1.c[c1.variavel ? i : 0];
+      const Coefs& k2 = c2.c[c2.variavel ? i : 0];
+      double e = 0, d = 0;
+      for (int g = 0; g < qtdUsadas; g++) {
+        Rota& rota = rotas[usadas[g]];
+        double xe = rota.somaE[i];
+        double xd = rota.somaD[i];
+        for (int k = 0; k < rota.qtdEtapas; k++) {
+          Etapa& etapa = rota.etapas[k];
+          const Coefs& cf = etapa.numero == 0 ? k1 : k2;
+          xe = etapa.par[0].processar(xe, cf);
+          xd = etapa.par[1].processar(xd, cf);
+        }
+        e += xe;
+        d += xd;
+      }
+      const double env = envelope.proximo();
+      saidaE[i] = e * env;
+      saidaD[i] = d * env;
+    }
+  }
 };
 
-VozMod vozesMod[MAX_VOZES];
-double suavizarMod = 0; // ~2 ms por pedaço: saltos (LFO quadrado, S&H) viram rampas curtíssimas
+Voz vozes[MAX_VOZES];
+
+// ---------- Filtro Track (efeito; igual ao antigo dsp/efeitos/filtro-track.js) ----------
+// Filtro no som já somado de todas as notas, com o Cutoff em NOTAS que pode acompanhar a
+// última nota tocada: cutoff = Cutoff + Track × (nota de referência − C4).
+enum CampoFt { FT_LIGADO, FT_NOTA, FT_TRACK, FT_RESO, FT_MIX, FT_REFERENCIA, N_CAMPOS_FT };
+constexpr double NOTA_CENTRO = 60;
+constexpr double NOTA_MINIMA_TRACK = 24, NOTA_MAXIMA_TRACK = 132;
+double ajustesFt[N_CAMPOS_FT];
+double somEfeito[2][BLOCO]; // som entrando e saindo de um efeito (o JS copia): esquerda, direita
+double* const efeitoE = somEfeito[0];
+double* const efeitoD = somEfeito[1];
+
+struct FiltroTrack {
+  Filtro esquerdo, direito;
+  CoefsBloco coef;
+  double cortes[BLOCO];
+  bool temNota; // false = acordando: o cutoff já começa no lugar certo
+  double notaAtual, resoAtual, seco, molhado;
+  bool dormindo;
+
+  void zerar() {
+    Filtro* lados[2] = { &esquerdo, &direito };
+    for (Filtro* f : lados) {
+      f->nascer();
+      f->definirLigado(true); // a mistura com o original é feita aqui (Mix)
+      f->definirTipo(T_LP24);
+      f->reiniciar();
+    }
+    temNota = false;
+    notaAtual = 0;
+    resoAtual = 0.2;
+    seco = 1;
+    molhado = 0;
+    dormindo = true;
+  }
+
+  // Devolve 1 se mexeu no som (0 = dormindo)
+  int processar(int tamanho) {
+    if (dormindo) return 0;
+    const bool ligado = ajustesFt[FT_LIGADO] != 0;
+    const double m = limitar01(ajustesFt[FT_MIX]); // Mix em cruz
+    const double alvoSeco = ligado ? 1 - m : 1;
+    const double alvoMolhado = ligado ? m : 0;
+
+    // Cutoff deste bloco: parado (um valor) ou andando até a nota nova em ~5 ms
+    // (os valores passam por "float", como nas listas do antigo JavaScript)
+    double nota = ajustesFt[FT_NOTA] + limitar01(ajustesFt[FT_TRACK]) * (ajustesFt[FT_REFERENCIA] - NOTA_CENTRO);
+    const double alvo = limitar(nota, NOTA_MINIMA_TRACK - 12, NOTA_MAXIMA_TRACK + 12);
+    if (!temNota) {
+      notaAtual = alvo;
+      temNota = true;
+    }
+    int qtdCortes = 1;
+    if (std::fabs(alvo - notaAtual) < 1e-3) {
+      notaAtual = alvo;
+      cortes[0] = static_cast<float>(notaParaFrequencia(alvo));
+    } else {
+      for (int i = 0; i < tamanho; i++) {
+        notaAtual += (alvo - notaAtual) * suavizar;
+        cortes[i] = static_cast<float>(notaParaFrequencia(notaAtual));
+      }
+      qtdCortes = tamanho;
+    }
+    // Reso anda suave de um bloco para o outro
+    resoAtual += (limitar01(ajustesFt[FT_RESO]) - resoAtual) * 0.3;
+    const double reso = static_cast<float>(resoAtual);
+    coef.calcular(cortes, qtdCortes, &reso, 1, tamanho);
+
+    const double sm = 1 - std::exp(-1 / (0.01 * taxa)); // Mix anda em ~10 ms
+    for (int i = 0; i < tamanho; i++) {
+      seco += (alvoSeco - seco) * sm;
+      molhado += (alvoMolhado - molhado) * sm;
+      const Coefs& c = coef.c[coef.variavel ? i : 0];
+      const double e = efeitoE[i];
+      const double d = efeitoD[i];
+      efeitoE[i] = e * seco + esquerdo.processar(e, c) * molhado;
+      efeitoD[i] = d * seco + direito.processar(d, c) * molhado;
+    }
+    // Desligado e já sem filtro na mistura: dorme (e começa limpo na próxima vez)
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      esquerdo.reiniciar();
+      direito.reiniciar();
+      seco = 1;
+      molhado = 0;
+      temNota = false;
+    }
+    return 1;
+  }
+};
+FiltroTrack filtroTrack;
 
 }  // namespace
 
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 3; }
+EXPORTAR int versao() { return 4; }
 
 // Liga o motor na taxa de amostragem do aparelho (chamada uma vez, ao nascer).
 // "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length no JS).
@@ -972,10 +1594,20 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   suavizarMod = 1 - std::exp(-PEDACO / (0.002 * taxa));
   suavizarLigacoes = 1 - std::exp(-BLOCO / (0.01 * taxa));
   suavizarMacros = 1 - std::exp(-BLOCO / (0.01 * taxa));
+  freqMaximaFiltro = std::fmin(20000.0, 0.45 * taxa);
   prepararMeiaBanda();
+  // Os 3 trechos de ruído (4 s cada), montados uma vez
+  tamanhoTrecho = static_cast<int>(arredondar(SEGUNDOS_TRECHO * taxa));
+  for (int t = 0; t < 3; t++) {
+    std::free(trechosRuido[t]);
+    trechosRuido[t] = static_cast<float*>(std::malloc(sizeof(float) * tamanhoTrecho));
+    if (!trechosRuido[t]) return 0;
+    montarTrecho(t, trechosRuido[t], tamanhoTrecho);
+  }
   for (auto& voz : osciladores)
     for (auto& osc : voz) osc.zerar();
-  for (auto& v : vozesMod) v.zerar();
+  for (auto& v : vozes) v.zerar();
+  filtroTrack.zerar();
   return 1;
 }
 
@@ -986,13 +1618,17 @@ EXPORTAR double* enderecoFases() { return fasesSorteadas; }
 EXPORTAR double* enderecoAjustesLfo() { return &ajustesLfo[0][0]; }
 EXPORTAR double* enderecoAjustesEnv() { return &ajustesEnv[0][0]; }
 EXPORTAR double* enderecoMacros() { return macrosAlvo; }
-EXPORTAR double* enderecoEnvSaida() { return envSaida; }
 EXPORTAR double* enderecoLigacoes() { return entradaLigacoes; }
+EXPORTAR double* enderecoAjustesVoz() { return ajustesVoz; }
+EXPORTAR double* enderecoCortesResos() { return &cortesResos[0][0]; } // Cutoff 1, Reso 1, Cutoff 2, Reso 2
+EXPORTAR double* enderecoAjustesFt() { return ajustesFt; }
+EXPORTAR double* enderecoEfeito() { return efeitoE; } // esquerda; a direita vem logo depois (+ BLOCO)
+EXPORTAR int camposVoz() { return N_CAMPOS_VOZ; }
+// Som da voz v no bloco: esquerda; a direita vem logo depois (+ BLOCO números)
+EXPORTAR double* enderecoVozSaida(int v) { return vozes[v].saidaE; }
 EXPORTAR uint8_t* enderecoUsos() { return usos; }
 EXPORTAR double* enderecoModEfeitos() { return modEfeitos; }
-EXPORTAR double* enderecoMod(int v) { return vozesMod[v].mod; } // modulação da voz v (o JS lê)
-// Som do oscilador k da voz v: esquerda; a direita vem logo depois (+ BLOCO números)
-EXPORTAR double* enderecoSaida(int v, int k) { return osciladores[v][k].somaE; }
+EXPORTAR double* enderecoMod(int v) { return vozes[v].mod; } // modulação da voz v (o JS lê)
 EXPORTAR int camposOsc() { return N_CAMPOS; }
 
 // Wavetables: pede espaço para uma tabela (o JS copia os harmônicos e as ondas para dentro)
@@ -1023,15 +1659,11 @@ EXPORTAR void apagarTabela(Tabela* t) {
   std::free(t);
 }
 
-// Voz v: estado de nota nova (como criar a voz de novo): osciladores, envelopes e modulação
+// Voz v: estado de nota nova (como criar a voz de novo): osciladores, envelopes, modulação,
+// filtros (com o tipo e o liga/desliga escolhidos) e ruído
 EXPORTAR void vozZerar(int v) {
   for (auto& osc : osciladores[v]) osc.zerar();
-  vozesMod[v].zerar();
-}
-
-// Voz v começando do silêncio: pontos de início das cópias (lidos de "fasesSorteadas")
-EXPORTAR void oscReiniciar(int v) {
-  for (int k = 0; k < N_OSC; k++) osciladores[v][k].reiniciar(k);
+  vozes[v].zerar();
 }
 
 // ---------- Modulação e envelopes (F2a) ----------
@@ -1044,7 +1676,7 @@ EXPORTAR void comecarBloco(int ultima, int tamanho) {
   int pedacos = 0;
   for (int l = 0; l < N_LFO; l++) {
     const double rateBase = ajustesLfo[l][L_RATE];
-    const double rate = ultima >= 0 ? rateModulado(rateBase, vozesMod[ultima].mod[D_RATE_LFO[l]]) : rateBase;
+    const double rate = ultima >= 0 ? rateModulado(rateBase, vozes[ultima].mod[D_RATE_LFO[l]]) : rateBase;
     const int forma = static_cast<int>(ajustesLfo[l][L_FORMA]);
     pedacos = 0;
     for (int inicio = 0; inicio < tamanho; inicio += PEDACO, pedacos++) {
@@ -1103,7 +1735,7 @@ EXPORTAR void definirLigacoes(int n) {
 // ("ultima", -1 = nenhuma soando) + Macros e LFOs Livres, que valem sempre.
 EXPORTAR void somarEfeitos(int ultima) {
   double fontes[N_FONTES];
-  for (int f = 0; f < N_FONTES; f++) fontes[f] = ultima >= 0 ? vozesMod[ultima].fontes[f] : 0;
+  for (int f = 0; f < N_FONTES; f++) fontes[f] = ultima >= 0 ? vozes[ultima].fontes[f] : 0;
   for (int m = 0; m < 4; m++) fontes[INDICES_MACRO[m]] = macros[m];
   for (int l = 0; l < N_LFO; l++) {
     if (ajustesLfo[l][L_LIVRE] != 0) fontes[INDICES_LFO[l]] = valoresLivres[l][ultimoPedacoLivre];
@@ -1111,96 +1743,98 @@ EXPORTAR void somarEfeitos(int ultima) {
   somarLigacoes(fontes, modEfeitos);
 }
 
-// Nota começando na voz v. "doSilencio" = a voz estava calada (modulação recomeça sem
-// rampa); "recomecar" = dispara os envelopes (falso no legato); "retrig" = bits dos LFOs em
-// modo Retrig (recomeçam do início), com os valores sorteados s0–s2 para o S&H.
-EXPORTAR void vozIniciar(int v, int doSilencio, int recomecar, int retrig, double s0, double s1, double s2) {
-  VozMod& vm = vozesMod[v];
-  if (doSilencio) vm.modNova = true;
+// Nota começando na voz v (altura "nota" em semitons MIDI).
+// "glideDe"/"glideTempo": escorrega da altura glideDe até a nota em glideTempo segundos
+// (tempo 0 = sem glide). "doSilencio" = a voz estava calada: filtros limpos, modulação sem
+// rampa e as cópias de unison começam nos pontos sorteados (lidos de "fasesSorteadas").
+// "recomecar" = dispara os envelopes (falso no legato); "retrig" = bits dos LFOs em modo
+// Retrig (recomeçam do início), com os valores sorteados s0–s2 para o S&H.
+EXPORTAR void vozIniciar(int v, double nota, double glideDe, double glideTempo, int doSilencio, int recomecar,
+                         int retrig, double s0, double s1, double s2) {
+  Voz& voz = vozes[v];
+  if (doSilencio) {
+    for (Rota& rota : voz.rotas)
+      for (int e = 0; e < rota.qtdEtapas; e++)
+        for (Filtro& f : rota.etapas[e].par) f.reiniciar();
+    for (int c = 0; c < MAX_UNISON; c++) voz.fases[c] = fasesSorteadas[c];
+    voz.fasesPendentes = true;
+    voz.modNova = true;
+    for (auto& f : voz.filtrosMod) f.novo = true;
+  }
+  if (glideTempo > 0 && glideDe != nota) {
+    voz.altura = glideDe;
+    voz.passoGlide = std::fabs(nota - glideDe) / (glideTempo * taxa);
+  } else {
+    voz.altura = nota;
+    voz.passoGlide = 0;
+  }
+  voz.alturaAlvo = nota;
+  voz.frequencia = notaParaFrequencia(voz.altura);
   if (!recomecar) return;
-  for (auto& e : vm.envs) e.disparar();
+  for (auto& e : voz.envs) e.disparar();
   const double sorteios[N_LFO] = { s0, s1, s2 };
   for (int l = 0; l < N_LFO; l++) {
     if (retrig & (1 << l)) {
-      vm.lfos[l].fase = 0;
-      vm.lfos[l].aleatorio = sorteios[l];
+      voz.lfos[l].fase = 0;
+      voz.lfos[l].aleatorio = sorteios[l];
     }
   }
 }
 
 // Tecla solta: os 3 envelopes vão para a soltura
 EXPORTAR void vozSoltar(int v) {
-  for (auto& e : vozesMod[v].envs) e.soltar();
+  for (auto& e : vozes[v].envs) e.soltar();
 }
 // Voz roubada: some em ~4 ms (só o ENV 1)
-EXPORTAR void vozSilenciar(int v) { vozesMod[v].envs[0].silenciarRapido(); }
-EXPORTAR int vozAtiva(int v) { return vozesMod[v].envs[0].ativo() ? 1 : 0; }
-EXPORTAR double vozNivel(int v) { return vozesMod[v].envs[0].nivel; }
+EXPORTAR void vozSilenciar(int v) { vozes[v].envs[0].silenciarRapido(); }
+EXPORTAR int vozAtiva(int v) { return vozes[v].envs[0].ativo() ? 1 : 0; }
+EXPORTAR double vozNivel(int v) { return vozes[v].envs[0].nivel; }
 
-// Começo de um bloco da voz v: ajustes dos envelopes e zera o som dos 3 osciladores
-EXPORTAR void vozComecarBloco(int v, int tamanho) {
-  VozMod& vm = vozesMod[v];
-  for (int e = 0; e < 3; e++) vm.envs[e].definir(ajustesEnv[e][0], ajustesEnv[e][1], ajustesEnv[e][2], ajustesEnv[e][3]);
-  for (auto& osc : osciladores[v]) osc.limpar(tamanho);
-}
+EXPORTAR double vozAltura(int v) { return vozes[v].altura; } // semitons (com o glide)
 
-// Um pedaço da voz v: lê as fontes, soma as ligações (suavizado) e calcula os 3 osciladores.
-// Devolve quais osciladores fizeram som: bit 0 = A, bit 1 = B, bit 2 = C.
-EXPORTAR int vozPedaco(int v, int inicio, int fim, int pedaco, double frequencia) {
-  VozMod& vm = vozesMod[v];
-  vm.lerFontes(fim - inicio, pedaco);
-  // Sem nenhuma ligação e com a modulação já toda em zero: somar e suavizar daria zero de
-  // novo: pula (som idêntico)
-  vm.pulouMod = qtdLigacoes == 0 && vm.modZerada;
-  if (vm.pulouMod) {
-    vm.modNova = false;
+// Tipo (campo 0: 0 = LP12, 1 = LP24, 2 = HP, 3 = BP) ou liga/desliga (campo 1) do Filtro 1
+// (numero 0) ou 2 (numero 1), em todas as vozes. Tipo desconhecido (-1): nada muda.
+EXPORTAR void definirFiltro(int numero, int campo, int valor) {
+  if (numero < 0 || numero > 1) return;
+  if (campo == 0) {
+    if (valor < 0 || valor > 3) return;
+    tipoFiltroEscolhido[numero] = valor;
   } else {
-    somarLigacoes(vm.fontes, vm.modAlvo);
-    if (vm.modNova) {
-      for (int d = 0; d < qtdDestinos; d++) vm.mod[d] = vm.modAnterior[d] = vm.modAlvo[d];
-      vm.modNova = false;
-    } else {
-      for (int d = 0; d < qtdDestinos; d++) vm.mod[d] += (vm.modAlvo[d] - vm.mod[d]) * suavizarMod;
-    }
+    filtroLigadoEscolhido[numero] = valor != 0;
   }
-  int tocou = 0;
-  for (int k = 0; k < N_OSC; k++) {
-    OscVoz& osc = osciladores[v][k];
-    osc.processarPedaco(k, inicio, fim, frequencia, vm.mod, vm.modAnterior);
-    if (!osc.calado) tocou |= 1 << k;
-  }
-  return tocou;
+  for (Voz& voz : vozes) voz.definirFiltro(numero, campo, valor);
 }
 
-// Fim de um pedaço da voz v (depois de o JS usar a modulação no ruído e nos filtros)
-EXPORTAR void vozFimPedaco(int v) {
-  VozMod& vm = vozesMod[v];
-  if (vm.pulouMod) return; // (mod e modAnterior continuam zerados)
-  for (int d = 0; d < qtdDestinos; d++) vm.modAnterior[d] = vm.mod[d];
-  // Sem ligações: quando a modulação chega exatamente a zero, os próximos pedaços pulam
-  vm.modZerada = false;
-  if (qtdLigacoes == 0) {
-    bool zerada = true;
-    for (int d = 0; d < qtdDestinos; d++) {
-      if (vm.mod[d] != 0) {
-        zerada = false;
-        break;
-      }
-    }
-    vm.modZerada = zerada;
+// Começo do bloco das vozes: coeficientes dos Filtros 1 e 2 (Cutoff/Reso dos knobs, em
+// "cortesResos"), iguais para todas as vozes
+EXPORTAR void vozesComecarBloco(int tamanho) {
+  for (int n = 0; n < 2; n++) {
+    coefsGlobais[n].calcular(cortesResos[2 * n], static_cast<int>(ajustesVoz[V_QTD_CORTES1 + 2 * n]),
+                             cortesResos[2 * n + 1], static_cast<int>(ajustesVoz[V_QTD_RESOS1 + 2 * n]), tamanho);
   }
 }
 
-// ENV 1 (volume) da voz v neste bloco: um valor por amostra em envSaida
-EXPORTAR void vozEnvelope(int v, int tamanho) {
-  Envelope& env = vozesMod[v].envs[0];
-  for (int i = 0; i < tamanho; i++) envSaida[i] = env.proximo();
+// Calcula o som da voz v no bloco (em enderecoVozSaida). "sorteioRuido" (0 a 1, ou < 0 =
+// nenhum): nota nova, o ruído recomeça; "dona" = 1 se é a voz da nota mais recente.
+EXPORTAR void vozProcessar(int v, int tamanho, double sorteioRuido, int dona) {
+  vozes[v].processar(v, tamanho, sorteioRuido, dona != 0);
 }
+
+// ---------- Filtro Track (efeito) ----------
+// O JS copia o som para "somEfeito", chama ftProcessar e copia de volta (se devolver 1).
+EXPORTAR void ftZerar() { filtroTrack.zerar(); }
+EXPORTAR void ftTipo(int tipo) {
+  filtroTrack.esquerdo.definirTipo(tipo);
+  filtroTrack.direito.definirTipo(tipo);
+}
+EXPORTAR void ftAcordar() { filtroTrack.dormindo = false; }
+EXPORTAR int ftDormindo() { return filtroTrack.dormindo ? 1 : 0; }
+EXPORTAR int ftProcessar(int tamanho) { return filtroTrack.processar(tamanho); }
 
 // Para a tela (pontinhos ao vivo): fase e valor do LFO l na voz v (v = -1: o LFO Livre)
-EXPORTAR double lfoFase(int v, int l) { return v < 0 ? livres[l].fase : vozesMod[v].lfos[l].fase; }
+EXPORTAR double lfoFase(int v, int l) { return v < 0 ? livres[l].fase : vozes[v].lfos[l].fase; }
 EXPORTAR double lfoValor(int v, int l) {
-  return v < 0 ? valoresLivres[l][ultimoPedacoLivre] : vozesMod[v].fontes[INDICES_LFO[l]];
+  return v < 0 ? valoresLivres[l][ultimoPedacoLivre] : vozes[v].fontes[INDICES_LFO[l]];
 }
 
 // Nível atual do oscilador k da voz v (o motor usa para trocar a wavetable no silêncio)

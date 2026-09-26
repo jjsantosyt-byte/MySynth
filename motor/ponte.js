@@ -1,5 +1,5 @@
 // motor/ponte.js
-// A "ponte" entre o JavaScript (processador-synth.js, dsp/voz.js) e o motor em C++
+// A "ponte" entre o JavaScript (processador-synth.js) e o motor em C++
 // (motor/motor.cpp → motor.wasm): guarda as funções do C++ e as "vistas" da memória dele,
 // para o JavaScript escrever os ajustes e ler o som direto lá dentro (sem cópias extras).
 //
@@ -30,6 +30,17 @@ export const CAMPOS_OSC = {
 export const BLOCO = 128;
 // Campos dos ajustes de cada LFO (mesma ordem do enum em motor.cpp)
 export const CAMPOS_LFO = { forma: 0, rate: 1, livre: 2 };
+// Ajustes das vozes (mesma ordem do enum CampoVoz em motor.cpp)
+export const CAMPOS_VOZ = {
+  rotaA: 0, rotaB: 1, rotaC: 2, rotaRuido: 3,
+  ruidoLigado: 4, ruidoTipo: 5, ruidoNivel: 6, ruidoOneShot: 7, ruidoDuracao: 8, ruidoTrack: 9,
+  ruidoPitch: 10, ruidoUnico: 11,
+  qtdCortes1: 12, qtdResos1: 13, qtdCortes2: 14, qtdResos2: 15,
+};
+// Ajustes do Filtro Track (mesma ordem do enum CampoFt em motor.cpp)
+export const CAMPOS_FT = { ligado: 0, nota: 1, track: 2, reso: 3, mix: 4, referencia: 5 };
+// Rotas de filtro → número no C++
+export const ROTAS = { f1: 0, f2: 1, f12: 2, f21: 3 };
 
 export class Ponte {
   // "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length)
@@ -41,7 +52,9 @@ export class Ponte {
     this.renovar();
     // Endereços da mesa de troca, contados em números de 8 bytes (posição dentro de f64)
     const n = this.c.camposOsc();
-    if (n !== Object.keys(CAMPOS_OSC).length) throw new Error('motor.wasm e ponte.js não combinam');
+    if (n !== Object.keys(CAMPOS_OSC).length || this.c.camposVoz() !== Object.keys(CAMPOS_VOZ).length) {
+      throw new Error('motor.wasm e ponte.js não combinam');
+    }
     this.nCampos = n;
     this.iAjustes = this.c.enderecoAjustes() / 8;
     this.iPosicoes = this.c.enderecoPosicoes() / 8;
@@ -49,8 +62,11 @@ export class Ponte {
     this.iAjustesLfo = this.c.enderecoAjustesLfo() / 8;
     this.iAjustesEnv = this.c.enderecoAjustesEnv() / 8;
     this.iMacros = this.c.enderecoMacros() / 8;
-    this.iEnvSaida = this.c.enderecoEnvSaida() / 8;
     this.iLigacoes = this.c.enderecoLigacoes() / 8;
+    this.iAjustesVoz = this.c.enderecoAjustesVoz() / 8;
+    this.iCortesResos = this.c.enderecoCortesResos() / 8; // Cutoff 1, Reso 1, Cutoff 2, Reso 2 (BLOCO cada)
+    this.iAjustesFt = this.c.enderecoAjustesFt() / 8;
+    this.iEfeito = this.c.enderecoEfeito() / 8; // som de um efeito: esquerda; direita BLOCO depois
     this.iModEfeitos = this.c.enderecoModEfeitos() / 8;
     this.iUsos = this.c.enderecoUsos(); // (em bytes: lido com u8)
   }
@@ -68,6 +84,11 @@ export class Ponte {
   // Onde fica a modulação da voz v (posição em f64; um número por destino)
   mod(v) {
     return this.c.enderecoMod(v) / 8;
+  }
+
+  // Onde fica o som da voz v no bloco (posição em f64; a direita vem BLOCO depois)
+  vozSaida(v) {
+    return this.c.enderecoVozSaida(v) / 8;
   }
 
   // O destino d está sendo modulado por alguma ligação?
@@ -102,10 +123,5 @@ export class Ponte {
       }
     }
     return t;
-  }
-
-  // Onde fica o som do oscilador k da voz v (posição em f64; a direita vem BLOCO depois)
-  saida(v, k) {
-    return this.c.enderecoSaida(v, k) / 8;
   }
 }

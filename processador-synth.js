@@ -3,7 +3,8 @@
 // para o som não falhar mesmo se a tela ficar lenta.
 //
 // Ele é o "gerente de vozes": cada nota tocada ganha uma voz completa
-// (OSC A, B, C + ruído → filtros → envelope, ver dsp/voz.js). A saída é estéreo.
+// (OSC A, B, C + ruído → filtros → envelope). A voz é calculada inteira no motor em C++
+// (motor/motor.cpp, etapas F1 e F2); aqui fica só quem toca o quê. A saída é estéreo.
 //
 // - Poly: até N notas ao mesmo tempo. Se faltar voz, "rouba" a melhor
 //   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
@@ -15,17 +16,15 @@
 //   Tudo calculado no motor em C++ (etapa F2a): LFO em modo Retrig dentro de cada voz; em
 //   modo Livre, um só para todas as notas, rodando sem parar. Aqui só os ajustes vão para lá.
 
-import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
-import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
-import { CoeficientesFiltro } from './dsp/filtro.js';
+import { TIPOS_RUIDO } from './dsp/ruido.js';
+import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { DESTINOS_MOD, D_PRIMEIRO_EFEITO, ligacoesEmNumeros } from './dsp/modulacao.js';
 import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
 import { Saturacao } from './dsp/efeitos/saturacao.js';
-import { FiltroTrack } from './dsp/efeitos/filtro-track.js';
 import { Eq } from './dsp/efeitos/eq.js';
 import { Phaser } from './dsp/efeitos/phaser.js';
 import { Flanger } from './dsp/efeitos/flanger.js';
@@ -33,9 +32,172 @@ import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
-import { Ponte, CAMPOS_OSC, CAMPOS_LFO } from './motor/ponte.js';
+import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, CAMPOS_FT, ROTAS } from './motor/ponte.js';
 
 const MAX_VOZES = 16;
+const MAX_UNISON = 16;
+
+// Uma voz, do lado do JavaScript: só o que o gerente de vozes precisa saber (qual nota, se a
+// tecla está segurada, a ordem, a nota esperando) e os sorteios do começo da nota. O som dela
+// (osciladores, ruído, filtros, envelopes, modulação, glide) é todo calculado no C++.
+class Voz {
+  // "indice" = número desta voz (0 a 15) no C++
+  constructor(indice, ponte) {
+    this.indice = indice;
+    this.ponte = ponte;
+    this.iMod = ponte.mod(indice); // modulação desta voz no C++ (a tela mostra ao vivo)
+    this.iSaida = ponte.vozSaida(indice); // som desta voz no bloco (esquerda; direita BLOCO depois)
+    this.nota = null;
+    this.segurada = false; // tecla ainda apertada?
+    this.idade = 0; // ordem em que a nota começou (para saber qual é a mais antiga)
+    this.pendente = null; // nota que vai tocar assim que esta voz terminar de sumir
+    this.ruidoNovo = false; // nota nova com ataque: o ruído recomeça (ver processar)
+  }
+
+  // O ENV 1 (volume) ainda está soando?
+  get envelopeAtivo() {
+    return this.ponte.c.vozAtiva(this.indice) === 1;
+  }
+
+  // Está fazendo som (ou prestes a fazer)?
+  get ativa() {
+    return this.envelopeAtivo || this.pendente !== null;
+  }
+
+  get nivel() {
+    return this.ponte.c.vozNivel(this.indice);
+  }
+
+  // Altura atual em semitons (com o glide)
+  get altura() {
+    return this.ponte.c.vozAltura(this.indice);
+  }
+
+  // Começa uma nota. "recomecar" = dispara os envelopes (falso no legato).
+  // "ajustesLfo" diz quais LFOs estão em modo Retrig (recomeçam a cada nota).
+  // "glide" (opcional): { de: altura de partida em semitons, tempo: segundos }.
+  // Os sorteios ficam aqui, na mesma ordem de sempre: pontos de início das cópias de unison
+  // (vindo do silêncio) e o valor inicial do S&H dos LFOs em Retrig.
+  iniciar(nota, idade, recomecar = true, ajustesLfo = null, glide = null) {
+    const ponte = this.ponte;
+    const doSilencio = !this.envelopeAtivo;
+    if (doSilencio) {
+      for (let c = 0; c < MAX_UNISON; c++) ponte.f64[ponte.iFases + c] = Math.random();
+    }
+    this.nota = nota;
+    this.segurada = true;
+    this.idade = idade;
+    this.pendente = null;
+    let retrig = 0;
+    const sorteios = [0, 0, 0];
+    if (recomecar) {
+      this.ruidoNovo = true;
+      if (ajustesLfo) {
+        for (let l = 0; l < ajustesLfo.length; l++) {
+          if (ajustesLfo[l].modo !== 'retrig') continue;
+          retrig |= 1 << l;
+          sorteios[l] = Math.random() * 2 - 1;
+        }
+      }
+    }
+    const temGlide = glide && glide.tempo > 0;
+    ponte.c.vozIniciar(this.indice, nota, temGlide ? glide.de : nota, temGlide ? glide.tempo : 0,
+      doSilencio ? 1 : 0, recomecar ? 1 : 0, retrig, sorteios[0], sorteios[1], sorteios[2]);
+  }
+
+  soltar() {
+    this.segurada = false;
+    this.ponte.c.vozSoltar(this.indice);
+  }
+
+  // Voz roubada: some em ~4 ms e depois toca a nota nova.
+  roubar(nota, idade, glide = null) {
+    this.segurada = false;
+    this.pendente = { nota, idade, glide };
+    this.ponte.c.vozSilenciar(this.indice);
+  }
+
+  // Calcula o som desta voz (no C++) e SOMA nas saídas (esquerda e direita).
+  processar(saidaE, saidaD, tamanhoBloco, comum) {
+    // Terminou de sumir e tem nota esperando? Começa ela agora.
+    if (this.pendente && !this.envelopeAtivo) {
+      const { nota, idade, glide } = this.pendente;
+      this.iniciar(nota, idade, true, comum.ajustesLfo, glide);
+    }
+    if (!this.envelopeAtivo) return;
+    // Nota nova (com ataque): o ruído recomeça. One Shot = do início do trecho (todo ataque
+    // igual); Loop = de um ponto sorteado (cada nota com um ruído diferente).
+    let sorteioRuido = -1;
+    if (this.ruidoNovo) {
+      sorteioRuido = comum.ruidoModo === 'oneshot' ? 0 : Math.random();
+      this.ruidoNovo = false;
+    }
+    const ponte = this.ponte;
+    ponte.c.vozProcessar(this.indice, tamanhoBloco, sorteioRuido, comum.ruidoDona === this ? 1 : 0);
+    const f64 = ponte.f64;
+    const e = this.iSaida;
+    const d = e + BLOCO;
+    for (let i = 0; i < tamanhoBloco; i++) {
+      saidaE[i] += f64[e + i];
+      saidaD[i] += f64[d + i];
+    }
+  }
+}
+
+// Filtro Track (efeito): as contas estão no C++; esta peça só leva os ajustes e o som até
+// lá, com o mesmo jeito dos outros efeitos (ajustes, definir, processar, dormindo).
+class FiltroTrack {
+  constructor(ponte) {
+    this.ponte = ponte;
+    this.ajustes = { ligado: false, tipo: 'lp24', nota: 72, track: 1, reso: 0.2, mix: 1 };
+    this.notaReferencia = 60; // o motor atualiza a cada bloco (última nota tocada)
+    this.tipoAtual = 'lp24';
+  }
+
+  get dormindo() {
+    return this.ponte.c.ftDormindo() === 1;
+  }
+
+  definir(ajustes) {
+    Object.assign(this.ajustes, ajustes);
+    if (this.ajustes.tipo !== this.tipoAtual) {
+      this.ponte.c.ftTipo(TIPOS_FILTRO.indexOf(this.ajustes.tipo));
+      this.tipoAtual = this.ajustes.tipo;
+    }
+    if (this.ajustes.ligado) this.ponte.c.ftAcordar();
+  }
+
+  // Memória limpa (depois de um conserto): como novo, com o tipo padrão
+  zerar() {
+    this.ponte.c.ftZerar();
+    this.tipoAtual = 'lp24';
+  }
+
+  processar(saidaE, saidaD, tamanhoBloco) {
+    const { ponte, ajustes: a } = this;
+    const c = ponte.c;
+    if (c.ftDormindo()) return;
+    const f64 = ponte.f64;
+    const i = ponte.iAjustesFt;
+    f64[i + CAMPOS_FT.ligado] = a.ligado ? 1 : 0;
+    f64[i + CAMPOS_FT.nota] = a.nota;
+    f64[i + CAMPOS_FT.track] = a.track;
+    f64[i + CAMPOS_FT.reso] = a.reso;
+    f64[i + CAMPOS_FT.mix] = a.mix;
+    f64[i + CAMPOS_FT.referencia] = this.notaReferencia;
+    const e = ponte.iEfeito;
+    const d = e + BLOCO;
+    for (let k = 0; k < tamanhoBloco; k++) {
+      f64[e + k] = saidaE[k];
+      f64[d + k] = saidaD[k];
+    }
+    if (!c.ftProcessar(tamanhoBloco)) return;
+    for (let k = 0; k < tamanhoBloco; k++) {
+      saidaE[k] = f64[e + k];
+      saidaD[k] = f64[d + k];
+    }
+  }
+}
 // A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
 const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 30);
 
@@ -77,14 +239,12 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.port.postMessage({ tipo: 'consertado', origem });
   }
 
-  // Vozes recriadas do zero (depois de um conserto): voltam com o tipo e o liga/desliga
-  // dos filtros que estavam escolhidos.
+  // Vozes recriadas do zero (depois de um conserto). No C++ elas voltam com o tipo e o
+  // liga/desliga dos filtros que estavam escolhidos.
   recriarVozes() {
     for (let v = 0; v < this.vozes.length; v++) {
-      const voz = this.vozes[v];
-      Object.assign(voz, new Voz(sampleRate, v, this.ponte));
-      this.ponte.c.vozZerar(v); // os osciladores, envelopes e modulação dela (no C++) também
-      for (const [numero, nome, valor] of Object.values(this.escolhasFiltro)) voz.definirFiltro(numero, nome, valor);
+      Object.assign(this.vozes[v], new Voz(v, this.ponte));
+      this.ponte.c.vozZerar(v);
     }
     this.ruidoDona = null;
     this.notasPresas = [];
@@ -145,12 +305,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // F2a: a modulação (LFOs, ENV 2/3, Macros, soma das ligações) e o ENV 1 também.
     this.ponte = new Ponte(opcoes.processorOptions.moduloWasm, sampleRate, DESTINOS_MOD.length);
     this.port.postMessage({ tipo: 'wasm', versao: this.ponte.c.versao() });
-    this.vozes = Array.from({ length: MAX_VOZES }, (_, v) => new Voz(sampleRate, v, this.ponte));
-    this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
-    this.coef2 = new CoeficientesFiltro(sampleRate); // Filtro 2
+    this.vozes = Array.from({ length: MAX_VOZES }, (_, v) => new Voz(v, this.ponte));
     // Rota de filtro do ruído: 'f1', 'f2', 'f12' (1 depois 2) ou 'f21' (2 depois 1)
     this.rotaRuido = 'f1';
-    this.escolhasFiltro = {}; // tipo e liga/desliga escolhidos para os filtros (nome → [nº, campo, valor])
     this.ultimoConserto = {}; // hora do último aviso de conserto de cada peça
 
     // Osciladores A, B, C. "ajustes" vai para o C++ a cada bloco (ver processarVozes).
@@ -215,7 +372,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.ruidoPitch = 0; // semitons (-24 a +24): mais rápido = mais brilhante
     this.ruidoUnico = true; // só a nota mais recente toca ruído (acordes: 1 ruído só)
     this.ruidoDona = null; // a voz da nota mais recente
-    this.trechosRuido = trechosDeRuido(sampleRate); // os "samples" de ruído (dsp/ruido.js)
 
     // Modulação (as contas estão no C++; aqui ficam os ajustes, mandados a cada bloco)
     this.ajustesLfo = [
@@ -229,7 +385,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     ];
     // Efeitos (depois das notas somadas):
     // Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
-    this.filtroTrack = new FiltroTrack(sampleRate);
+    this.filtroTrack = new FiltroTrack(this.ponte); // (contas no C++)
     this.eq = new Eq(sampleRate);
     this.saturacao = new Saturacao(sampleRate);
     this.distorcao = new Distorcao(sampleRate);
@@ -449,10 +605,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'filtroLigado':
       case 'filtro2Tipo':
       case 'filtro2Ligado': {
-        const numero = nome.startsWith('filtro2') ? 2 : 1;
-        const campo = nome.endsWith('Tipo') ? 'tipo' : 'ligado';
-        this.escolhasFiltro[nome] = [numero, campo, valor]; // (para recriar as vozes: ver consertar)
-        for (const voz of this.vozes) voz.definirFiltro(numero, campo, valor);
+        // No C++: Filtro 1 = 0, Filtro 2 = 1; campo 0 = tipo (número em TIPOS_FILTRO; desconhecido
+        // = -1, nada muda), campo 1 = liga/desliga. Vale para todas as vozes.
+        const numero = nome.startsWith('filtro2') ? 1 : 0;
+        if (nome.endsWith('Tipo')) this.ponte.c.definirFiltro(numero, 0, TIPOS_FILTRO.indexOf(valor));
+        else this.ponte.c.definirFiltro(numero, 1, valor ? 1 : 0);
         break;
       }
       case 'rotaRuido':
@@ -636,7 +793,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         // Conta inválida neste efeito: limpa a memória dele (fica como novo, com os mesmos ajustes)
         this.consertar(item.id, saidaE, saidaD, tamanhoBloco);
         const ajustes = { ...item.efeito.ajustes };
-        Object.assign(item.efeito, new item.efeito.constructor(sampleRate));
+        if (item.efeito.zerar) item.efeito.zerar(); // (efeitos no C++)
+        else Object.assign(item.efeito, new item.efeito.constructor(sampleRate));
         item.efeito.definir(ajustes);
       }
       pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
@@ -756,9 +914,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   }
 
   processarVozes(saidaE, saidaD, tamanhoBloco, parametros) {
-    // Dados iguais para todas as vozes neste bloco.
-    this.coef.calcular(parametros.cutoff, parametros.resonancia, tamanhoBloco);
-    this.coef2.calcular(parametros.cutoff2, parametros.resonancia2, tamanhoBloco);
     const comum = this.comum;
     // Ajustes dos 3 osciladores → mesa de troca do C++ (motor/ponte.js), uma vez por bloco
     const ponte = this.ponte;
@@ -795,24 +950,28 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       f64.set(posicoes, ponte.iPosicoes + k * 128);
       f64[a + C.qtdPosicoes] = posicoes.length;
     }
-    comum.cortes = parametros.cutoff;
-    comum.resonancias = parametros.resonancia;
-    comum.coef = this.coef;
-    comum.cortes2 = parametros.cutoff2;
-    comum.resonancias2 = parametros.resonancia2;
-    comum.coef2 = this.coef2;
-    comum.rotaRuido = this.rotaRuido;
-    comum.ruidoLigado = this.ruidoLigado;
-    comum.ruidoNivel = parametros.ruido[0];
-    comum.ruidoTipo = this.ruidoTipo;
-    comum.trechosRuido = this.trechosRuido;
+    // Ajustes das vozes (rotas, ruído) e Cutoff/Reso dos Filtros 1 e 2 (1 valor ou 1 por
+    // amostra) → mesa do C++; lá, os coeficientes dos filtros são calculados uma vez para todas
+    const V = CAMPOS_VOZ;
+    const iv = ponte.iAjustesVoz;
+    for (let k = 0; k < this.oscs.length; k++) f64[iv + V.rotaA + k] = ROTAS[this.oscs[k].ajustes.rota] ?? 0;
+    f64[iv + V.rotaRuido] = ROTAS[this.rotaRuido] ?? 0;
+    f64[iv + V.ruidoLigado] = this.ruidoLigado ? 1 : 0;
+    f64[iv + V.ruidoTipo] = TIPOS_RUIDO.indexOf(this.ruidoTipo);
+    f64[iv + V.ruidoNivel] = parametros.ruido[0];
+    f64[iv + V.ruidoOneShot] = this.ruidoModo === 'oneshot' ? 1 : 0;
+    f64[iv + V.ruidoDuracao] = this.ruidoDuracao;
+    f64[iv + V.ruidoTrack] = this.ruidoTrack ? 1 : 0;
+    f64[iv + V.ruidoPitch] = this.ruidoPitch;
+    f64[iv + V.ruidoUnico] = this.ruidoUnico ? 1 : 0;
+    const filtros = [parametros.cutoff, parametros.resonancia, parametros.cutoff2, parametros.resonancia2];
+    for (let n = 0; n < 4; n++) {
+      f64.set(filtros[n], ponte.iCortesResos + n * BLOCO);
+      f64[iv + V.qtdCortes1 + n] = filtros[n].length;
+    }
+    ponte.c.vozesComecarBloco(tamanhoBloco);
+
     comum.ruidoModo = this.ruidoModo;
-    // One Shot: quanto o nível cai por amostra para chegar a -60 dB no tempo da Duração
-    comum.ruidoQueda = Math.exp(Math.log(0.001) / (this.ruidoDuracao * sampleRate));
-    comum.ruidoDuracao = this.ruidoDuracao; // (para a Duração modulada)
-    comum.ruidoTrack = this.ruidoTrack;
-    comum.ruidoPitch = this.ruidoPitch;
-    comum.ruidoUnico = this.ruidoUnico;
     comum.ruidoDona = this.ruidoDona;
     comum.ajustesLfo = this.ajustesLfo;
 

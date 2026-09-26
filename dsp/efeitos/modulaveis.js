@@ -7,6 +7,10 @@
 // tocada por último (um LFO em modo Livre mexe no efeito mesmo sem nota tocando).
 // Só contas: nada do navegador.
 
+// Filtro Track: faixa do Cutoff em notas (C1 a C10; o efeito está no C++, motor.cpp)
+export const NOTA_MINIMA_TRACK = 24; // C1 (~33 Hz)
+export const NOTA_MAXIMA_TRACK = 132; // C10 (~16,7 kHz)
+
 const lin = (efeito, nome, min, max) => ({ efeito, nome, min, max, exp: false });
 const exp = (efeito, nome, min, max) => ({ efeito, nome, min, max, exp: true });
 
@@ -20,7 +24,7 @@ export const MOD_EFEITOS = [
   exp('distorcao', 'lowcut', 20, 1000),
   lin('distorcao', 'mix', 0, 1),
 
-  lin('filtroTrack', 'nota', 24, 132), // Cutoff em notas (sem degraus quando modulado)
+  lin('filtroTrack', 'nota', NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK), // Cutoff em notas (sem degraus quando modulado)
   lin('filtroTrack', 'track', 0, 1),
   lin('filtroTrack', 'reso', 0, 1),
   lin('filtroTrack', 'mix', 0, 1),
