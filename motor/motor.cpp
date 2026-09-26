@@ -6,17 +6,20 @@
 // código pode, no futuro, virar um motor nativo (Android/Oboe, JUCE).
 //
 // Etapa F1: os OSCILADORES das notas (leitura da wavetable sem chiado, WT Pos, unison,
-// Warp e FM). O resto da voz (filtros, envelopes, modulação) ainda está em dsp/voz.js e
-// chama estas funções a cada pedaço de modulação.
+// Warp e FM).
 // F1b: sem Warp, as cópias de unison são calculadas de 4 em 4 com SIMD (quatroCopias).
+// F2a: a MODULAÇÃO e os ENVELOPES: ENV 1 (volume), ENV 2/3, LFO 1/2/3 (Retrig e Livre),
+// Macros e a soma das ligações (matriz). O resto da voz (ruído, filtros, rotas, glide)
+// ainda está em dsp/voz.js e chama estas funções a cada pedaço de modulação.
 //
 // Como o JavaScript conversa com o C++ ("mesa de troca"):
 //   - wavetables: o JS pede espaço (criarTabela) e copia as ondas para dentro, uma vez só;
 //     depois só usa o endereço da tabela (um número).
-//   - ajustes dos 3 osciladores (Unison, Detune, Warp...): o JS escreve em "ajustes" e
-//     "posicoes" (WT Pos) uma vez por bloco;
-//   - modulação da voz: o JS escreve em "modAtual"/"modAnterior" a cada pedaço;
-//   - o som de cada oscilador de cada voz sai em "saidas" (esquerda e direita), que o JS lê.
+//   - ajustes dos 3 osciladores (Unison, Detune, Warp...), dos LFOs, dos envelopes e dos
+//     Macros: o JS escreve na mesa uma vez por bloco;
+//   - ligações de modulação: o JS escreve a lista (fonte, destino, quantidade) quando muda;
+//   - o som de cada oscilador de cada voz sai em "saidas" (esquerda e direita), o ENV 1 em
+//     "envSaida" e a modulação de cada voz fica em "mod" (o JS lê para o ruído e os filtros).
 //
 // Para compilar: motor\compilar.bat (gera motor\motor.wasm).
 
@@ -231,8 +234,6 @@ double taxa = 48000;
 double suavizar = 0;                        // ~5 ms (volumes e nível)
 double ajustes[N_OSC][N_CAMPOS];            // ajustes de cada oscilador (o JS escreve por bloco)
 double posicoes[N_OSC][BLOCO];              // WT Pos de cada oscilador (1 valor ou 1 por amostra)
-double modAtual[N_MOD_OSC];                 // modulação da voz: fim deste pedaço
-double modAnterior[N_MOD_OSC];              // ...e fim do pedaço anterior
 double fasesSorteadas[MAX_UNISON];          // pontos de início sorteados para a nota nova
 
 inline const Tabela* tabelaDe(int k) {
@@ -677,28 +678,319 @@ struct OscVoz {
 
 OscVoz osciladores[MAX_VOZES][N_OSC];
 
+// =================== F2a: modulação e envelopes ===================
+
+constexpr int PEDACO = 64;          // amostras por pedaço de modulação (igual a dsp/voz.js)
+constexpr int N_FONTES = 9;         // LFO 1, LFO 2, ENV 2, ENV 3, LFO 3, Macro 1–4
+constexpr int N_LFO = 3;
+constexpr int MAX_DESTINOS = 160;   // destinos de modulação (hoje 93; o JS diz quantos são)
+constexpr int MAX_LIGACOES = 256;
+
+// Onde cada fonte fica na lista de fontes (mesmos de FONTES_MOD em dsp/modulacao.js) e os
+// destinos "Rate" dos LFOs. Mudou lá? Mudar aqui também.
+constexpr int INDICES_LFO[N_LFO] = { 0, 1, 4 };
+constexpr int INDICES_ENV[2] = { 2, 3 };
+constexpr int INDICES_MACRO[4] = { 5, 6, 7, 8 };
+constexpr int D_RATE_LFO[N_LFO] = { 35, 36, 37 };
+
+// Sorteio próprio (xorshift) para o S&H dos LFOs: um valor novo a cada ciclo.
+// (Os sorteios do início da nota vêm do JavaScript.)
+uint32_t estadoSorteio = 2463534242u;
+double sortear() {  // número entre -1 e 1
+  uint32_t x = estadoSorteio;
+  x ^= x << 13;
+  x ^= x >> 17;
+  x ^= x << 5;
+  estadoSorteio = x;
+  return x / 2147483648.0 - 1;
+}
+
+// ---------- Envelope ADSR (igual ao antigo dsp/envelope.js) ----------
+// Ataque sobe em linha reta; Decay e Release caem em curva (tempo = queda até -60 dB).
+enum { PARADO, ATAQUE, DECAIMENTO, SUSTENTACAO, SOLTURA };
+constexpr double ATAQUE_MINIMO = 0.0015; // mínimos anti-estalo
+constexpr double QUEDA_MINIMA = 0.006;
+constexpr double QUEDA_ROUBO = 0.004;    // voz roubada some neste tempo
+constexpr double FIM_SOLTURA = 1e-4;     // abaixo disso (-80 dB) a nota termina
+const double QUEDA_60DB = std::log(0.001);
+
+struct Envelope {
+  int estagio;
+  double nivel;
+  bool rapido; // sumindo rápido (voz roubada)
+  double suavizarSustentacao, coefRoubo;
+  bool definido;
+  double ataqueDefinido, decaimentoDefinido, solturaDefinida, sustentacao;
+  double passoAtaque, coefDecaimento, coefSoltura;
+
+  void zerar() {
+    estagio = PARADO;
+    nivel = 0;
+    rapido = false;
+    // Se o S mudar com a nota segurada, o volume acompanha em ~5 ms (sem degrau)
+    suavizarSustentacao = 1 - std::exp(-1 / (0.005 * taxa));
+    coefRoubo = std::exp(QUEDA_60DB / (QUEDA_ROUBO * taxa));
+    definido = false;
+    definir(0.005, 0.5, 1, 0.08);
+  }
+
+  // Tempos em segundos; sustentação de 0 a 1 (se nada mudou, não refaz as contas)
+  void definir(double ataque, double decaimento, double sust, double soltura) {
+    if (definido && ataque == ataqueDefinido && decaimento == decaimentoDefinido && soltura == solturaDefinida &&
+        sust == sustentacao) {
+      return;
+    }
+    definido = true;
+    ataqueDefinido = ataque;
+    decaimentoDefinido = decaimento;
+    solturaDefinida = soltura;
+    passoAtaque = 1 / ((ataque > ATAQUE_MINIMO ? ataque : ATAQUE_MINIMO) * taxa);
+    coefDecaimento = std::exp(QUEDA_60DB / ((decaimento > QUEDA_MINIMA ? decaimento : QUEDA_MINIMA) * taxa));
+    coefSoltura = std::exp(QUEDA_60DB / ((soltura > QUEDA_MINIMA ? soltura : QUEDA_MINIMA) * taxa));
+    sustentacao = sust;
+  }
+
+  // Começa (ou recomeça) a nota a partir do nível atual: nunca pula, nunca estala
+  void disparar() {
+    estagio = ATAQUE;
+    rapido = false;
+  }
+  void soltar() {
+    if (estagio != PARADO) estagio = SOLTURA;
+  }
+  void silenciarRapido() {
+    if (estagio == PARADO) return;
+    estagio = SOLTURA;
+    rapido = true;
+  }
+  bool ativo() const { return estagio != PARADO; }
+
+  // Próximo valor (um por amostra)
+  double proximo() {
+    switch (estagio) {
+      case ATAQUE:
+        nivel += passoAtaque;
+        if (nivel >= 1) {
+          nivel = 1;
+          estagio = DECAIMENTO;
+        }
+        break;
+      case DECAIMENTO:
+        nivel = sustentacao + (nivel - sustentacao) * coefDecaimento;
+        if (std::fabs(nivel - sustentacao) < 1e-4) estagio = SUSTENTACAO;
+        break;
+      case SUSTENTACAO:
+        nivel += (sustentacao - nivel) * suavizarSustentacao;
+        break;
+      case SOLTURA:
+        nivel *= rapido ? coefRoubo : coefSoltura;
+        if (nivel < FIM_SOLTURA) {
+          nivel = 0;
+          estagio = PARADO;
+          rapido = false;
+        }
+        break;
+    }
+    return nivel;
+  }
+
+  // Anda "qtd" amostras de uma vez (envelope de modulação sem ligação: ninguém ouve,
+  // mas ele continua andando certo). Mudança de estágio no meio: passo a passo.
+  double avancar(int qtd) {
+    switch (estagio) {
+      case PARADO:
+        return nivel;
+      case ATAQUE: {
+        const double n = nivel + passoAtaque * qtd;
+        if (n < 1) return nivel = n;
+        break;
+      }
+      case DECAIMENTO: {
+        const double n = sustentacao + (nivel - sustentacao) * std::pow(coefDecaimento, qtd);
+        if (std::fabs(n - sustentacao) >= 1e-4) return nivel = n;
+        break;
+      }
+      case SUSTENTACAO:
+        nivel += (sustentacao - nivel) * (1 - std::pow(1 - suavizarSustentacao, qtd));
+        return nivel;
+      case SOLTURA: {
+        const double n = nivel * std::pow(rapido ? coefRoubo : coefSoltura, qtd);
+        if (n >= FIM_SOLTURA) return nivel = n;
+        break;
+      }
+    }
+    for (int k = 0; k < qtd; k++) proximo();
+    return nivel;
+  }
+};
+
+// ---------- LFO (igual ao antigo dsp/lfo.js) ----------
+// Formas (mesma ordem de FORMAS_LFO): seno, triângulo, serra sobe, serra desce, quadrada, S&H
+enum { F_SENO, F_TRIANGULO, F_SERRA_SOBE, F_SERRA_DESCE, F_QUADRADA, F_ALEATORIO };
+constexpr double RATE_MIN = 0.02;
+constexpr double RATE_MAX = 40;
+const double LOG_FAIXA_RATE = std::log(RATE_MAX / RATE_MIN);
+
+// Rate com modulação: soma na posição do knob (0 a 1, escala exponencial)
+double rateModulado(double rate, double mod) {
+  if (mod == 0) return rate;
+  const double posicao = std::log(rate / RATE_MIN) / LOG_FAIXA_RATE + mod;
+  return RATE_MIN * std::exp(limitar01(posicao) * LOG_FAIXA_RATE);
+}
+
+struct EstadoLfo {
+  double fase = 0;
+  double aleatorio = 0;
+  void avancar(double passo) {
+    fase += passo;
+    if (fase >= 1) {
+      fase -= std::floor(fase);
+      aleatorio = sortear();
+    }
+  }
+  double valor(int forma) const {
+    switch (forma) {
+      case F_SENO: return std::sin(2 * PI * fase);
+      case F_TRIANGULO:
+        if (fase < 0.25) return 4 * fase;
+        if (fase < 0.75) return 2 - 4 * fase;
+        return 4 * fase - 4;
+      case F_SERRA_SOBE: return 2 * fase - 1;
+      case F_SERRA_DESCE: return 1 - 2 * fase;
+      case F_QUADRADA: return fase < 0.5 ? 1 : -1;
+      case F_ALEATORIO: return aleatorio;
+      default: return 0;
+    }
+  }
+};
+
+// Mesa: ajustes dos LFOs, dos envelopes e dos Macros (o JS escreve por bloco)
+enum { L_FORMA, L_RATE, L_LIVRE, N_CAMPOS_LFO };
+double ajustesLfo[N_LFO][N_CAMPOS_LFO];
+double ajustesEnv[3][4];   // ENV 1 (volume), ENV 2, ENV 3: Attack, Decay, Sustain, Release
+double macrosAlvo[4];      // valor escolhido na tela
+double macros[4];          // valor em uso (suavizado ~10 ms)
+double suavizarMacros = 0;
+double envSaida[BLOCO];    // ENV 1 de uma voz no bloco (vozEnvelope; o JS lê)
+
+// LFOs Livres: um só para todas as notas, rodando sempre (1 valor por pedaço)
+EstadoLfo livres[N_LFO];
+double valoresLivres[N_LFO][BLOCO / PEDACO];
+int ultimoPedacoLivre = 0;
+
+// ---------- Ligações de modulação (igual à antiga MatrizModulacao) ----------
+struct Ligacao {
+  int fonte, destino;
+  double alvo, atual; // a quantidade anda até o alvo em ~10 ms (sem estalo)
+  bool removida;      // saiu da lista: vai sumindo até zero e depois sai
+};
+Ligacao ligacoes[MAX_LIGACOES];
+int qtdLigacoes = 0;
+int qtdDestinos = 0;                  // quantos destinos existem (o JS diz)
+double suavizarLigacoes = 0;
+uint8_t usos[MAX_DESTINOS];           // 1 = destino sendo modulado
+uint8_t usosFonte[N_FONTES];          // 1 = fonte ligada a algo
+double entradaLigacoes[MAX_LIGACOES * 3]; // mesa: lista nova (fonte, destino, quantidade)
+double modEfeitos[MAX_DESTINOS];      // soma para os knobs dos efeitos (somarEfeitos)
+
+// Soma a modulação de cada destino, dados os valores das fontes
+void somarLigacoes(const double* fontes, double* destino) {
+  for (int d = 0; d < qtdDestinos; d++) destino[d] = 0;
+  for (int k = 0; k < qtdLigacoes; k++) {
+    const Ligacao& l = ligacoes[k];
+    destino[l.destino] += l.atual * fontes[l.fonte];
+  }
+}
+
+// ---------- Modulação de cada voz ----------
+struct VozMod {
+  Envelope envs[3];       // [0] = ENV 1 (volume), [1] = ENV 2, [2] = ENV 3
+  EstadoLfo lfos[N_LFO];  // LFOs em modo Retrig (um por nota)
+  double fontes[N_FONTES];
+  double modAlvo[MAX_DESTINOS];     // soma "crua" das ligações
+  double mod[MAX_DESTINOS];         // modulação deste pedaço (suavizada ~2 ms)
+  double modAnterior[MAX_DESTINOS]; // do pedaço anterior (os osciladores fazem rampa entre os dois)
+  bool modNova;   // ainda não tem "pedaço anterior"
+  bool modZerada; // mod e modAnterior todos em zero
+  bool pulouMod;  // este pedaço pulou a soma (sem ligações e tudo em zero)
+
+  void zerar() {
+    for (auto& e : envs) e.zerar();
+    for (auto& l : lfos) l = EstadoLfo();
+    for (double& f : fontes) f = 0;
+    for (int d = 0; d < MAX_DESTINOS; d++) modAlvo[d] = mod[d] = modAnterior[d] = 0;
+    modNova = true;
+    modZerada = true;
+    pulouMod = false;
+  }
+
+  // Lê as fontes no fim de um pedaço de "qtd" amostras
+  void lerFontes(int qtd, int pedaco) {
+    for (int l = 0; l < N_LFO; l++) {
+      const int i = INDICES_LFO[l];
+      const int forma = static_cast<int>(ajustesLfo[l][L_FORMA]);
+      if (ajustesLfo[l][L_LIVRE] != 0) {
+        fontes[i] = valoresLivres[l][pedaco];
+      } else {
+        // Rate modulado: usa a modulação do pedaço anterior (a deste ainda não existe)
+        const double rate = rateModulado(ajustesLfo[l][L_RATE], mod[D_RATE_LFO[l]]);
+        lfos[l].avancar((rate * qtd) / taxa);
+        fontes[i] = lfos[l].valor(forma);
+      }
+    }
+    for (int e = 0; e < 2; e++) {
+      Envelope& env = envs[1 + e];
+      const int i = INDICES_ENV[e];
+      if (usosFonte[i]) {
+        for (int k = 0; k < qtd; k++) env.proximo(); // ligado a algo: amostra por amostra
+      } else {
+        env.avancar(qtd); // sem ligação: anda o pedaço de uma vez
+      }
+      fontes[i] = env.nivel;
+    }
+    for (int m = 0; m < 4; m++) fontes[INDICES_MACRO[m]] = macros[m];
+  }
+};
+
+VozMod vozesMod[MAX_VOZES];
+double suavizarMod = 0; // ~2 ms por pedaço: saltos (LFO quadrado, S&H) viram rampas curtíssimas
+
 }  // namespace
 
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 2; }
+EXPORTAR int versao() { return 3; }
 
 // Liga o motor na taxa de amostragem do aparelho (chamada uma vez, ao nascer).
-EXPORTAR void iniciar(double taxaAmostragem) {
+// "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length no JS).
+EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
+  if (destinos > MAX_DESTINOS) return 0;
   taxa = taxaAmostragem;
+  qtdDestinos = destinos;
   suavizar = 1 - std::exp(-1 / (0.005 * taxa));
+  suavizarMod = 1 - std::exp(-PEDACO / (0.002 * taxa));
+  suavizarLigacoes = 1 - std::exp(-BLOCO / (0.01 * taxa));
+  suavizarMacros = 1 - std::exp(-BLOCO / (0.01 * taxa));
   prepararMeiaBanda();
   for (auto& voz : osciladores)
     for (auto& osc : voz) osc.zerar();
+  for (auto& v : vozesMod) v.zerar();
+  return 1;
 }
 
 // Endereços da mesa de troca (o JS escreve/lê direto na memória)
 EXPORTAR double* enderecoAjustes() { return &ajustes[0][0]; }
 EXPORTAR double* enderecoPosicoes() { return &posicoes[0][0]; }
-EXPORTAR double* enderecoModAtual() { return modAtual; }
-EXPORTAR double* enderecoModAnterior() { return modAnterior; }
 EXPORTAR double* enderecoFases() { return fasesSorteadas; }
+EXPORTAR double* enderecoAjustesLfo() { return &ajustesLfo[0][0]; }
+EXPORTAR double* enderecoAjustesEnv() { return &ajustesEnv[0][0]; }
+EXPORTAR double* enderecoMacros() { return macrosAlvo; }
+EXPORTAR double* enderecoEnvSaida() { return envSaida; }
+EXPORTAR double* enderecoLigacoes() { return entradaLigacoes; }
+EXPORTAR uint8_t* enderecoUsos() { return usos; }
+EXPORTAR double* enderecoModEfeitos() { return modEfeitos; }
+EXPORTAR double* enderecoMod(int v) { return vozesMod[v].mod; } // modulação da voz v (o JS lê)
 // Som do oscilador k da voz v: esquerda; a direita vem logo depois (+ BLOCO números)
 EXPORTAR double* enderecoSaida(int v, int k) { return osciladores[v][k].somaE; }
 EXPORTAR int camposOsc() { return N_CAMPOS; }
@@ -731,9 +1023,10 @@ EXPORTAR void apagarTabela(Tabela* t) {
   std::free(t);
 }
 
-// Voz v: estado de nota nova (como criar a voz de novo)
-EXPORTAR void oscZerarVoz(int v) {
+// Voz v: estado de nota nova (como criar a voz de novo): osciladores, envelopes e modulação
+EXPORTAR void vozZerar(int v) {
   for (auto& osc : osciladores[v]) osc.zerar();
+  vozesMod[v].zerar();
 }
 
 // Voz v começando do silêncio: pontos de início das cópias (lidos de "fasesSorteadas")
@@ -741,21 +1034,173 @@ EXPORTAR void oscReiniciar(int v) {
   for (int k = 0; k < N_OSC; k++) osciladores[v][k].reiniciar(k);
 }
 
-// Começo de um bloco da voz v: zera o som dos 3 osciladores
-EXPORTAR void oscComecarBloco(int v, int tamanho) {
+// ---------- Modulação e envelopes (F2a) ----------
+
+// Começo de cada bloco (todas as vozes juntas): LFOs Livres andam, as quantidades das
+// ligações andam até o alvo e os Macros andam até o valor escolhido.
+// "ultima" = voz da nota tocada por último, se ainda soa (-1 = nenhuma): um LFO Livre com
+// o Rate modulado segue a modulação dela.
+EXPORTAR void comecarBloco(int ultima, int tamanho) {
+  int pedacos = 0;
+  for (int l = 0; l < N_LFO; l++) {
+    const double rateBase = ajustesLfo[l][L_RATE];
+    const double rate = ultima >= 0 ? rateModulado(rateBase, vozesMod[ultima].mod[D_RATE_LFO[l]]) : rateBase;
+    const int forma = static_cast<int>(ajustesLfo[l][L_FORMA]);
+    pedacos = 0;
+    for (int inicio = 0; inicio < tamanho; inicio += PEDACO, pedacos++) {
+      livres[l].avancar((rate * PEDACO) / taxa);
+      valoresLivres[l][pedacos] = livres[l].valor(forma);
+    }
+  }
+  ultimoPedacoLivre = pedacos > 0 ? pedacos - 1 : 0;
+
+  for (int d = 0; d < qtdDestinos; d++) usos[d] = 0;
+  for (int f = 0; f < N_FONTES; f++) usosFonte[f] = 0;
+  for (int k = qtdLigacoes - 1; k >= 0; k--) {
+    Ligacao& l = ligacoes[k];
+    l.atual += (l.alvo - l.atual) * suavizarLigacoes;
+    if (l.removida && std::fabs(l.atual) < 1e-4) {
+      for (int j = k; j + 1 < qtdLigacoes; j++) ligacoes[j] = ligacoes[j + 1]; // sai, mantendo a ordem
+      qtdLigacoes--;
+      continue;
+    }
+    usos[l.destino] = 1;
+    usosFonte[l.fonte] = 1;
+  }
+
+  for (int m = 0; m < 4; m++) macros[m] += (macrosAlvo[m] - macros[m]) * suavizarMacros;
+}
+
+// Lista nova de ligações (a tela manda a lista completa): "n" trios (fonte, destino,
+// quantidade) em entradaLigacoes. O que não vier mais vai sumindo até zero e depois sai.
+EXPORTAR void definirLigacoes(int n) {
+  for (int k = 0; k < qtdLigacoes; k++) {
+    ligacoes[k].alvo = 0;
+    ligacoes[k].removida = true;
+  }
+  for (int j = 0; j < n; j++) {
+    const int fonte = static_cast<int>(entradaLigacoes[3 * j]);
+    const int destino = static_cast<int>(entradaLigacoes[3 * j + 1]);
+    const double quantidade = entradaLigacoes[3 * j + 2];
+    if (fonte < 0 || fonte >= N_FONTES || destino < 0 || destino >= qtdDestinos) continue;
+    int achada = -1;
+    for (int k = 0; k < qtdLigacoes; k++) {
+      if (ligacoes[k].fonte == fonte && ligacoes[k].destino == destino) {
+        achada = k;
+        break;
+      }
+    }
+    if (achada >= 0) {
+      ligacoes[achada].alvo = quantidade;
+      ligacoes[achada].removida = false;
+    } else if (qtdLigacoes < MAX_LIGACOES) {
+      ligacoes[qtdLigacoes++] = { fonte, destino, quantidade, 0, false };
+    }
+  }
+}
+
+// Modulação dos knobs dos EFEITOS (soma em modEfeitos): fontes da nota tocada por último
+// ("ultima", -1 = nenhuma soando) + Macros e LFOs Livres, que valem sempre.
+EXPORTAR void somarEfeitos(int ultima) {
+  double fontes[N_FONTES];
+  for (int f = 0; f < N_FONTES; f++) fontes[f] = ultima >= 0 ? vozesMod[ultima].fontes[f] : 0;
+  for (int m = 0; m < 4; m++) fontes[INDICES_MACRO[m]] = macros[m];
+  for (int l = 0; l < N_LFO; l++) {
+    if (ajustesLfo[l][L_LIVRE] != 0) fontes[INDICES_LFO[l]] = valoresLivres[l][ultimoPedacoLivre];
+  }
+  somarLigacoes(fontes, modEfeitos);
+}
+
+// Nota começando na voz v. "doSilencio" = a voz estava calada (modulação recomeça sem
+// rampa); "recomecar" = dispara os envelopes (falso no legato); "retrig" = bits dos LFOs em
+// modo Retrig (recomeçam do início), com os valores sorteados s0–s2 para o S&H.
+EXPORTAR void vozIniciar(int v, int doSilencio, int recomecar, int retrig, double s0, double s1, double s2) {
+  VozMod& vm = vozesMod[v];
+  if (doSilencio) vm.modNova = true;
+  if (!recomecar) return;
+  for (auto& e : vm.envs) e.disparar();
+  const double sorteios[N_LFO] = { s0, s1, s2 };
+  for (int l = 0; l < N_LFO; l++) {
+    if (retrig & (1 << l)) {
+      vm.lfos[l].fase = 0;
+      vm.lfos[l].aleatorio = sorteios[l];
+    }
+  }
+}
+
+// Tecla solta: os 3 envelopes vão para a soltura
+EXPORTAR void vozSoltar(int v) {
+  for (auto& e : vozesMod[v].envs) e.soltar();
+}
+// Voz roubada: some em ~4 ms (só o ENV 1)
+EXPORTAR void vozSilenciar(int v) { vozesMod[v].envs[0].silenciarRapido(); }
+EXPORTAR int vozAtiva(int v) { return vozesMod[v].envs[0].ativo() ? 1 : 0; }
+EXPORTAR double vozNivel(int v) { return vozesMod[v].envs[0].nivel; }
+
+// Começo de um bloco da voz v: ajustes dos envelopes e zera o som dos 3 osciladores
+EXPORTAR void vozComecarBloco(int v, int tamanho) {
+  VozMod& vm = vozesMod[v];
+  for (int e = 0; e < 3; e++) vm.envs[e].definir(ajustesEnv[e][0], ajustesEnv[e][1], ajustesEnv[e][2], ajustesEnv[e][3]);
   for (auto& osc : osciladores[v]) osc.limpar(tamanho);
 }
 
-// Um pedaço da voz v nos 3 osciladores (modulação em modAtual/modAnterior).
+// Um pedaço da voz v: lê as fontes, soma as ligações (suavizado) e calcula os 3 osciladores.
 // Devolve quais osciladores fizeram som: bit 0 = A, bit 1 = B, bit 2 = C.
-EXPORTAR int oscPedaco(int v, int inicio, int fim, double frequencia) {
+EXPORTAR int vozPedaco(int v, int inicio, int fim, int pedaco, double frequencia) {
+  VozMod& vm = vozesMod[v];
+  vm.lerFontes(fim - inicio, pedaco);
+  // Sem nenhuma ligação e com a modulação já toda em zero: somar e suavizar daria zero de
+  // novo: pula (som idêntico)
+  vm.pulouMod = qtdLigacoes == 0 && vm.modZerada;
+  if (vm.pulouMod) {
+    vm.modNova = false;
+  } else {
+    somarLigacoes(vm.fontes, vm.modAlvo);
+    if (vm.modNova) {
+      for (int d = 0; d < qtdDestinos; d++) vm.mod[d] = vm.modAnterior[d] = vm.modAlvo[d];
+      vm.modNova = false;
+    } else {
+      for (int d = 0; d < qtdDestinos; d++) vm.mod[d] += (vm.modAlvo[d] - vm.mod[d]) * suavizarMod;
+    }
+  }
   int tocou = 0;
   for (int k = 0; k < N_OSC; k++) {
     OscVoz& osc = osciladores[v][k];
-    osc.processarPedaco(k, inicio, fim, frequencia, modAtual, modAnterior);
+    osc.processarPedaco(k, inicio, fim, frequencia, vm.mod, vm.modAnterior);
     if (!osc.calado) tocou |= 1 << k;
   }
   return tocou;
+}
+
+// Fim de um pedaço da voz v (depois de o JS usar a modulação no ruído e nos filtros)
+EXPORTAR void vozFimPedaco(int v) {
+  VozMod& vm = vozesMod[v];
+  if (vm.pulouMod) return; // (mod e modAnterior continuam zerados)
+  for (int d = 0; d < qtdDestinos; d++) vm.modAnterior[d] = vm.mod[d];
+  // Sem ligações: quando a modulação chega exatamente a zero, os próximos pedaços pulam
+  vm.modZerada = false;
+  if (qtdLigacoes == 0) {
+    bool zerada = true;
+    for (int d = 0; d < qtdDestinos; d++) {
+      if (vm.mod[d] != 0) {
+        zerada = false;
+        break;
+      }
+    }
+    vm.modZerada = zerada;
+  }
+}
+
+// ENV 1 (volume) da voz v neste bloco: um valor por amostra em envSaida
+EXPORTAR void vozEnvelope(int v, int tamanho) {
+  Envelope& env = vozesMod[v].envs[0];
+  for (int i = 0; i < tamanho; i++) envSaida[i] = env.proximo();
+}
+
+// Para a tela (pontinhos ao vivo): fase e valor do LFO l na voz v (v = -1: o LFO Livre)
+EXPORTAR double lfoFase(int v, int l) { return v < 0 ? livres[l].fase : vozesMod[v].lfos[l].fase; }
+EXPORTAR double lfoValor(int v, int l) {
+  return v < 0 ? valoresLivres[l][ultimoPedacoLivre] : vozesMod[v].fontes[INDICES_LFO[l]];
 }
 
 // Nível atual do oscilador k da voz v (o motor usa para trocar a wavetable no silêncio)

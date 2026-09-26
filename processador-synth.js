@@ -11,17 +11,17 @@
 //   deslizar entre teclas não reinicia o envelope.
 // - Glide: a nota escorrega até a nova altura (tempo igual para qualquer
 //   intervalo). Por padrão só quando as notas estão emendadas; "Sempre" = toda vez.
-// - Modulação: LFO 1, 2 e 3, ENV 2 e 3 ligados a controles (ver dsp/modulacao.js).
-//   LFO em modo Retrig vive dentro de cada voz; em modo Livre, fica aqui
-//   (um só para todas as notas, rodando sem parar).
+// - Modulação: LFO 1, 2 e 3, ENV 2 e 3 e Macros ligados a controles (ver dsp/modulacao.js).
+//   Tudo calculado no motor em C++ (etapa F2a): LFO em modo Retrig dentro de cada voz; em
+//   modo Livre, um só para todas as notas, rodando sem parar. Aqui só os ajustes vão para lá.
 
 import { Voz } from './dsp/voz.js';
 import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { trechosDeRuido, TIPOS_RUIDO } from './dsp/ruido.js';
 import { CoeficientesFiltro } from './dsp/filtro.js';
-import { MatrizModulacao, INDICES_LFO, INDICES_MACRO, D_RATE_LFO, FONTES_MOD, DESTINOS_MOD, D_PRIMEIRO_EFEITO } from './dsp/modulacao.js';
+import { DESTINOS_MOD, D_PRIMEIRO_EFEITO, ligacoesEmNumeros } from './dsp/modulacao.js';
 import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
-import { EstadoLFO, rateModulado } from './dsp/lfo.js';
+import { FORMAS_LFO } from './dsp/lfo.js';
 import { Distorcao } from './dsp/efeitos/distorcao.js';
 import { Compressor } from './dsp/efeitos/compressor.js';
 import { Saturacao } from './dsp/efeitos/saturacao.js';
@@ -33,10 +33,9 @@ import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
-import { Ponte, CAMPOS_OSC } from './motor/ponte.js';
+import { Ponte, CAMPOS_OSC, CAMPOS_LFO } from './motor/ponte.js';
 
 const MAX_VOZES = 16;
-const PEDACO = 64; // amostras por pedaço de modulação (igual ao da voz)
 // A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
 const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 30);
 
@@ -84,7 +83,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     for (let v = 0; v < this.vozes.length; v++) {
       const voz = this.vozes[v];
       Object.assign(voz, new Voz(sampleRate, v, this.ponte));
-      this.ponte.c.oscZerarVoz(v); // os osciladores dela (no C++) também voltam do zero
+      this.ponte.c.vozZerar(v); // os osciladores, envelopes e modulação dela (no C++) também
       for (const [numero, nome, valor] of Object.values(this.escolhasFiltro)) voz.definirFiltro(numero, nome, valor);
     }
     this.ruidoDona = null;
@@ -143,7 +142,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Motor em C++ (motor/motor.wasm), já compilado pela tela e entregue aqui. As partes do
     // som passam para o C++ etapa por etapa (e o JavaScript delas é apagado).
     // F1: os osciladores das notas estão no C++ (ver motor/ponte.js).
-    this.ponte = new Ponte(opcoes.processorOptions.moduloWasm, sampleRate);
+    // F2a: a modulação (LFOs, ENV 2/3, Macros, soma das ligações) e o ENV 1 também.
+    this.ponte = new Ponte(opcoes.processorOptions.moduloWasm, sampleRate, DESTINOS_MOD.length);
     this.port.postMessage({ tipo: 'wasm', versao: this.ponte.c.versao() });
     this.vozes = Array.from({ length: MAX_VOZES }, (_, v) => new Voz(sampleRate, v, this.ponte));
     this.coef = new CoeficientesFiltro(sampleRate); // Filtro 1
@@ -217,8 +217,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.ruidoDona = null; // a voz da nota mais recente
     this.trechosRuido = trechosDeRuido(sampleRate); // os "samples" de ruído (dsp/ruido.js)
 
-    // Modulação
-    this.matriz = new MatrizModulacao(sampleRate);
+    // Modulação (as contas estão no C++; aqui ficam os ajustes, mandados a cada bloco)
     this.ajustesLfo = [
       { forma: 'seno', rate: 2, modo: 'retrig' },
       { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
@@ -263,8 +262,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // knob ("base") fica guardado aqui; o efeito recebe base + modulação.
     this.basesEfeitos = {};
     for (const [id, efeito] of Object.entries(this.efeitos)) this.basesEfeitos[id] = { ...efeito.ajustes };
-    this.fontesEfeitos = new Float64Array(FONTES_MOD.length);
-    this.modEfeitosAlvo = new Float64Array(DESTINOS_MOD.length);
     this.modEfeitos = new Float64Array(MOD_EFEITOS.length); // suavizada (~5 ms)
     this.modulandoEfeito = new Uint8Array(MOD_EFEITOS.length); // 1 = o knob está sendo modulado
     this.suavizarModEfeitos = 1 - Math.exp(-128 / (0.005 * sampleRate));
@@ -276,12 +273,8 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.silencioSaida = 0; // amostras seguidas de silêncio na saída (clipper descansa)
     this.enviouPico = false;
 
-    this.lfosLivres = this.ajustesLfo.map(() => new EstadoLFO());
-    // Macros M1–M4: valor escolhido na tela (alvo) e o valor em uso, suavizado (~10 ms)
+    // Macros M1–M4: valor escolhido na tela (o C++ suaviza ~10 ms)
     this.macrosAlvo = new Float64Array(4);
-    this.macros = new Float64Array(4);
-    this.suavizarMacros = 1 - Math.exp(-128 / (0.01 * sampleRate));
-    this.valoresLivres = this.ajustesLfo.map(() => new Float64Array(4)); // 1 valor por pedaço
 
     // Valores "ao vivo" para a tela (pontinhos que se mexem)
     this.blocosDesdeEnvio = 0;
@@ -340,7 +333,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.definirOpcao(msg.nome, msg.valor);
         break;
       case 'modulacoes':
-        this.matriz.definir(msg.lista);
+        this.ponte.definirLigacoes(ligacoesEmNumeros(msg.lista));
         break;
       case 'fonte':
         this.definirFonte(msg.id, msg.ajustes);
@@ -547,7 +540,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.notasPresas = this.notasPresas.filter((n) => n !== nota);
     this.notasPresas.push(nota);
     // Escorrega a partir de onde o som está agora (mesmo no meio de outro escorregão).
-    const origem = voz.envelope.ativo ? voz.altura : this.ultimaNota;
+    const origem = voz.envelopeAtivo ? voz.altura : this.ultimaNota;
     const glide = this.glidePara(!ninguemSegurando, origem);
     this.ultimaNota = nota;
     // Com legato, só recomeça o envelope se nenhuma tecla estava segurada.
@@ -579,21 +572,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     saidaD.fill(0);
     this.ponte.renovar(); // (se a memória do C++ cresceu, as vistas são refeitas)
 
-    // LFOs livres rodam sempre, mesmo em silêncio (as notas pegam eles andando).
-    // Rate modulado: um LFO livre é um só para todas as notas, então segue a modulação
-    // da nota tocada por último (enquanto ela soa).
-    const ultima = this.ruidoDona && this.ruidoDona.envelope.ativo ? this.ruidoDona : null;
-    for (let l = 0; l < this.ajustesLfo.length; l++) {
-      const ajustes = this.ajustesLfo[l];
-      const rate = ultima ? rateModulado(ajustes.rate, ultima.mod[D_RATE_LFO[l]]) : ajustes.rate;
-      for (let pedaco = 0; pedaco * PEDACO < tamanhoBloco; pedaco++) {
-        this.lfosLivres[l].avancar((rate * PEDACO) / sampleRate);
-        this.valoresLivres[l][pedaco] = this.lfosLivres[l].valor(ajustes.forma);
-      }
-    }
-    this.matriz.avancarBloco();
-    // Macros andam suavemente até o valor escolhido (girar rápido não faz degrau)
-    for (let m = 0; m < 4; m++) this.macros[m] += (this.macrosAlvo[m] - this.macros[m]) * this.suavizarMacros;
+    // Ajustes da modulação → mesa do C++; lá, no começo do bloco: LFOs livres andam (rodam
+    // sempre, mesmo em silêncio; com o Rate modulado, seguem a nota tocada por último),
+    // quantidades das ligações andam até o alvo e os Macros andam até o valor escolhido.
+    this.enviarAjustesModulacao(parametros);
+    this.ponte.c.comecarBloco(this.indiceUltima(), tamanhoBloco);
 
     // Notas (só se alguma estiver soando)
     let algumaAtiva = false;
@@ -702,33 +685,25 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   // as fontes da nota tocada por último (enquanto ela soa); um LFO Livre vale sempre, mesmo
   // sem nota. Sem nenhuma ligação nos efeitos, não faz nada.
   modularEfeitos() {
-    const matriz = this.matriz;
+    const ponte = this.ponte;
     const total = MOD_EFEITOS.length;
     let algum = false;
     for (let j = 0; j < total; j++) {
-      if (this.modulandoEfeito[j] || matriz.usa(D_PRIMEIRO_EFEITO + j)) {
+      if (this.modulandoEfeito[j] || ponte.usa(D_PRIMEIRO_EFEITO + j)) {
         algum = true;
         break;
       }
     }
     if (!algum) return;
 
-    const fontes = this.fontesEfeitos;
-    const ultima = this.ruidoDona && this.ruidoDona.envelope.ativo ? this.ruidoDona : null;
-    if (ultima) fontes.set(ultima.valoresFontes);
-    else fontes.fill(0);
-    // Macros valem sempre (mesmo sem nota tocando)
-    for (let m = 0; m < INDICES_MACRO.length; m++) fontes[INDICES_MACRO[m]] = this.macros[m];
-    for (let l = 0; l < INDICES_LFO.length; l++) {
-      if (this.ajustesLfo[l].modo !== 'livre') continue;
-      const valores = this.valoresLivres[l];
-      fontes[INDICES_LFO[l]] = valores[valores.length - 1];
-    }
-    matriz.somar(fontes, this.modEfeitosAlvo);
+    // Soma no C++: fontes da nota tocada por último + Macros e LFOs Livres (valem sempre)
+    ponte.c.somarEfeitos(this.indiceUltima());
+    const f64 = ponte.f64;
+    const iAlvo = ponte.iModEfeitos + D_PRIMEIRO_EFEITO;
 
     const k = this.suavizarModEfeitos;
     for (let j = 0; j < total; j++) {
-      const usa = matriz.usa(D_PRIMEIRO_EFEITO + j);
+      const usa = ponte.usa(D_PRIMEIRO_EFEITO + j);
       if (!usa && !this.modulandoEfeito[j]) continue;
       const m = MOD_EFEITOS[j];
       const base = this.basesEfeitos[m.efeito][m.nome];
@@ -740,10 +715,44 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         this.modulandoEfeito[j] = 0;
         continue;
       }
-      this.modEfeitos[j] += (this.modEfeitosAlvo[D_PRIMEIRO_EFEITO + j] - this.modEfeitos[j]) * k;
+      this.modEfeitos[j] += (f64[iAlvo + j] - this.modEfeitos[j]) * k;
       ajustes[m.nome] = valorDaPosicao(m, posicaoDoValor(m, base) + this.modEfeitos[j]);
       this.modulandoEfeito[j] = 1;
     }
+  }
+
+  // Índice da voz da nota tocada por último, se ainda soa (-1 = nenhuma). "ruidoDona" é
+  // essa voz nos dois modos (Poly e Mono).
+  indiceUltima() {
+    return this.ruidoDona && this.ruidoDona.envelopeAtivo ? this.ruidoDona.indice : -1;
+  }
+
+  // Ajustes dos LFOs, dos envelopes (ENV 1 = knobs da aba ENV; ENV 2 e 3) e dos Macros
+  // → mesa de troca do C++ (motor/ponte.js), uma vez por bloco
+  enviarAjustesModulacao(parametros) {
+    const ponte = this.ponte;
+    const f64 = ponte.f64;
+    for (let l = 0; l < this.ajustesLfo.length; l++) {
+      const a = this.ajustesLfo[l];
+      const i = ponte.iAjustesLfo + l * 3;
+      f64[i + CAMPOS_LFO.forma] = FORMAS_LFO.indexOf(a.forma); // (desconhecida = -1: valor 0)
+      f64[i + CAMPOS_LFO.rate] = a.rate;
+      f64[i + CAMPOS_LFO.livre] = a.modo === 'livre' ? 1 : 0;
+    }
+    const e = ponte.iAjustesEnv;
+    f64[e] = parametros.ataque[0];
+    f64[e + 1] = parametros.decaimento[0];
+    f64[e + 2] = parametros.sustentacao[0];
+    f64[e + 3] = parametros.soltura[0];
+    for (let k = 0; k < 2; k++) {
+      const env = this.ajustesEnv[k];
+      const i = e + 4 * (k + 1);
+      f64[i] = env.ataque;
+      f64[i + 1] = env.decaimento;
+      f64[i + 2] = env.sustentacao;
+      f64[i + 3] = env.soltura;
+    }
+    f64.set(this.macrosAlvo, ponte.iMacros);
   }
 
   processarVozes(saidaE, saidaD, tamanhoBloco, parametros) {
@@ -805,23 +814,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     comum.ruidoPitch = this.ruidoPitch;
     comum.ruidoUnico = this.ruidoUnico;
     comum.ruidoDona = this.ruidoDona;
-    comum.matriz = this.matriz;
     comum.ajustesLfo = this.ajustesLfo;
-    comum.lfosLivres = this.valoresLivres;
-    comum.macros = this.macros;
 
-    const [env2, env3] = this.ajustesEnv;
     for (const voz of this.vozes) {
-      if (!voz.ativa) continue;
-      voz.envelope.definir(
-        parametros.ataque[0],
-        parametros.decaimento[0],
-        parametros.sustentacao[0],
-        parametros.soltura[0]
-      );
-      voz.envsMod[0].definir(env2.ataque, env2.decaimento, env2.sustentacao, env2.soltura);
-      voz.envsMod[1].definir(env3.ataque, env3.decaimento, env3.sustentacao, env3.soltura);
-      voz.processar(saidaE, saidaD, tamanhoBloco, comum);
+      if (voz.ativa) voz.processar(saidaE, saidaD, tamanhoBloco, comum);
     }
   }
 
@@ -849,7 +845,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     let voz = null;
     for (const v of this.vozes) {
-      if (v.envelope.ativo && (!voz || v.idade > voz.idade)) voz = v;
+      if (v.envelopeAtivo && (!voz || v.idade > voz.idade)) voz = v;
     }
     const algumLivre = this.ajustesLfo.some((a) => a.modo === 'livre');
     if (!voz && !algumLivre) {
@@ -861,22 +857,22 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     // O recado reaproveita as mesmas listas e objetos a cada envio (sem lixo na memória;
     // o postMessage manda uma cópia para a tela)
+    // (valores lidos do C++: v = -1 é o LFO Livre)
     const envio = this.envioAoVivo;
+    const c = this.ponte.c;
     for (let l = 0; l < this.ajustesLfo.length; l++) {
       const item = envio.itensLfo[l];
-      if (this.ajustesLfo[l].modo === 'livre') {
-        item.fase = this.lfosLivres[l].fase;
-        item.valor = this.valoresLivres[l][this.valoresLivres[l].length - 1];
-        envio.recado.lfos[l] = item;
-      } else if (voz) {
-        item.fase = voz.lfos[l].fase;
-        item.valor = voz.valoresFontes[INDICES_LFO[l]];
+      const livre = this.ajustesLfo[l].modo === 'livre';
+      if (livre || voz) {
+        const v = livre ? -1 : voz.indice;
+        item.fase = c.lfoFase(v, l);
+        item.valor = c.lfoValor(v, l);
         envio.recado.lfos[l] = item;
       } else {
         envio.recado.lfos[l] = null;
       }
     }
-    if (voz) envio.mod.set(voz.mod);
+    if (voz) envio.mod.set(this.ponte.f64.subarray(voz.iMod, voz.iMod + envio.mod.length));
     envio.recado.mod = voz ? envio.mod : null;
     this.port.postMessage(envio.recado);
     this.enviouAtivo = true;

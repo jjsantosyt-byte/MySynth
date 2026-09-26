@@ -28,12 +28,15 @@ export const CAMPOS_OSC = {
   qtdPosicoes: 16,
 };
 export const BLOCO = 128;
-export const N_MOD_OSC = 35; // destinos de modulação dos osciladores (índices 0 a 34)
+// Campos dos ajustes de cada LFO (mesma ordem do enum em motor.cpp)
+export const CAMPOS_LFO = { forma: 0, rate: 1, livre: 2 };
 
 export class Ponte {
-  constructor(modulo, taxaAmostragem) {
+  // "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length)
+  constructor(modulo, taxaAmostragem, destinos) {
     this.c = new WebAssembly.Instance(modulo, {}).exports; // as funções do C++
-    this.c.iniciar(taxaAmostragem);
+    if (!this.c.iniciar(taxaAmostragem, destinos)) throw new Error('motor.wasm: destinos de modulação demais');
+    this.destinos = destinos;
     this.buffer = null;
     this.renovar();
     // Endereços da mesa de troca, contados em números de 8 bytes (posição dentro de f64)
@@ -42,9 +45,14 @@ export class Ponte {
     this.nCampos = n;
     this.iAjustes = this.c.enderecoAjustes() / 8;
     this.iPosicoes = this.c.enderecoPosicoes() / 8;
-    this.iModAtual = this.c.enderecoModAtual() / 8;
-    this.iModAnterior = this.c.enderecoModAnterior() / 8;
     this.iFases = this.c.enderecoFases() / 8;
+    this.iAjustesLfo = this.c.enderecoAjustesLfo() / 8;
+    this.iAjustesEnv = this.c.enderecoAjustesEnv() / 8;
+    this.iMacros = this.c.enderecoMacros() / 8;
+    this.iEnvSaida = this.c.enderecoEnvSaida() / 8;
+    this.iLigacoes = this.c.enderecoLigacoes() / 8;
+    this.iModEfeitos = this.c.enderecoModEfeitos() / 8;
+    this.iUsos = this.c.enderecoUsos(); // (em bytes: lido com u8)
   }
 
   renovar() {
@@ -54,6 +62,28 @@ export class Ponte {
     this.f64 = new Float64Array(b);
     this.f32 = new Float32Array(b);
     this.i32 = new Int32Array(b);
+    this.u8 = new Uint8Array(b);
+  }
+
+  // Onde fica a modulação da voz v (posição em f64; um número por destino)
+  mod(v) {
+    return this.c.enderecoMod(v) / 8;
+  }
+
+  // O destino d está sendo modulado por alguma ligação?
+  usa(d) {
+    return this.u8[this.iUsos + d] === 1;
+  }
+
+  // Lista nova de ligações: [{ fonte, destino, quantidade }] com os índices já convertidos
+  definirLigacoes(lista) {
+    const n = Math.min(lista.length, 256);
+    for (let j = 0; j < n; j++) {
+      this.f64[this.iLigacoes + 3 * j] = lista[j].fonte;
+      this.f64[this.iLigacoes + 3 * j + 1] = lista[j].destino;
+      this.f64[this.iLigacoes + 3 * j + 2] = lista[j].quantidade;
+    }
+    this.c.definirLigacoes(n);
   }
 
   // Guarda uma wavetable (vinda da tela) dentro do C++. Devolve o endereço dela (0 = falhou).

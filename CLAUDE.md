@@ -307,6 +307,32 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   11,7%; 1 nota sem unison igual. App: "motor C++ carregado (versão 2)", acorde toca, sem erros.
   `_antigo/teste/motor.js`: `carregar(raiz, wasm)` escolhe qual .wasm usar. Servidor de teste do
   Claude também na porta 8093 (`mysynth-3` no launch.json).
+- F2 (aprovada pelo dono em 26/09/2026, em 2 partes): F2a modulação + envelopes; F2b ruído,
+  filtros, rotas e glide (voz.js apagado). Plano: o gerente de vozes continua no JS até a F4.
+- F2a (26/09/2026, FEITA, em teste; versão 3): no C++ (motor.cpp, bloco "F2a"): `Envelope` (ENV 1,
+  2, 3; cópia exata do antigo envelope.js), `EstadoLfo` + `rateModulado`, LFOs Livres
+  (`comecarBloco(ultima, tamanho)`: livres andam, quantidades das ligações andam, Macros suavizam),
+  ligações (`definirLigacoes(n)` com trios fonte/destino/quantidade na mesa; mesma ordem e regras
+  da antiga MatrizModulacao) e `VozMod` por voz (fontes, modAlvo/mod/modAnterior, modNova/
+  modZerada). Voz: `vozIniciar(v, doSilencio, recomecar, bitsRetrig, s0, s1, s2)`, `vozSoltar`,
+  `vozSilenciar`, `vozAtiva`, `vozNivel`, `vozComecarBloco`, `vozPedaco(v, inicio, fim, pedaco,
+  freq)` (fontes + soma + osciladores), `vozFimPedaco`, `vozEnvelope` (ENV 1 do bloco em
+  `envSaida`), `vozZerar`. Tela: `lfoFase`/`lfoValor(v, l)` (v = -1: Livre); efeitos:
+  `somarEfeitos(ultima)` → `modEfeitos`. `iniciar(taxa, destinos)` recebe DESTINOS_MOD.length
+  (máx. 160). Índices INDICES_LFO/ENV/MACRO e D_RATE_LFO copiados no C++.
+  APAGADO: dsp/envelope.js. Encolhidos: dsp/lfo.js (só FORMAS_LFO, RATE_MIN/MAX) e dsp/modulacao.js
+  (listas + `ligacoesEmNumeros`). A modulação da voz fica no C++; voz.js lê `f64[iMod + destino]`
+  (ruído, filtros) e `ponte.usa(d)`. Sorteios do início da nota (fases, S&H inicial dos LFOs Retrig,
+  ruído) seguem no JS (mesma ordem); o S&H a cada volta usa o sorteio próprio do C++ (xorshift).
+  CONSERTADO junto: desde a modulação a cada 64 amostras, o LFO Livre ligado a knobs de EFEITO não
+  fazia nada e o valor ao vivo dele era sempre 0 (lia a posição 3 de uma lista em que só 0 e 1 eram
+  escritas). Agora usa o último pedaço (`ultimoPedacoLivre`). Medido: Delay Mix com LFO Livre
+  0,00–0,80 (antes parado em 0,30).
+  Medido (`_antigo/teste/teste-f2a.js`, 10 cenários novos: ENV 2 → Cutoff LP24, LFO Retrig → WT Pos
+  e Reso 2 (HP), LFO Livre → Pan, LFO 3 → Nível B, Rate modulado, Macros, ligações entrando/saindo,
+  ruído One Shot modulado, roubo de voz, Mono Legato + Glide, Sustain mudando) + os 14 da F1: todos
+  entre -114 e -141 dB (arredondamento) ou idênticos. Peso igual ao da F1b (a modulação é leve;
+  ganho esperado na F2b). Cópia da F1b para comparar peso: `_antigo/f1b` + `_antigo/motor-f1b.wasm`.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
@@ -519,8 +545,8 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - `dsp/oscilador-voz.js` — um oscilador dentro da nota (unison, WT Pos, nível, Warp)
 - `dsp/warp.js` — contas do Warp (Sync, Bend, PWM)
 - `dsp/meia-banda.js` — filtro para trabalhar em taxa dobrada (Warp e Distorção)
-- `dsp/envelope.js`, `dsp/filtro.js` — envelope ADSR e filtro (usados pelas vozes)
-- `dsp/lfo.js`, `dsp/modulacao.js` — LFO e ligações de modulação (dentro do motor)
+- `dsp/filtro.js` — filtro (usado pelas vozes); envelopes ADSR estão no motor.cpp (F2a)
+- `dsp/lfo.js`, `dsp/modulacao.js` — listas de formas/fontes/destinos (as contas estão no motor.cpp)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
 - `interface/seletor.js` — seletor de número inteiro ‹ N ›
 - `interface/modulacao.js` — fichas, arrastar/tocar para ligar, listas de ligações

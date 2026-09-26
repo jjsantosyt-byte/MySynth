@@ -55,67 +55,21 @@ export const D_RUIDO_PITCH = 38;
 export const D_RUIDO_DURACAO = 39;
 
 // Os destinos de cada oscilador (A, B, C: WT Pos, Detune... Warp) ficam na tabela DESTINOS em
-// motor/motor.cpp (os osciladores estão no C++). Mudou algum índice acima? Mudar lá também.
+// motor/motor.cpp (os osciladores estão no C++). Mudou algum índice acima? Mudar lá também
+// (inclusive INDICES_LFO/ENV/MACRO e D_RATE_LFO, que o C++ também usa).
+//
+// A soma das ligações (quanto cada fonte mexe em cada destino) é feita no C++ (etapa F2a):
+// o processador manda a lista de ligações com os números das fontes e destinos daqui.
 
-export class MatrizModulacao {
-  constructor(taxaAmostragem, tamanhoBloco = 128) {
-    this.ligacoes = [];
-    // Quantidade muda suavemente (~10 ms): ligar/desligar/ajustar não estala.
-    this.suavizar = 1 - Math.exp(-tamanhoBloco / (0.01 * taxaAmostragem));
-    this.usos = new Uint8Array(DESTINOS_MOD.length); // 1 = algum destino está sendo modulado
-    this.usosFonte = new Uint8Array(FONTES_MOD.length); // 1 = a fonte está ligada a algo
+// Lista da tela ([{ fonte: 'lfo1', destino: 'cutoff', quantidade }]) → números para o C++.
+// Nomes desconhecidos ficam de fora.
+export function ligacoesEmNumeros(lista) {
+  const numeros = [];
+  for (const { fonte, destino, quantidade } of lista) {
+    const iFonte = FONTES_MOD.indexOf(fonte);
+    const iDestino = DESTINOS_MOD.indexOf(destino);
+    if (iFonte < 0 || iDestino < 0) continue;
+    numeros.push({ fonte: iFonte, destino: iDestino, quantidade });
   }
-
-  // Recebe a lista completa da página: [{ fonte, destino, quantidade }].
-  definir(lista) {
-    // O que não vier mais na lista vai sumindo até zero e depois sai.
-    for (const ligacao of this.ligacoes) {
-      ligacao.alvo = 0;
-      ligacao.removida = true;
-    }
-    for (const nova of lista) {
-      const iFonte = FONTES_MOD.indexOf(nova.fonte);
-      const iDestino = DESTINOS_MOD.indexOf(nova.destino);
-      if (iFonte < 0 || iDestino < 0) continue;
-      const existente = this.ligacoes.find((l) => l.iFonte === iFonte && l.iDestino === iDestino);
-      if (existente) {
-        existente.alvo = nova.quantidade;
-        existente.removida = false;
-      } else {
-        this.ligacoes.push({ iFonte, iDestino, alvo: nova.quantidade, atual: 0, removida: false });
-      }
-    }
-  }
-
-  // Uma vez por bloco: quantidades andam até o alvo; removidas saem ao chegar em zero.
-  avancarBloco() {
-    this.usos.fill(0);
-    this.usosFonte.fill(0);
-    for (let k = this.ligacoes.length - 1; k >= 0; k--) {
-      const ligacao = this.ligacoes[k];
-      ligacao.atual += (ligacao.alvo - ligacao.atual) * this.suavizar;
-      if (ligacao.removida && Math.abs(ligacao.atual) < 1e-4) {
-        this.ligacoes.splice(k, 1);
-        continue;
-      }
-      this.usos[ligacao.iDestino] = 1;
-      this.usosFonte[ligacao.iFonte] = 1;
-    }
-  }
-
-  usa(iDestino) {
-    return this.usos[iDestino] === 1;
-  }
-
-  usaFonte(iFonte) {
-    return this.usosFonte[iFonte] === 1;
-  }
-
-  // Soma a modulação de cada destino, dados os valores atuais das fontes.
-  somar(valoresFontes, destino) {
-    destino.fill(0);
-    for (const ligacao of this.ligacoes) {
-      destino[ligacao.iDestino] += ligacao.atual * valoresFontes[ligacao.iFonte];
-    }
-  }
+  return numeros;
 }
