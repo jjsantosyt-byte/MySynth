@@ -1,0 +1,20 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Keys",
+      "categoria": "Keys",
+      "som": {
+        "parametros": { "wtPos": 0.3333333333333333, "cutoff": 2500, "decaimento": 0.8, "sustentacao": 0.3, "soltura": 0.4 },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp12" },
+        "fontes": { "env2": { "ataque": 0.005, "decaimento": 0.6, "sustentacao": 0, "soltura": 0.3 } },
+        "ligacoes": [{ "fonte": "env2", "destino": "cutoff", "quantidade": 0.3 }],
+        "efeitos": {
+          "chorus": { "ligado": true, "mix": 0.4 },
+          "reverb": { "ligado": true, "mix": 0.25 }
+        }
+      }
+    }
+  ]
+}

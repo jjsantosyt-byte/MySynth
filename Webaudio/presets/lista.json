@@ -1,0 +1,27 @@
+{
+  "comentario": "Índice dos presets que vêm com o app. O site não consegue 'olhar' dentro de uma pasta sozinho: cada arquivo .synth precisa estar listado aqui (na ordem em que aparece). 'fabrica' = presets de fábrica; 'usuario' = presets seus, trazidos para o projeto (aparecem em qualquer aparelho). Nenhum dos dois pode ser apagado pelo app.",
+  "categorias": ["Início", "Baixo", "Lead", "Pad", "Pluck", "Keys", "FX", "Outros"],
+  "fabrica": [
+    "Init.synth",
+    "Reese Bass.synth",
+    "Sub Bass.synth",
+    "Wobble.synth",
+    "Supersaw.synth",
+    "Square Lead.synth",
+    "Soft Pad.synth",
+    "Pluck.synth",
+    "UFO Lead.synth",
+    "Keys.synth",
+    "Rise FX.synth",
+    "Evil Bass.synth",
+    "Brass Lead.synth",
+    "Rage Synth.synth",
+    "Swag Lead.synth",
+    "Moving Pad.synth",
+    "Super Pluck.synth",
+    "Bright Keys.synth",
+    "Sad Keys.synth",
+    "Robot Talking.synth"
+  ],
+  "usuario": []
+}

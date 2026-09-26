@@ -1,0 +1,125 @@
+// dsp/modulacao.js
+// As "ligações" de modulação: qual fonte mexe em qual controle, e quanto.
+//
+// Fontes: LFO 1, 2, 3 (de -1 a +1) e ENV 2, ENV 3 (de 0 a 1).
+// Destinos: controles de som. A modulação soma na posição do knob (0 a 1):
+// quantidade +50% com a fonte no máximo = knob meio giro para cima.
+
+import { MOD_EFEITOS } from './efeitos/modulaveis.js';
+
+// O LFO 3 e os Macros vieram depois: ficam no fim (os índices antigos não mudam).
+// Macros (M1–M4): o valor é o knob do macro (0 a 1), o mesmo para todas as notas e efeitos.
+export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3', 'lfo3', 'macro1', 'macro2', 'macro3', 'macro4'];
+// Onde cada LFO (1, 2, 3), ENV (2, 3) e Macro (1–4) fica na lista acima
+export const INDICES_LFO = [0, 1, 4];
+export const INDICES_ENV = [2, 3];
+export const INDICES_MACRO = [5, 6, 7, 8];
+// cutoff/resonancia = Filtro 1; cutoff2/resonancia2 = Filtro 2.
+// wtPos/detune/width/nivelOsc = OSC A; os do B e do C têm a letra no fim (sempre no fim da
+// lista: os índices antigos não mudam).
+export const DESTINOS_MOD = [
+  'wtPos', 'detune', 'width', 'cutoff', 'resonancia', 'ruido', 'nivelOsc', 'cutoff2', 'resonancia2',
+  'wtPosB', 'detuneB', 'widthB', 'nivelOscB',
+  'wtPosC', 'detuneC', 'widthC', 'nivelOscC',
+  // Afinação de cada oscilador (Oct e Semi andam em degraus; Fine é contínuo)
+  'oitavaOsc', 'semiOsc', 'fineOsc',
+  'oitavaOscB', 'semiOscB', 'fineOscB',
+  'oitavaOscC', 'semiOscC', 'fineOscC',
+  // Pan (posição no estéreo) e Blend (volume das cópias de fora do unison) de cada oscilador
+  'panOsc', 'blendOsc',
+  'panOscB', 'blendOscB',
+  'panOscC', 'blendOscC',
+  // Quantidade do Warp de cada oscilador
+  'warpOsc', 'warpOscB', 'warpOscC',
+  // Rate dos LFOs 1, 2, 3 e Pitch/Duração do Ruído
+  'rateLfo1', 'rateLfo2', 'rateLfo3', 'ruidoPitch', 'ruidoDuracao',
+  // Knobs dos efeitos ("delay.mix"...; ver dsp/efeitos/modulaveis.js), sempre no fim da lista.
+  // Destino novo que não seja de efeito: ANTES desta linha (índices fixos acima não mudam).
+  ...MOD_EFEITOS.map((m) => m.destino),
+];
+// Onde começam os destinos dos efeitos (na ordem de MOD_EFEITOS)
+export const D_PRIMEIRO_EFEITO = DESTINOS_MOD.indexOf(MOD_EFEITOS[0].destino);
+
+// Índices para acesso rápido
+export const D_WTPOS = 0;
+export const D_DETUNE = 1;
+export const D_WIDTH = 2;
+export const D_CUTOFF = 3;
+export const D_RESO = 4;
+export const D_RUIDO = 5;
+export const D_NIVEL_OSC = 6;
+export const D_CUTOFF2 = 7;
+export const D_RESO2 = 8;
+export const D_RATE_LFO = [35, 36, 37]; // LFO 1, 2, 3
+export const D_RUIDO_PITCH = 38;
+export const D_RUIDO_DURACAO = 39;
+
+// Destinos de cada oscilador (A, B, C), na ordem acima
+export const DESTINOS_OSC = [
+  { wtPos: 0, detune: 1, width: 2, nivel: 6, oitava: 17, semi: 18, fine: 19, pan: 26, blend: 27, warp: 32 },
+  { wtPos: 9, detune: 10, width: 11, nivel: 12, oitava: 20, semi: 21, fine: 22, pan: 28, blend: 29, warp: 33 },
+  { wtPos: 13, detune: 14, width: 15, nivel: 16, oitava: 23, semi: 24, fine: 25, pan: 30, blend: 31, warp: 34 },
+];
+
+export class MatrizModulacao {
+  constructor(taxaAmostragem, tamanhoBloco = 128) {
+    this.ligacoes = [];
+    // Quantidade muda suavemente (~10 ms): ligar/desligar/ajustar não estala.
+    this.suavizar = 1 - Math.exp(-tamanhoBloco / (0.01 * taxaAmostragem));
+    this.usos = new Uint8Array(DESTINOS_MOD.length); // 1 = algum destino está sendo modulado
+    this.usosFonte = new Uint8Array(FONTES_MOD.length); // 1 = a fonte está ligada a algo
+  }
+
+  // Recebe a lista completa da página: [{ fonte, destino, quantidade }].
+  definir(lista) {
+    // O que não vier mais na lista vai sumindo até zero e depois sai.
+    for (const ligacao of this.ligacoes) {
+      ligacao.alvo = 0;
+      ligacao.removida = true;
+    }
+    for (const nova of lista) {
+      const iFonte = FONTES_MOD.indexOf(nova.fonte);
+      const iDestino = DESTINOS_MOD.indexOf(nova.destino);
+      if (iFonte < 0 || iDestino < 0) continue;
+      const existente = this.ligacoes.find((l) => l.iFonte === iFonte && l.iDestino === iDestino);
+      if (existente) {
+        existente.alvo = nova.quantidade;
+        existente.removida = false;
+      } else {
+        this.ligacoes.push({ iFonte, iDestino, alvo: nova.quantidade, atual: 0, removida: false });
+      }
+    }
+  }
+
+  // Uma vez por bloco: quantidades andam até o alvo; removidas saem ao chegar em zero.
+  avancarBloco() {
+    this.usos.fill(0);
+    this.usosFonte.fill(0);
+    for (let k = this.ligacoes.length - 1; k >= 0; k--) {
+      const ligacao = this.ligacoes[k];
+      ligacao.atual += (ligacao.alvo - ligacao.atual) * this.suavizar;
+      if (ligacao.removida && Math.abs(ligacao.atual) < 1e-4) {
+        this.ligacoes.splice(k, 1);
+        continue;
+      }
+      this.usos[ligacao.iDestino] = 1;
+      this.usosFonte[ligacao.iFonte] = 1;
+    }
+  }
+
+  usa(iDestino) {
+    return this.usos[iDestino] === 1;
+  }
+
+  usaFonte(iFonte) {
+    return this.usosFonte[iFonte] === 1;
+  }
+
+  // Soma a modulação de cada destino, dados os valores atuais das fontes.
+  somar(valoresFontes, destino) {
+    destino.fill(0);
+    for (const ligacao of this.ligacoes) {
+      destino[ligacao.iDestino] += ligacao.atual * valoresFontes[ligacao.iFonte];
+    }
+  }
+}

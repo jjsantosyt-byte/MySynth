@@ -9,7 +9,7 @@
 //
 // Não faz parte do motor de som: é só para o navegador guardar os arquivos.
 
-const GAVETA = 'mysynth-arquivos-v1';
+const GAVETA = 'mysynth-webaudio-v1'; // nome próprio: não mistura com o app principal
 
 // Arquivos do app (o que não estiver aqui também é guardado na primeira vez que for usado)
 const ARQUIVOS = [
@@ -20,8 +20,6 @@ const ARQUIVOS = [
   'manifest.json',
   'principal.js',
   'processador-synth.js',
-  'motor/motor.wasm',
-  'motor/ponte.js',
   'wavetable.js',
   'importar-wav.js',
   'visualizacao.js',
@@ -34,6 +32,8 @@ const ARQUIVOS = [
   'dsp/lfo.js',
   'dsp/meia-banda.js',
   'dsp/modulacao.js',
+  'dsp/oscilador-voz.js',
+  'dsp/oscilador.js',
   'dsp/ruido.js',
   'dsp/voz.js',
   'dsp/warp.js',
@@ -95,11 +95,11 @@ self.addEventListener('install', (evento) => {
 });
 
 self.addEventListener('activate', (evento) => {
-  // Apaga gavetas de versões antigas deste arquivo (só as dele: a cópia Webaudio/ tem as suas)
+  // Apaga gavetas de versões antigas deste arquivo
   evento.waitUntil(
     caches
       .keys()
-      .then((nomes) => Promise.all(nomes.filter((n) => n.startsWith('mysynth-arquivos-') && n !== GAVETA).map((n) => caches.delete(n))))
+      .then((nomes) => Promise.all(nomes.filter((n) => n.startsWith('mysynth-webaudio-') && n !== GAVETA).map((n) => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });

@@ -1,0 +1,18 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Supersaw",
+      "categoria": "Lead",
+      "som": {
+        "parametros": { "wtPos": 0.6666666666666666, "detune": 0.3, "width": 1, "ataque": 0.01, "soltura": 0.3 },
+        "opcoes": { "unison": 7 },
+        "efeitos": {
+          "delay": { "ligado": true, "tempo": 0.3, "feedback": 0.3, "mix": 0.2 },
+          "reverb": { "ligado": true, "tamanho": 0.5, "brilho": 0.6, "mix": 0.25 }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,600 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <!-- viewport-fit=cover: usa a tela toda no iPhone (as margens da "ilha" são tratadas no estilo) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <title>MySynth Webaudio</title>
+    <!-- Para instalar como app ("Adicionar à Tela de Início"): abre em tela cheia, sem as barras do navegador -->
+    <link rel="manifest" href="manifest.json" />
+    <meta name="theme-color" content="#0b0c0f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="MySynth" />
+    <link rel="apple-touch-icon" href="icones/icone-180.png" />
+    <link rel="icon" type="image/png" href="icones/icone-192.png" />
+    <link rel="stylesheet" href="estilo.css" />
+    <!-- Tema (Básico / Comum / Claro): aplicado ANTES de desenhar a tela, para não piscar o
+         tema errado. O mesmo nome de gaveta do interface/tema.js. -->
+    <script>
+      try {
+        var tema = localStorage.getItem('mysynth.tema.v1');
+        document.documentElement.dataset.tema = tema === 'basico' || tema === 'claro' ? tema : 'comum';
+      } catch (e) {
+        document.documentElement.dataset.tema = 'comum';
+      }
+    </script>
+  </head>
+  <body>
+    <!-- Tela de carregamento: aparece na hora (só HTML e CSS) e some quando o app está pronto
+         (interface/abertura.js). A onda se desenha em loop enquanto isso. -->
+    <div id="carregando" class="tela-carregando" role="status" aria-live="polite">
+      <svg class="carregando-onda" viewBox="0 0 120 40" aria-hidden="true">
+        <path pathLength="300" d="M0 20 Q10 2 20 20 T40 20 L45 5 L45 35 L50 20 L60 20 Q65 8 70 20 Q75 32 80 20 L90 6 L100 34 L110 20 L120 20" />
+      </svg>
+      <div class="carregando-nome">MySynth</div>
+      <div class="carregando-trilho"><div id="carregando-barra" class="carregando-barra"></div></div>
+      <div id="carregando-texto" class="carregando-texto">Preparando o som…</div>
+    </div>
+
+    <!-- Tela inicial: idioma + tema, só na primeira vez que o app é aberto (depois, em
+         Configurações). Tocar numa opção só MARCA; nada muda até tocar em "Seguir"
+         (interface/abertura.js). Textos em português e inglês ao mesmo tempo. -->
+    <div id="escolha-idioma" class="tela-idioma" hidden>
+      <svg class="idioma-logo" viewBox="0 0 32 32" aria-hidden="true"><path d="M3 16 Q7 5 11 16 T19 16 L21 8 L21 24 L23 16 L29 16" /></svg>
+      <div class="inicio-secoes">
+      <section class="inicio-secao">
+      <h2 class="idioma-titulo">Idioma · Language</h2>
+      <div class="idioma-opcoes">
+        <button class="idioma-botao" data-idioma="pt" aria-pressed="true"><span class="idioma-nome">Português</span><span class="idioma-regiao">Brasil</span></button>
+        <button class="idioma-botao" data-idioma="en" aria-pressed="false"><span class="idioma-nome">English</span><span class="idioma-regiao">United States</span></button>
+      </div>
+      </section>
+      <section class="inicio-secao">
+      <h2 class="idioma-titulo">Tema · Theme</h2>
+      <!-- Miniaturas com as cores fixas de cada tema (não mudam com o tema atual) -->
+      <div class="idioma-opcoes temas-opcoes">
+        <button class="idioma-botao tema-botao" data-tema-opcao="basico" aria-pressed="false">
+          <svg class="tema-miniatura" viewBox="0 0 120 44" aria-hidden="true">
+            <rect width="120" height="44" rx="6" fill="#0b0c0f" /><rect x="4" y="4" width="112" height="36" rx="6" fill="#181b23" stroke="#2b303e" />
+            <rect x="9" y="9" width="62" height="26" rx="5" fill="#1f2433" /><path d="M12 22q6-11 12 0t12 0 12 0 12 0" fill="none" stroke="#3fb8ff" stroke-width="2" />
+            <circle cx="89" cy="22" r="8" fill="none" stroke="#262a35" stroke-width="3.5" /><path d="M83 27a8 8 0 1 1 12 0" fill="none" stroke="#3fb8ff" stroke-width="3.5" />
+          </svg>
+          <span class="idioma-nome">Básico</span><span class="idioma-regiao">Basic</span>
+        </button>
+        <button class="idioma-botao tema-botao" data-tema-opcao="comum" aria-pressed="true">
+          <svg class="tema-miniatura" viewBox="0 0 120 44" aria-hidden="true">
+            <rect width="120" height="44" fill="#0b0c0f" /><polygon points="10,4 110,4 116,10 116,34 110,40 10,40 4,34 4,10" fill="#181b23" stroke="#2b303e" />
+            <rect x="9" y="9" width="62" height="26" fill="#1f2433" /><path d="M12 22q6-11 12 0t12 0 12 0 12 0" fill="none" stroke="#46f06e" stroke-width="2" />
+            <circle cx="89" cy="22" r="6" fill="#262a35" /><path d="M83 27a8 8 0 1 1 12 0" fill="none" stroke="#3fb8ff" stroke-width="1.8" /><circle cx="104" cy="14" r="2.5" fill="#3fb8ff" />
+          </svg>
+          <span class="idioma-nome">Comum</span><span class="idioma-regiao">Standard</span>
+        </button>
+        <button class="idioma-botao tema-botao" data-tema-opcao="claro" aria-pressed="false">
+          <svg class="tema-miniatura" viewBox="0 0 120 44" aria-hidden="true">
+            <rect width="120" height="44" fill="#e9ecf1" /><polygon points="10,4 110,4 116,10 116,34 110,40 10,40 4,34 4,10" fill="#f7f8fb" stroke="#c5cbd6" />
+            <rect x="9" y="9" width="62" height="26" fill="#ffffff" /><path d="M12 22q6-11 12 0t12 0 12 0 12 0" fill="none" stroke="#1a9e4a" stroke-width="2" />
+            <circle cx="89" cy="22" r="6" fill="#e2e6ed" /><path d="M83 27a8 8 0 1 1 12 0" fill="none" stroke="#1f7fd1" stroke-width="1.8" /><circle cx="104" cy="14" r="2.5" fill="#1f7fd1" />
+          </svg>
+          <span class="idioma-nome">Claro</span><span class="idioma-regiao">Light</span>
+        </button>
+      </div>
+      </section>
+      </div>
+      <button id="botao-seguir" class="botao botao-destaque botao-seguir">Seguir · Continue</button>
+      <p class="idioma-dica">Dá para mudar depois em Configurações · You can change it later in Settings</p>
+    </div>
+
+    <main>
+      <!-- Barra de cima: controles gerais, sempre visíveis -->
+      <header class="barra-topo">
+        <!-- Logo do app: abre o menu (Configurações e Arquivo) — interface/menu-app.js -->
+        <button id="botao-logo" class="botao botao-logo" aria-label="Menu do MySynth" aria-haspopup="menu" aria-expanded="false">
+          <svg viewBox="0 0 32 32" aria-hidden="true">
+            <path d="M3 16 Q7 5 11 16 T19 16 L21 8 L21 24 L23 16 L29 16" />
+          </svg>
+        </button>
+        <div id="menu-logo" class="menu-logo" role="menu" hidden>
+          <!-- (As opções de arquivo "em breve" saíram: o dono decidiu não fazer o Gravar .wav) -->
+          <button class="menu-item" role="menuitem" data-acao="configuracoes">Configurações</button>
+          <div class="menu-divisor"></div>
+          <button class="menu-item" role="menuitem" data-acao="sobre">Sobre o MySynth</button>
+          <a class="menu-item" role="menuitem" href="privacidade.html">Política de privacidade</a>
+        </div>
+        <!-- Presets: ‹ Nome › Salvar (montado pelo interface/presets.js) -->
+        <div id="lugar-presets"></div>
+        <!-- Desfazer / Refazer (ícones postos pelo principal.js) e Hold (segura as notas) -->
+        <div class="grupo-acoes">
+          <button id="botao-desfazer" class="botao botao-icone" aria-label="Desfazer" title="Desfazer" disabled></button>
+          <button id="botao-refazer" class="botao botao-icone" aria-label="Refazer" title="Refazer" disabled></button>
+          <button id="botao-hold" class="chave" aria-pressed="false" title="Segura as notas depois de soltar as teclas">Hold</button>
+        </div>
+        <div class="grupo-oitava">
+          <!-- No celular em pé, a palavra "Oitava" some e fica só – / + -->
+          <button id="oitava-menos" class="botao" aria-label="Oitava abaixo"><span class="texto-longo">Oitava </span>–</button>
+          <span id="rotulo-oitava" class="rotulo">C3</span>
+          <button id="oitava-mais" class="botao" aria-label="Oitava acima"><span class="texto-longo">Oitava </span>+</button>
+        </div>
+        <label class="grupo-volume">
+          Volume
+          <!-- Volume padrão 59% (= 3 dB abaixo dos 70% de antes: o ganho é o valor ao quadrado) -->
+          <!-- A barra funciona normal (arrastar, teclado); a "bolinha" é um capotraste desenhado
+               por cima, que acompanha o valor e cresce ao segurar (principal.js) -->
+          <span class="volume-trilho">
+            <input id="volume" type="range" min="0" max="1" step="0.01" value="0.59" />
+            <svg class="capotraste" viewBox="0 0 32 50" aria-hidden="true">
+              <defs>
+                <linearGradient id="capo-corpo" x1="0" x2="1">
+                  <stop offset="0" stop-color="#555b6a" />
+                  <stop offset="0.4" stop-color="#262930" />
+                  <stop offset="1" stop-color="#0f1014" />
+                </linearGradient>
+              </defs>
+              <!-- asa (a alavanca de apertar), inclinada para cima -->
+              <path d="M14 13 L4 4 Q1.5 2 1.5 5.5 L2 7 L11.5 16.5 Z" fill="#2b2e36" stroke="#7d869c" stroke-width="0.8" stroke-linejoin="round" />
+              <!-- corpo em "C" que abraça o braço e desce cruzando a barra -->
+              <path d="M7 10.5 Q7 6 11.5 6 L17 6 Q21.5 6 21.5 10.5 L21.5 45 Q21.5 48 18.5 48 L15 48 Q12 48 12 45 L12 14 L10.5 14 Q7 14 7 10.5 Z" fill="url(#capo-corpo)" stroke="#8a93a8" stroke-width="0.9" stroke-linejoin="round" />
+              <!-- sapata de baixo (encosta por trás do braço) -->
+              <rect x="3" y="30" width="11" height="4.5" rx="2.2" fill="#1c1e24" stroke="#7d869c" stroke-width="0.8" />
+              <!-- borracha que aperta as cordas -->
+              <rect x="15.2" y="17" width="3" height="27" rx="1.5" fill="#09090b" />
+              <!-- mola/eixo -->
+              <circle cx="13.5" cy="10.5" r="2.6" fill="#3d414d" stroke="#9aa3b8" stroke-width="0.8" />
+            </svg>
+          </span>
+        </label>
+        <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
+      </header>
+
+      <p id="aviso" class="aviso" hidden></p>
+
+      <!-- Linha das abas + fichas de modulação (juntas, para economizar altura) -->
+      <div id="linha-abas" class="linha-abas">
+        <!-- Abas: cada uma com uma função só -->
+        <nav class="abas" role="tablist">
+          <!-- Cada aba: desenhinho (ícone) em cima do nome -->
+          <button class="aba ativa" role="tab" aria-selected="true" data-aba="osc">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 7C4 0 7 0 8 7S11 14 13 7 16 0 18 7 21 14 22 7" /></svg><span>OSC</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="filtro">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 6H12Q15 6 16 2Q17 6 19 10L22 13" /></svg><span>Filtro</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="env">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 13L6 2L10 7H16L22 13" /></svg><span>ENV</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="lfo">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M2 7L5 2L11 12L17 2L22 10" /></svg><span>LFO</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="fx">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><path d="M4 1V13M10 4V13M16 7V13M21 10V13" /></svg><span>FX</span>
+          </button>
+          <button class="aba" role="tab" aria-selected="false" data-aba="global">
+            <svg class="aba-icone" viewBox="0 0 24 14" aria-hidden="true"><circle cx="12" cy="7" r="3.5" /><path d="M12 0.5V2.5M12 11.5V13.5M5.5 7H7.5M16.5 7H18.5M7.4 2.4L8.8 3.8M15.2 10.2L16.6 11.6M7.4 11.6L8.8 10.2M15.2 3.8L16.6 2.4" /></svg><span>Global</span>
+          </button>
+        </nav>
+
+        <!-- Fontes de modulação (sempre visíveis): arraste uma ficha até um controle,
+             ou toque nela e depois no controle -->
+        <div id="barra-fontes" class="barra-fontes">
+          <!-- "M": abre o painel dos Macros (as fichas LFO/ENV vêm depois, pelo interface/modulacao.js) -->
+          <button id="botao-macros" class="ficha ficha-macros" aria-expanded="false" aria-label="Macros" title="Macros">M</button>
+        </div>
+        <!-- Painel dos Macros: abre por cima da tela (botão "M"); fecha tocando fora ou no M -->
+        <div id="painel-macros" class="painel-macros" hidden>
+          <div class="macros-colunas">
+            <div class="macro-coluna" data-macro="macro1"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro1"></div></div>
+            <div class="macro-coluna" data-macro="macro2"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro2"></div></div>
+            <div class="macro-coluna" data-macro="macro3"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro3"></div></div>
+            <div class="macro-coluna" data-macro="macro4"><div data-knob-macro></div><div data-ficha-macro></div><div class="lista-mod" data-lista="macro4"></div></div>
+          </div>
+        </div>
+      </div>
+      <p id="dica-modulacao" class="dica-modulacao" hidden></p>
+
+      <!-- Aba OSC: 3 osciladores iguais (A, B, C) + Ruído.
+           Cada cartão de oscilador tem as mesmas peças (marcadas com data-...);
+           o principal.js liga cada uma aos controles daquele oscilador. -->
+      <section class="conteudo-aba" data-painel="osc">
+        <div class="modulos modulos-osc">
+          <article class="cartao cartao-osc" data-osc="A">
+            <div class="cabecalho-cartao cabecalho-osc">
+              <button class="titulo-cartao botao-pagina" data-pagina-osc aria-pressed="false"><span class="nome-longo">OSC </span>A<span class="marca-pagina" aria-hidden="true">⋯</span></button>
+              <!-- Qual wavetable o oscilador usa: ‹ Básica › -->
+              <div class="seletor-wt">
+                <button data-wt-anterior class="seletor-botao" aria-label="Wavetable anterior"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8L10 13" /></svg></button>
+                <!-- Tocar no nome abre a lista de wavetables (e Importar .wav) -->
+                <button data-wt-nome class="seletor-wt-nome seletor-wt-lista" aria-haspopup="dialog">Básica</button>
+                <button data-wt-proxima class="seletor-botao" aria-label="Próxima wavetable"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3L11 8L6 13" /></svg></button>
+              </div>
+              <!-- Liga/desliga o oscilador -->
+              <button data-osc-ligado class="chave" aria-pressed="true">On</button>
+            </div>
+            <div class="tela-grafico tela-onda">
+              <!-- Arrastar no desenho (para os lados ou para cima/baixo) também muda o WT Pos -->
+              <canvas data-tela-onda></canvas>
+              <span data-nome-onda class="nome-onda">Seno</span>
+            </div>
+            <div class="linha-wt">
+              <label class="grupo-wtpos" data-destino="wtPos">
+                <span>WT Pos</span>
+                <span class="trilho-wtpos">
+                  <input data-wt-pos type="range" min="0" max="1" step="0.001" value="0" />
+                  <!-- Faixas de modulação e ponto ao vivo (desenhados pelo principal.js) -->
+                  <span data-faixas-wtpos class="faixas-barra" aria-hidden="true"></span>
+                </span>
+              </label>
+              <!-- Rota de filtro do oscilador: F1, F2, F1→F2, F2→F1 (toque para trocar) -->
+              <button class="chave rota" data-rota="rotaOsc" title="Para qual filtro o oscilador vai">F1</button>
+            </div>
+            <!-- Atalhos: tocar no nome pula direto para aquela forma de onda -->
+            <div data-atalhos class="atalhos-wt"></div>
+            <!-- Afinação do oscilador: Oct, Semi, Fine -->
+            <div data-afinacao class="linha-afinacao"></div>
+            <!-- Unison (cópias), Detune, Width e Nível -->
+            <div data-knobs-osc class="linha-knobs"></div>
+            <!-- Página "Mais" (tocar no título do cartão): Warp ‹ modo ›, Pan, Blend, Phase, Rand, Warp -->
+            <div data-pagina-mais class="pagina-mais">
+              <div data-warp class="linha-warp"></div>
+              <div data-knobs-mais class="linha-knobs"></div>
+            </div>
+          </article>
+
+          <article class="cartao cartao-osc" data-osc="B">
+            <div class="cabecalho-cartao cabecalho-osc">
+              <button class="titulo-cartao botao-pagina" data-pagina-osc aria-pressed="false"><span class="nome-longo">OSC </span>B<span class="marca-pagina" aria-hidden="true">⋯</span></button>
+              <div class="seletor-wt">
+                <button data-wt-anterior class="seletor-botao" aria-label="Wavetable anterior"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8L10 13" /></svg></button>
+                <button data-wt-nome class="seletor-wt-nome seletor-wt-lista" aria-haspopup="dialog">Básica</button>
+                <button data-wt-proxima class="seletor-botao" aria-label="Próxima wavetable"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3L11 8L6 13" /></svg></button>
+              </div>
+              <button data-osc-ligado class="chave" aria-pressed="false">Off</button>
+            </div>
+            <div class="tela-grafico tela-onda">
+              <canvas data-tela-onda></canvas>
+              <span data-nome-onda class="nome-onda">Seno</span>
+            </div>
+            <div class="linha-wt">
+              <label class="grupo-wtpos" data-destino="wtPosB">
+                <span>WT Pos</span>
+                <span class="trilho-wtpos">
+                  <input data-wt-pos type="range" min="0" max="1" step="0.001" value="0" />
+                  <span data-faixas-wtpos class="faixas-barra" aria-hidden="true"></span>
+                </span>
+              </label>
+              <button class="chave rota" data-rota="rotaOscB" title="Para qual filtro o oscilador vai">F1</button>
+            </div>
+            <div data-atalhos class="atalhos-wt"></div>
+            <!-- Afinação do oscilador: Oct, Semi, Fine -->
+            <div data-afinacao class="linha-afinacao"></div>
+            <div data-knobs-osc class="linha-knobs"></div>
+            <!-- Página "Mais" (tocar no título do cartão): Warp ‹ modo ›, Pan, Blend, Phase, Rand, Warp -->
+            <div data-pagina-mais class="pagina-mais">
+              <div data-warp class="linha-warp"></div>
+              <div data-knobs-mais class="linha-knobs"></div>
+            </div>
+          </article>
+
+          <article class="cartao cartao-osc" data-osc="C">
+            <div class="cabecalho-cartao cabecalho-osc">
+              <button class="titulo-cartao botao-pagina" data-pagina-osc aria-pressed="false"><span class="nome-longo">OSC </span>C<span class="marca-pagina" aria-hidden="true">⋯</span></button>
+              <div class="seletor-wt">
+                <button data-wt-anterior class="seletor-botao" aria-label="Wavetable anterior"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8L10 13" /></svg></button>
+                <button data-wt-nome class="seletor-wt-nome seletor-wt-lista" aria-haspopup="dialog">Básica</button>
+                <button data-wt-proxima class="seletor-botao" aria-label="Próxima wavetable"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3L11 8L6 13" /></svg></button>
+              </div>
+              <button data-osc-ligado class="chave" aria-pressed="false">Off</button>
+            </div>
+            <div class="tela-grafico tela-onda">
+              <canvas data-tela-onda></canvas>
+              <span data-nome-onda class="nome-onda">Seno</span>
+            </div>
+            <div class="linha-wt">
+              <label class="grupo-wtpos" data-destino="wtPosC">
+                <span>WT Pos</span>
+                <span class="trilho-wtpos">
+                  <input data-wt-pos type="range" min="0" max="1" step="0.001" value="0" />
+                  <span data-faixas-wtpos class="faixas-barra" aria-hidden="true"></span>
+                </span>
+              </label>
+              <button class="chave rota" data-rota="rotaOscC" title="Para qual filtro o oscilador vai">F1</button>
+            </div>
+            <div data-atalhos class="atalhos-wt"></div>
+            <!-- Afinação do oscilador: Oct, Semi, Fine -->
+            <div data-afinacao class="linha-afinacao"></div>
+            <div data-knobs-osc class="linha-knobs"></div>
+            <!-- Página "Mais" (tocar no título do cartão): Warp ‹ modo ›, Pan, Blend, Phase, Rand, Warp -->
+            <div data-pagina-mais class="pagina-mais">
+              <div data-warp class="linha-warp"></div>
+              <div data-knobs-mais class="linha-knobs"></div>
+            </div>
+          </article>
+
+          <!-- Ruído: passa pelo mesmo filtro e envelope das notas -->
+          <article class="cartao cartao-ruido">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Ruído</h2>
+              <button id="ruido-ligado" class="chave" aria-pressed="false">Off</button>
+            </div>
+            <!-- Tipo (White, Pink, Brown) e rota de filtro, numa linha -->
+            <div class="linha-ruido">
+              <div class="seletor-wt">
+                <button id="ruido-anterior" class="seletor-botao" aria-label="Tipo de ruído anterior"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3L5 8L10 13" /></svg></button>
+                <span id="ruido-tipo" class="seletor-wt-nome">White</span>
+                <button id="ruido-proximo" class="seletor-botao" aria-label="Próximo tipo de ruído"><svg class="icone" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3L11 8L6 13" /></svg></button>
+              </div>
+              <button class="chave rota" data-rota="rotaRuido" title="Para qual filtro o ruído vai">F1</button>
+            </div>
+            <!-- Loop = contínuo; One Shot = só uma rajada no começo da nota (knob Duração) -->
+            <div id="modo-ruido" class="grupo-botoes modo-ruido">
+              <button class="botao" data-modo="loop">Loop</button>
+              <button class="botao" data-modo="oneshot">One Shot</button>
+            </div>
+            <!-- Nível, Duração (One Shot) e Pitch (cor do ruído) -->
+            <div id="knobs-ruido" class="linha-knobs"></div>
+            <!-- Track: a cor acompanha a nota · 1 ruído: acordes com um ruído só -->
+            <div class="linha-ruido">
+              <button id="ruido-track" class="chave" aria-pressed="false" title="A cor do ruído acompanha a nota">Track</button>
+              <button id="ruido-unico" class="chave" aria-pressed="true" title="Acordes: só a nota mais recente toca ruído">1 ruído</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Aba Filtro: 2 filtros. Cada fonte (OSC A, Ruído) escolhe a sua rota:
+           F1, F2, F1→F2 ou F2→F1 (botão de rota no cartão da fonte). -->
+      <section class="conteudo-aba" data-painel="filtro" hidden>
+        <div class="modulos">
+          <article class="cartao" data-filtro="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Filtro 1</h2>
+              <button class="chave" data-filtro-ligado aria-pressed="false">Off</button>
+            </div>
+            <div class="tela-grafico"><canvas data-filtro-tela></canvas></div>
+            <div class="grupo-botoes" data-filtro-tipos></div>
+            <div class="linha-knobs" data-filtro-knobs></div>
+          </article>
+
+          <article class="cartao" data-filtro="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Filtro 2</h2>
+              <button class="chave" data-filtro-ligado aria-pressed="false">Off</button>
+            </div>
+            <div class="tela-grafico"><canvas data-filtro-tela></canvas></div>
+            <div class="grupo-botoes" data-filtro-tipos></div>
+            <div class="linha-knobs" data-filtro-knobs></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Aba ENV: ENV 1 controla o volume; ENV 2 e 3 servem para modular -->
+      <section class="conteudo-aba" data-painel="env" hidden>
+        <div class="modulos">
+          <article class="cartao">
+            <h2 class="titulo-cartao">ENV 1 · Volume</h2>
+            <div class="tela-grafico"><canvas id="tela-envelope"></canvas></div>
+            <div id="knobs-envelope" class="linha-knobs"></div>
+          </article>
+
+          <article class="cartao">
+            <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-env2)"></span>ENV 2</h2>
+            <div class="tela-grafico"><canvas data-tela-env="env2"></canvas></div>
+            <div class="linha-knobs" data-knobs-env="env2"></div>
+            <div class="lista-mod" data-lista="env2"></div>
+          </article>
+
+          <article class="cartao">
+            <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-env3)"></span>ENV 3</h2>
+            <div class="tela-grafico"><canvas data-tela-env="env3"></canvas></div>
+            <div class="linha-knobs" data-knobs-env="env3"></div>
+            <div class="lista-mod" data-lista="env3"></div>
+          </article>
+        </div>
+      </section>
+
+      <!-- Aba LFO: 3 LFOs -->
+      <section class="conteudo-aba" data-painel="lfo" hidden>
+        <div class="modulos">
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-lfo1)"></span>LFO 1</h2>
+              <!-- Retrig: recomeça a cada nota. Livre: roda sem parar. -->
+              <button class="chave" data-modo-lfo="lfo1" aria-pressed="true">Retrig</button>
+            </div>
+            <!-- Desenho e knob Rate lado a lado (economiza altura) -->
+            <div class="lfo-corpo">
+              <div class="tela-grafico"><canvas data-tela-lfo="lfo1"></canvas></div>
+              <div class="linha-knobs" data-knobs-lfo="lfo1"></div>
+            </div>
+            <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo1"></div>
+            <div class="lista-mod" data-lista="lfo1"></div>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-lfo2)"></span>LFO 2</h2>
+              <button class="chave" data-modo-lfo="lfo2" aria-pressed="true">Retrig</button>
+            </div>
+            <div class="lfo-corpo">
+              <div class="tela-grafico"><canvas data-tela-lfo="lfo2"></canvas></div>
+              <div class="linha-knobs" data-knobs-lfo="lfo2"></div>
+            </div>
+            <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo2"></div>
+            <div class="lista-mod" data-lista="lfo2"></div>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao"><span class="bolinha-fonte" style="background: var(--cor-lfo3)"></span>LFO 3</h2>
+              <button class="chave" data-modo-lfo="lfo3" aria-pressed="true">Retrig</button>
+            </div>
+            <div class="lfo-corpo">
+              <div class="tela-grafico"><canvas data-tela-lfo="lfo3"></canvas></div>
+              <div class="linha-knobs" data-knobs-lfo="lfo3"></div>
+            </div>
+            <div class="grupo-botoes formas-lfo" data-formas-lfo="lfo3"></div>
+            <div class="lista-mod" data-lista="lfo3"></div>
+          </article>
+        </div>
+      </section>
+      <!-- Aba FX: efeitos na ordem do caminho do som
+           (Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb),
+           em 2 páginas:
+           "Cor" (mudam o timbre) e "Espaço" (movimento e ambiente). -->
+      <section class="conteudo-aba" data-painel="fx" hidden>
+        <div class="fx-paginado">
+        <nav class="paginas-fx" aria-label="Páginas de efeitos">
+          <button class="botao escolhido" data-pagina-fx="1">Cor</button>
+          <button class="botao" data-pagina-fx="2">Espaço</button>
+        </nav>
+        <div class="modulos modulos-4 modulos-fx" data-pagina-atual="1">
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Saturação</h2>
+              <button class="chave" data-ligar-efeito="saturacao" aria-pressed="false">Off</button>
+            </div>
+            <!-- Tipo: Fita (arredonda), Válvula (cheia, assimétrica), Transistor (mais presença) -->
+            <div id="tipos-saturacao" class="grupo-botoes"></div>
+            <div class="linha-knobs" data-knobs-efeito="saturacao"></div>
+          </article>
+
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Distorção</h2>
+              <button class="chave" data-ligar-efeito="distorcao" aria-pressed="false">Off</button>
+            </div>
+            <!-- Tipo: Suave (arredonda), Dura (corta), Válvula (assimétrica) -->
+            <div id="tipos-distorcao" class="grupo-botoes"></div>
+            <div class="linha-knobs" data-knobs-efeito="distorcao"></div>
+          </article>
+
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Filtro Track</h2>
+              <button class="chave" data-ligar-efeito="filtroTrack" aria-pressed="false">Off</button>
+            </div>
+            <!-- Filtro de efeito com o Cutoff em notas, que pode acompanhar a última nota tocada -->
+            <div id="tipos-filtro-track" class="grupo-botoes"></div>
+            <div class="linha-knobs" data-knobs-efeito="filtroTrack"></div>
+          </article>
+
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">EQ</h2>
+              <button class="chave" data-ligar-efeito="eq" aria-pressed="false">Off</button>
+            </div>
+            <!-- Grave (< ~150 Hz), Médio (Freq e Q), Agudo (> ~5 kHz) e Saída -->
+            <div class="linha-knobs" data-knobs-efeito="eq"></div>
+          </article>
+
+          <article class="cartao" data-pagina="1">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Compressor</h2>
+              <button class="chave" data-ligar-efeito="compressor" aria-pressed="false">Off</button>
+            </div>
+            <!-- Medidor: quanto o compressor está abaixando o volume agora -->
+            <div class="medidor-compressor" title="Quanto o compressor está abaixando o volume">
+              <div class="medidor-trilho"><div id="compressor-reducao" class="medidor-barra"></div></div>
+              <span id="compressor-reducao-db" class="medidor-numero">0 dB</span>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="compressor"></div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Phaser</h2>
+              <button class="chave" data-ligar-efeito="phaser" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="phaser"></div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Flanger</h2>
+              <button class="chave" data-ligar-efeito="flanger" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="flanger"></div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Chorus</h2>
+              <button class="chave" data-ligar-efeito="chorus" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="chorus"></div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Delay</h2>
+              <button class="chave" data-ligar-efeito="delay" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="delay"></div>
+            <div class="linha-opcao">
+              <!-- Ping-pong: os ecos alternam entre esquerda e direita -->
+              <button id="delay-pingpong" class="chave" aria-pressed="false">Ping-pong</button>
+            </div>
+          </article>
+
+          <article class="cartao" data-pagina="2">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Reverb</h2>
+              <button class="chave" data-ligar-efeito="reverb" aria-pressed="false">Off</button>
+            </div>
+            <div class="linha-knobs" data-knobs-efeito="reverb"></div>
+          </article>
+        </div>
+        </div>
+      </section>
+
+      <!-- Aba Global: ajustes do synth todo (voz, glide, qualidade) -->
+      <section class="conteudo-aba" data-painel="global" hidden>
+        <div class="modulos">
+          <article class="cartao">
+            <h2 class="titulo-cartao">Voz</h2>
+            <div class="linha-opcao">
+              <div id="modo-voz" class="grupo-botoes modo-voz">
+                <button class="botao" data-modo="mono">Mono</button>
+                <button class="botao" data-modo="poly">Poly</button>
+              </div>
+              <span class="dica-opcao">Poly: acordes · Mono: uma nota por vez</span>
+            </div>
+            <div class="linha-opcao">
+              <div id="seletor-vozes"></div>
+              <span class="dica-opcao">notas ao mesmo tempo (Poly)</span>
+            </div>
+            <div class="linha-opcao">
+              <!-- Legato (só no Mono): deslizar entre teclas não reinicia o envelope -->
+              <button id="legato" class="chave" aria-pressed="true">Legato</button>
+              <span class="dica-opcao">deslizar não reinicia o envelope (Mono)</span>
+            </div>
+          </article>
+
+          <article class="cartao">
+            <div class="cabecalho-cartao">
+              <h2 class="titulo-cartao">Glide</h2>
+              <!-- Sempre: escorrega toda vez, mesmo sem emendar as notas -->
+              <button id="glide-sempre" class="chave" aria-pressed="false">Sempre</button>
+            </div>
+            <div id="knobs-glide" class="linha-knobs"></div>
+            <span class="dica-opcao">Emende as notas para escorregar (ou ligue "Sempre")</span>
+          </article>
+
+          <article class="cartao reservado">
+            <h2 class="titulo-cartao">Qualidade</h2>
+            <p class="em-breve">em breve</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- As teclas são criadas pelo principal.js, conforme o tamanho da tela -->
+      <div id="teclado" class="teclado"></div>
+    </main>
+
+    <script type="module" src="principal.js"></script>
+    <!-- Segurança: se algo der errado ao abrir, a tela de carregamento não fica presa para sempre -->
+    <script>
+      setTimeout(() => document.getElementById('carregando')?.remove(), 12000);
+    </script>
+  </body>
+</html>

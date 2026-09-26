@@ -3,7 +3,3 @@
 
 # Exports de presets feitos para teste (não publicar)
 mysynth-presets.synth
-
-# Cópia Webaudio/ (régua): só o app vai para o GitHub
-Webaudio/.claude/
-Webaudio/CLAUDE.md

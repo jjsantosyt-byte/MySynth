@@ -257,9 +257,13 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   E) Desenhos mais leves em TODOS os aparelhos (pedido do dono, sem opção de volta): sem sombra/
      brilho nas linhas, pontinho do LFO e bolinhas dos envelopes; canvas no máximo 2× a resolução.
 **Motor em C++ / WebAssembly (F) — começou em 26/09/2026 (aprovado pelo dono):**
-- Cópia da última versão com o som todo em JavaScript: pasta `Webaudio/` (fora do Git, via
-  .git/info/exclude) + etiqueta Git `versao-webaudio` (commit e39a083). É a RÉGUA dos testes A/B.
-  O `Webaudio/Iniciar.bat` abre a cópia na porta 8081 (a versão principal fica na 8080).
+- Cópia da última versão com o som todo em JavaScript: pasta `Webaudio/` + etiqueta Git
+  `versao-webaudio` (commit e39a083). É a RÉGUA dos testes A/B. O `Webaudio/Iniciar.bat` abre a
+  cópia na porta 8081 (a versão principal fica na 8080). Desde 26/09/2026 a pasta vai no Git
+  (pedido do dono; sem `.claude/` e `CLAUDE.md` dela) e fica online em
+  https://jjsantosyt-byte.github.io/MySynth/Webaudio/ para comparar no celular. Só metadados foram
+  mudados nela: título/manifest "MySynth Webaudio" e gaveta do sw.js `mysynth-webaudio-v1` (cada
+  sw.js só apaga as gavetas com o próprio prefixo). NÃO mexer no som da cópia.
 - DECISÃO DO DONO: o som fica SÓ em C++, sem motor reserva em JavaScript. A cada etapa, a parte
   que vai para o C++ tem o seu .js de dsp/ APAGADO na mesma etapa (sem código duplicado). Se o
   .wasm falhar, o app avisa ("Não consegui ligar o som" / "O motor de som parou").

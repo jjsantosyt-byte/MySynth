@@ -1,0 +1,15 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Sub Bass",
+      "categoria": "Baixo",
+      "som": {
+        "parametros": { "wtPos": 0, "decaimento": 0.3, "soltura": 0.1 },
+        "opcoes": { "modo": "mono", "glide": 0.04 },
+        "efeitos": { "distorcao": { "ligado": true, "tipo": "suave", "drive": 0.25, "mix": 0.5 } }
+      }
+    }
+  ]
+}

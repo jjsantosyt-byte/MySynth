@@ -1,0 +1,3845 @@
+/* estilo.css — aparência pensada para toque no celular e tablet */
+
+/* Cores do app, num lugar só (fácil de ajustar depois) */
+:root {
+  --fundo: #0b0c0f; /* fundo da tela, quase preto */
+  --barra: #121319; /* barra de cima e abas */
+  --cartao: #181b23; /* cartões dos módulos */
+  --cartao-borda: #2b303e;
+  --tela-onda: #1f2433; /* fundo do desenho da onda, azulado */
+  --tela-onda-borda: #353d55;
+  --botao: #262a35;
+  --botao-apertado: #343a4a;
+  --texto: #e8e9ee;
+  --texto-suave: #9096a8;
+  --destaque: #3fb8ff; /* azul vivo: onda, aba ativa, teclas tocando */
+  --destaque-escuro: #1f7fc0;
+
+  /* Cores das fontes de modulação */
+  --cor-lfo1: #5de08a; /* verde */
+  --cor-lfo2: #b48cff; /* roxo */
+  --cor-lfo3: #f2d94e; /* amarelo */
+  --cor-env2: #ffa94d; /* laranja */
+  --cor-env3: #ff6fae; /* rosa */
+  --cor-macro1: #4fd1c5; /* Macros: turquesa */
+  --cor-macro2: #4fd1c5;
+  --cor-macro3: #4fd1c5;
+  --cor-macro4: #4fd1c5;
+
+  /* Mais cores com nome (cada TEMA troca estas; ver "TEMAS" no fim do arquivo) */
+  --verde: #46f06e; /* logo e ondas dos osciladores */
+  --verde-rgb: 70, 240, 110;
+  --azul-rgb: 63, 184, 255; /* = --destaque, em números (brilhos e transparências) */
+  --texto-sobre-destaque: #07121b; /* texto em cima do azul (aba escolhida) */
+  --texto-sobre-cor: #0b0c0f; /* texto em cima das fichas coloridas */
+  --lcd-fundo: #06141c; /* visor LCD */
+  --lcd-texto: #8fdcff;
+  --led-apagado: #3a3f4c;
+  --rolagem: #3a4152; /* barras de rolagem, marcas da barra do WT Pos */
+  --tecla-branca: #ececef;
+  --tecla-preta: #22252e;
+  --ponto-aovivo: #fff; /* ponto da modulação ao vivo */
+
+  /* Desenhos (canvas: onda, filtro, envelopes, LFO) — lidos pelo visualizacao.js */
+  --desenho-onda: 70, 240, 110; /* ondas dos osciladores */
+  --desenho-linha: 63, 184, 255; /* filtro, envelopes, LFO */
+  --desenho-apagado: #56607a;
+  --desenho-guia: #3d4661;
+  --desenho-marca: 255, 200, 87; /* marcas do unison */
+  --desenho-ponto: 255, 255, 255;
+  --desenho-alca: #0b0d12; /* miolo das bolinhas dos envelopes */
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--fundo);
+  color: var(--texto);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  overscroll-behavior: none; /* evita "puxar para atualizar" sem querer */
+  -webkit-tap-highlight-color: transparent;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  height: 100dvh; /* altura real visível (no celular, desconta as barras do navegador) */
+  /* "max(…, env(…))": no iPhone, desvia da ilha da câmera e da barrinha de baixo */
+  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  box-sizing: border-box;
+  gap: 10px;
+}
+
+/* ---------- Barra de cima ---------- */
+
+.barra-topo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 20px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+/* Botões grandes, fáceis de acertar com o dedo */
+.botao {
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  background: var(--botao);
+  color: inherit;
+  font-size: 16px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.botao:active {
+  background: var(--botao-apertado);
+}
+
+.botao-destaque {
+  background: var(--destaque-escuro);
+  font-weight: 600;
+}
+
+.botao-destaque.ligado {
+  background: #2d6a3e;
+}
+
+.aviso {
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: #5a2a2a;
+}
+
+.grupo-oitava {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rotulo {
+  min-width: 36px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.grupo-volume {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 180px;
+  font-size: 16px;
+}
+
+.grupo-volume input {
+  flex: 1;
+  width: 0; /* deixa a barra encolher para caber em telas pequenas */
+  min-width: 0;
+  height: 44px;
+}
+
+/* ---------- Presets (barra de cima) ---------- */
+
+.presets {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.presets-seta {
+  min-width: 40px;
+  padding: 0;
+  font-size: 20px;
+}
+
+.presets-nome {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 120px;
+  max-width: 220px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 12px;
+  background: var(--tela-onda);
+  color: var(--texto);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: manipulation;
+}
+
+.presets-texto {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.presets-mudou {
+  color: var(--destaque);
+  font-weight: 700;
+}
+
+.presets-salvar {
+  margin-left: 4px;
+}
+
+/* ---------- Janelas (lista de presets, salvar) ---------- */
+
+.janela-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+    max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+  background: rgba(0, 0, 0, 0.6);
+}
+
+.janela-fundo[hidden] {
+  display: none;
+}
+
+.janela {
+  display: flex;
+  flex-direction: column;
+  width: min(520px, 100%);
+  max-height: 100%;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 14px;
+  background: var(--cartao);
+  overflow: hidden;
+}
+
+.janela-topo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px 8px 16px;
+  border-bottom: 1px solid var(--cartao-borda);
+}
+
+.janela-titulo {
+  margin: 0;
+  font-size: 16px;
+}
+
+.janela-fechar {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 18px;
+}
+
+.janela-corpo {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 16px;
+  overflow-y: auto;
+}
+
+.janela-aviso {
+  margin: 0 16px 8px;
+  font-size: 13px;
+  color: var(--destaque);
+}
+
+.janela-rodape {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--cartao-borda);
+}
+
+.janela-rodape .botao {
+  min-height: 40px;
+  font-size: 14px;
+}
+
+/* Lista de presets */
+.presets-categoria {
+  margin: 4px 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.presets-linha {
+  display: flex;
+  gap: 4px;
+}
+
+.presets-item {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 40px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--texto);
+  font-size: 15px;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.presets-item:active {
+  background: var(--botao-apertado);
+}
+
+.presets-item.atual {
+  background: var(--botao-apertado);
+  box-shadow: inset 3px 0 0 var(--destaque);
+}
+
+.presets-meu {
+  font-size: 11px;
+  color: var(--texto-suave);
+}
+
+.presets-apagar {
+  width: 40px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  font-size: 16px;
+}
+
+/* ⤓ exportar só este preset */
+.presets-exportar {
+  color: var(--texto-suave);
+  font-size: 18px;
+}
+
+.presets-exportar:active {
+  background: var(--botao-apertado);
+}
+
+/* Campos (nome, categoria) */
+.campo-rotulo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.campo {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+  color: var(--texto);
+  font-size: 16px; /* 16 px: o iPhone não dá zoom ao tocar no campo */
+}
+
+/* ---------- Linha das abas + fichas de modulação ---------- */
+
+.linha-abas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.linha-abas .abas {
+  flex: 1 1 360px;
+}
+
+/* ---------- Abas ---------- */
+
+.abas {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  background: var(--barra);
+}
+
+.aba {
+  flex: 1;
+  min-height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 15px;
+  font-weight: 600;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.aba.ativa {
+  background: var(--botao-apertado);
+  color: var(--texto);
+  box-shadow: inset 0 -3px 0 var(--destaque);
+}
+
+/* ---------- Opções de voz (aba Global: Mono/Poly, vozes, Legato) ---------- */
+
+.linha-opcao {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.dica-opcao {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.modo-voz {
+  flex: 0 0 auto;
+}
+
+.grupo-botoes.modo-voz .botao {
+  flex: 0 0 auto;
+  min-width: 68px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+
+.chave:disabled {
+  opacity: 0.35;
+}
+
+/* ---------- Modulação: fichas, destaques, listas ---------- */
+
+.barra-fontes {
+  display: flex;
+  flex: 1 1 320px; /* ao lado das abas; se não couber, desce para a linha de baixo */
+  gap: 8px;
+}
+
+/* Fichas cheias na cor da fonte, com o desenhinho da forma (LFO) ou do ADSR (ENV) */
+.ficha {
+  flex: 1;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--cor);
+  border-radius: 999px;
+  background: var(--cor);
+  color: var(--texto-sobre-cor);
+  font-size: 13px;
+  font-weight: 700;
+  touch-action: none; /* arrastar a ficha não rola a página */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+.ficha-forma {
+  width: 22px;
+  height: 12px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  overflow: visible;
+}
+
+/* Ficha armada (modo "tocar para ligar"): fica "vazada" (só contorno) */
+.ficha[aria-pressed='true'] {
+  background: var(--fundo);
+  color: var(--cor);
+}
+
+/* Cabo que sai da ficha enquanto ela é arrastada */
+.cabo-mod {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 99;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.cabo-mod path {
+  fill: none;
+  stroke: var(--cor);
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.cabo-mod circle {
+  fill: var(--fundo);
+  stroke: var(--cor);
+  stroke-width: 3;
+}
+
+/* Cópia da ficha que segue o dedo durante o arraste */
+.ficha-fantasma {
+  position: fixed;
+  z-index: 100;
+  width: auto;
+  padding: 0 14px;
+  transform: translate(-50%, -130%); /* fica acima do dedo, para não ficar escondida */
+  background: var(--cor);
+  color: var(--texto-sobre-cor);
+  pointer-events: none;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.dica-modulacao {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cor-ligando);
+}
+
+/* Destinos possíveis ficam marcados enquanto se liga/arrasta */
+[data-destino] {
+  position: relative;
+  border-radius: 10px;
+}
+
+.ligando-mod [data-destino],
+.arrastando-mod [data-destino] {
+  outline: 2px dashed var(--cor-ligando);
+  outline-offset: 2px;
+}
+
+.mod-alvo {
+  background: rgba(255, 255, 255, 0.08);
+  outline-style: solid !important;
+}
+
+/* Brilho rápido ao ligar */
+.mod-ligou {
+  animation: ligou 0.5s ease-out;
+}
+
+@keyframes ligou {
+  from {
+    box-shadow: 0 0 0 6px var(--cor-ligando, var(--destaque));
+  }
+  to {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/* Bolinhas coloridas no canto dos controles ligados */
+.bolinhas-mod {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.bolinhas-mod i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+/* Bolinha de cor no título dos cartões de LFO/ENV */
+.bolinha-fonte {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  vertical-align: 1px;
+}
+
+/* Lista de ligações dentro do cartão da fonte */
+.lista-mod {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lista-mod-vazia {
+  margin: 0;
+  font-size: 12px;
+  color: var(--texto-suave);
+  opacity: 0.8;
+}
+
+.linha-mod {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 4px 0 8px;
+  border-left: 3px solid var(--cor);
+  border-radius: 8px;
+  background: var(--tela-onda);
+}
+
+.linha-mod-nome {
+  width: 52px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.linha-mod input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  accent-color: var(--cor);
+}
+
+.linha-mod-valor {
+  flex: 0 0 auto;
+  width: 54px; /* cabe "-200 ct" */
+  white-space: nowrap;
+  text-align: right;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.linha-mod-remover {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 16px;
+  touch-action: manipulation;
+}
+
+.linha-mod-remover:active {
+  background: var(--botao-apertado);
+}
+
+/* Formas do LFO: 3 por linha */
+.grupo-botoes.formas-lfo {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.grupo-botoes.formas-lfo .botao {
+  min-height: 34px;
+}
+
+/* Nomes curtos só aparecem no celular deitado */
+.nome-curto {
+  display: none;
+}
+
+/* LFO: desenho e knob Rate lado a lado */
+.lfo-corpo {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lfo-corpo .tela-grafico {
+  flex: 1;
+  min-width: 0;
+}
+
+.lfo-corpo .linha-knobs {
+  flex: 0 0 auto;
+}
+
+/* ---------- Seletor de número (‹ 4 ›) ---------- */
+
+.seletor {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 0;
+}
+
+.seletor-linha {
+  flex-direction: row;
+  gap: 8px;
+  padding: 0;
+}
+
+.seletor-controle {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+}
+
+.seletor-botao {
+  width: 30px;
+  height: 40px;
+  border: none;
+  background: transparent;
+  color: var(--texto);
+  font-size: 20px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.seletor-botao:disabled {
+  opacity: 0.3;
+}
+
+.seletor-numero {
+  min-width: 26px;
+  text-align: center;
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  touch-action: none; /* arrastar aqui muda o número, não rola a página */
+  cursor: ns-resize;
+  user-select: none;
+  -webkit-user-select: none;
+  outline: none;
+}
+
+.seletor-numero:focus-visible {
+  border-radius: 4px;
+  box-shadow: 0 0 0 2px var(--destaque);
+}
+
+.seletor-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.seletor-linha .seletor-rotulo {
+  font-size: 13px;
+}
+
+.seletor.desabilitado {
+  opacity: 0.4;
+}
+
+/* Conteúdo das abas: se não couber, rola só esta parte (o teclado fica no lugar) */
+.conteudo-aba {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.conteudo-aba[hidden] {
+  display: none;
+}
+
+/* ---------- Cartões (módulos) ---------- */
+
+.cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 14px;
+  background: var(--cartao);
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.titulo-cartao {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Título do cartão com um botão liga/desliga do lado */
+.cabecalho-cartao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* Chave liga/desliga (ex.: Filtro ligado, Legato) */
+.chave {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 13px;
+  font-weight: 600;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.chave[aria-pressed='true'] {
+  border-color: var(--destaque);
+  background: rgba(var(--azul-rgb), 0.15);
+  color: var(--destaque);
+}
+
+/* Fileira de botões de escolha (ex.: tipo de filtro) */
+.grupo-botoes {
+  display: flex;
+  gap: 6px;
+}
+
+.grupo-botoes .botao {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+.grupo-botoes .botao.escolhido {
+  background: var(--botao-apertado);
+  box-shadow: inset 0 -3px 0 var(--destaque);
+}
+
+.em-breve {
+  margin: auto 0;
+  text-align: center;
+  font-size: 14px;
+  color: var(--texto-suave);
+  opacity: 0.6;
+}
+
+.cartao.reservado {
+  border-style: dashed;
+  min-height: 120px;
+}
+
+/* Módulos de cada aba: 3 cartões lado a lado (a aba FX tem 4) */
+.modulos {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.modulos.modulos-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Aba OSC: OSC A (mais largo), OSC B, OSC C e Ruído (mais estreito) */
+.modulos.modulos-osc {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr);
+}
+
+.cartao-ruido .seletor-wt {
+  align-self: center;
+}
+
+/* ---------- Painéis de desenho (onda, envelope, filtro) ---------- */
+
+.tela-grafico {
+  position: relative;
+  height: 110px;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+  overflow: hidden;
+}
+
+.tela-grafico canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* No desenho da onda, arrastar mexe no WT Pos (não rola a página) */
+.tela-onda {
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+/* Afinação do oscilador: Oct ‹ 0 ›  Semi ‹ 0 ›  Fine ‹ 0 › numa linha */
+.linha-afinacao {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.linha-afinacao .seletor-linha {
+  gap: 4px;
+  min-width: 0;
+}
+
+.linha-afinacao .seletor-numero {
+  min-width: 26px;
+  font-size: 14px;
+}
+
+.linha-afinacao .seletor-botao {
+  width: 22px;
+}
+
+/* Oscilador desligado: desenho da onda apagado (os controles continuam mexíveis) */
+.cartao-osc.desligado .tela-onda {
+  opacity: 0.4;
+}
+
+/* ---------- Knobs ---------- */
+
+.linha-knobs {
+  display: flex;
+  justify-content: space-around;
+  gap: 4px;
+}
+
+.knob {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  flex: 0 1 64px;
+  padding: 4px 0;
+  border-radius: 10px;
+  touch-action: none; /* arrastar aqui gira o knob, não rola a página */
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: ns-resize;
+  outline: none;
+}
+
+.knob:focus-visible {
+  box-shadow: 0 0 0 2px var(--destaque);
+}
+
+.knob-desenho {
+  width: 46px;
+  height: 46px;
+}
+
+.knob-trilho,
+.knob-valor {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+.knob-trilho {
+  stroke: var(--botao);
+}
+
+.knob-valor {
+  stroke: var(--destaque);
+}
+
+.knob-ponteiro {
+  stroke: var(--texto);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+
+/* Modulação no knob: arco externo colorido e ponto do valor ao vivo */
+.knob-faixa {
+  fill: none;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+
+.knob-aovivo {
+  fill: var(--ponto-aovivo);
+  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
+}
+
+.knob.girando .knob-valor {
+  filter: drop-shadow(0 0 3px var(--destaque));
+}
+
+.knob-numero {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--texto);
+}
+
+.knob-rotulo {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.nome-onda {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(15, 17, 24, 0.8);
+  font-size: 13px;
+  color: var(--texto);
+  pointer-events: none;
+}
+
+.grupo-wtpos {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.trilho-wtpos {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+.grupo-wtpos input {
+  flex: 1;
+  min-width: 0;
+  height: 40px;
+}
+
+/* Faixas de modulação embaixo de uma barra (ex.: WT Pos) */
+.faixas-barra {
+  position: absolute;
+  left: 8px; /* o "botão" da barra não chega até a ponta */
+  right: 8px;
+  bottom: 3px;
+  height: 4px;
+  pointer-events: none;
+}
+
+.faixas-barra .faixa {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.faixas-barra .ponto-aovivo {
+  position: absolute;
+  top: -3px;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  border-radius: 50%;
+  background: var(--ponto-aovivo);
+  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+}
+
+/* Linha do WT Pos + botão de rota de filtro */
+.linha-wt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.linha-wt .grupo-wtpos {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Botão de rota de filtro (F1, F2, F1→F2, F2→F1): tocar troca */
+.chave.rota {
+  flex: 0 0 auto;
+  min-width: 44px;
+  padding: 0 8px;
+  border-color: var(--tela-onda-borda);
+  color: var(--texto);
+  white-space: nowrap;
+}
+
+.linha-rota {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.dica-rota {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+/* Seletor de wavetable: ‹ Básica › */
+.seletor-wt {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--tela-onda-borda);
+  border-radius: 10px;
+  background: var(--tela-onda);
+}
+
+.seletor-wt .seletor-botao {
+  height: 34px;
+}
+
+.seletor-wt-nome {
+  min-width: 84px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Nome da wavetable = botão que abre a lista (nomes longos cortados com "…") */
+.seletor-wt-lista {
+  max-width: 130px;
+  height: 34px;
+  padding: 0 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border: none;
+  background: transparent;
+  color: var(--texto);
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.seletor-wt-lista:active {
+  background: var(--botao-apertado);
+}
+
+/* Recado rápido (some sozinho; tocar fecha) */
+.recado {
+  position: fixed;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  z-index: 300;
+  max-width: min(90vw, 480px);
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border: 1px solid var(--destaque);
+  border-radius: 10px;
+  background: var(--cartao);
+  color: var(--texto);
+  font-size: 13px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.recado[hidden] {
+  display: none;
+}
+
+.wavetables-dica {
+  margin: 4px 0;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.atalhos-wt {
+  display: flex;
+  gap: 6px;
+}
+
+.atalhos-wt .botao {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+/* ---------- Tela estreita (celular em pé) ---------- */
+
+@media (max-width: 640px) {
+  /* Barra em 2 linhas: [presets, Ligar som] e [oitava, volume].
+     A largura base dos presets (a linha toda menos o botão Ligar som) é o que força a
+     quebra de linha; com base zero, tudo tentava caber numa linha só e o volume
+     era empurrado para fora da tela. */
+  .barra-topo {
+    column-gap: 12px;
+  }
+
+  .presets {
+    flex: 1 1 calc(100% - 110px);
+  }
+
+  /* Botões da 1ª linha mais estreitos: sobra espaço para o nome do preset */
+  #botao-ligar,
+  .presets-salvar {
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  .presets-nome {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .grupo-oitava {
+    order: 3;
+  }
+
+  .grupo-volume {
+    order: 4;
+    flex: 1 1 120px;
+    min-width: 0;
+  }
+
+  .texto-longo {
+    display: none;
+  }
+
+  /* Abas numa linha; fichas de modulação na linha de baixo */
+  .linha-abas .abas,
+  .barra-fontes {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .aba {
+    font-size: 14px;
+  }
+
+  /* Mais compacto no celular em pé, para caber tudo sem rolar */
+  .tela-grafico {
+    height: 80px;
+  }
+
+  .knob-desenho {
+    width: 40px;
+    height: 40px;
+  }
+
+  .atalhos-wt .botao {
+    min-height: 36px;
+  }
+
+  .teclado {
+    flex-basis: 150px;
+  }
+
+  /* Módulos um embaixo do outro; os reservados viram faixas finas */
+  .modulos,
+  .modulos.modulos-4,
+  .modulos.modulos-osc {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .modulos .reservado {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 0;
+    padding: 8px 12px;
+  }
+
+  .modulos .reservado .em-breve {
+    margin: 0;
+  }
+}
+
+/* ---------- Teclado ---------- */
+
+.teclado {
+  position: relative;
+  display: flex;
+  flex: 1 0 180px; /* nunca fica menor que 180 px */
+  max-height: 420px;
+  margin-top: auto;
+  touch-action: none; /* o app cuida dos toques, o navegador não rola a página */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.tecla {
+  box-sizing: border-box;
+}
+
+.tecla.branca {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  padding-bottom: 10px;
+  background: var(--tecla-branca);
+  border: 1px solid var(--fundo);
+  border-radius: 0 0 10px 10px;
+  color: #666;
+  font-size: 13px;
+}
+
+.tecla.preta {
+  position: absolute;
+  top: 0;
+  height: 60%;
+  transform: translateX(-50%);
+  background: var(--tecla-preta);
+  border: 1px solid var(--fundo);
+  border-radius: 0 0 8px 8px;
+  z-index: 2;
+}
+
+.tecla.preta {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 6px;
+}
+
+/* Letra do teclado do computador em cima de cada tecla (só com mouse) */
+.letra-pc {
+  font-size: 11px;
+  font-weight: 700;
+  color: #8a8f9e;
+  pointer-events: none;
+}
+
+.tecla.preta .letra-pc {
+  color: #7d8396;
+}
+
+@media (hover: none) {
+  .letra-pc {
+    display: none;
+  }
+}
+
+.tecla.branca.ativa {
+  background: #8fd3ff;
+}
+
+.tecla.preta.ativa {
+  background: var(--destaque-escuro);
+}
+
+/* =====================================================================
+   Celular deitado (tela baixa): tudo compacto e SEM ROLAGEM.
+   Os desenhos (onda, filtro, envelope, LFO) ocupam o espaço que sobra:
+   se a tela for menor, eles encolhem — o resto do cartão fica sempre visível.
+   ===================================================================== */
+
+@media (orientation: landscape) and (max-height: 500px) {
+  main {
+    padding: max(5px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right))
+      max(5px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    gap: 5px;
+  }
+
+  /* --- Barra de cima: uma linha só --- */
+  .barra-topo {
+    flex-wrap: nowrap;
+    gap: 12px;
+  }
+
+  .presets-nome {
+    min-width: 96px;
+    max-width: 170px;
+    min-height: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .presets-seta {
+    min-width: 32px;
+  }
+
+  .botao {
+    min-height: 32px;
+    min-width: 32px;
+    padding: 0 10px;
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .texto-longo {
+    display: none; /* "Oitava –" vira "–" */
+  }
+
+  .rotulo {
+    min-width: 28px;
+    font-size: 14px;
+  }
+
+  .grupo-volume {
+    gap: 8px;
+    min-width: 120px;
+    font-size: 13px;
+  }
+
+  .grupo-volume input {
+    height: 30px;
+  }
+
+  /* --- Abas + fichas de modulação: uma linha só --- */
+  .linha-abas {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  .linha-abas .abas {
+    flex: 1 1 auto;
+    padding: 3px;
+  }
+
+  .aba {
+    min-height: 28px;
+    font-size: 13px;
+  }
+
+  /* Explicações das opções somem no celular deitado (falta altura) */
+  .dica-opcao {
+    display: none;
+  }
+
+  .grupo-botoes.modo-voz .botao {
+    min-width: 46px;
+    min-height: 30px;
+    padding: 0 8px;
+  }
+
+  .seletor-botao {
+    width: 24px;
+    height: 30px;
+    font-size: 16px;
+  }
+
+  .seletor-numero {
+    font-size: 14px;
+  }
+
+  .seletor-linha .seletor-rotulo {
+    font-size: 11px;
+  }
+
+  .chave {
+    min-height: 28px;
+    padding: 0 10px;
+    font-size: 12px;
+  }
+
+  .barra-fontes {
+    flex: 1 1 auto;
+  }
+
+  .ficha {
+    min-height: 30px;
+    font-size: 12px;
+    gap: 4px;
+  }
+
+  .ficha-forma {
+    width: 18px;
+    height: 10px;
+  }
+
+  /* A dica do "tocar para ligar" flutua por cima (não empurra nada) */
+  .dica-modulacao {
+    position: fixed;
+    top: max(6px, env(safe-area-inset-top));
+    left: 50%;
+    z-index: 50;
+    transform: translateX(-50%);
+    padding: 6px 12px;
+    border: 1px solid var(--cor-ligando);
+    border-radius: 8px;
+    background: rgba(11, 12, 15, 0.94);
+    white-space: nowrap;
+  }
+
+  /* --- Conteúdo da aba: ocupa o espaço entre as linhas de cima e o teclado --- */
+  .conteudo-aba {
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .modulos {
+    height: 100%;
+    gap: 8px;
+  }
+
+  .cartao {
+    min-height: 0;
+    padding: 6px 8px;
+    gap: 4px;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .cartao.reservado {
+    min-height: 0;
+  }
+
+  .titulo-cartao {
+    font-size: 11px;
+  }
+
+  .cabecalho-cartao .chave {
+    min-height: 24px;
+  }
+
+  /* Desenhos: ficam com a altura que sobrar */
+  .tela-grafico {
+    flex: 1 1 0;
+    height: auto;
+    min-height: 26px;
+    border-radius: 8px;
+  }
+
+  .nome-onda {
+    top: 3px;
+    left: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+  }
+
+  .grupo-botoes .botao,
+  .atalhos-wt .botao {
+    min-height: 26px;
+    border-radius: 7px;
+    font-size: 12px;
+  }
+
+  .grupo-wtpos {
+    gap: 6px;
+    font-size: 12px;
+  }
+
+  .grupo-wtpos input {
+    height: 26px;
+  }
+
+  /* Knobs menores */
+  .knob {
+    flex-basis: 52px;
+    gap: 0;
+    padding: 0;
+  }
+
+  .knob-desenho {
+    width: 30px;
+    height: 30px;
+  }
+
+  .knob-numero {
+    font-size: 10px;
+  }
+
+  .knob-rotulo {
+    font-size: 9px;
+  }
+
+  .seletor {
+    padding: 0;
+  }
+
+  /* OSC A: [A ‹ wavetable ›] / desenho / WT Pos / unison.
+     Os atalhos somem aqui (dá para usar a barra ou arrastar no desenho). */
+  .cartao-osc {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(22px, 1fr) auto auto auto;
+  }
+
+  .cartao-osc .cabecalho-osc {
+    grid-row: 1;
+    gap: 4px;
+  }
+
+  /* 3 osciladores lado a lado: o nome da wavetable ocupa o espaço que sobrar */
+  .cabecalho-osc .seletor-wt {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .cabecalho-osc .seletor-wt-lista {
+    flex: 1 1 auto;
+    min-width: 0;
+    max-width: none;
+  }
+
+  .cabecalho-osc .chave {
+    padding: 0 8px;
+  }
+
+  .cartao-osc .tela-onda {
+    grid-row: 2;
+    height: auto;
+    min-height: 20px;
+  }
+
+  .cartao-osc .linha-wt {
+    grid-row: 3;
+  }
+
+  .cartao-osc .atalhos-wt {
+    display: none;
+  }
+
+  .cartao-osc [data-afinacao] {
+    grid-row: 4;
+  }
+
+  .cartao-osc [data-knobs-osc] {
+    grid-row: 5;
+  }
+
+  /* Afinação compacta: sem os botões ‹ › (arrastar no número; toque duplo = 0),
+     assim as 3 caixinhas cabem na largura do cartão */
+  .linha-afinacao {
+    gap: 2px;
+  }
+
+  .linha-afinacao .seletor-linha {
+    gap: 3px;
+  }
+
+  .linha-afinacao .seletor-botao {
+    display: none;
+  }
+
+  .linha-afinacao .seletor-numero {
+    min-width: 34px;
+    height: 22px;
+    line-height: 22px;
+    font-size: 12px;
+  }
+
+  .linha-afinacao .seletor-rotulo {
+    font-size: 9px;
+    letter-spacing: 0.02em;
+  }
+
+  /* Cartão do oscilador mais justo na altura (5 linhas) */
+  .cartao-osc {
+    row-gap: 2px;
+  }
+
+  .cartao-osc .linha-wt .chave.rota {
+    min-height: 24px;
+  }
+
+  .cartao-osc .grupo-wtpos input {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .cartao-osc .knob-numero,
+  .cartao-osc .knob-rotulo {
+    line-height: 1.05;
+  }
+
+  .seletor-wt .seletor-botao {
+    height: 26px;
+  }
+
+  .seletor-wt-nome {
+    min-width: 76px;
+    font-size: 12px;
+  }
+
+  .seletor-wt-lista {
+    max-width: 100px;
+    height: 26px;
+  }
+
+  /* LFO: formas numa linha só, com nomes curtos */
+  .grupo-botoes.formas-lfo {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+  }
+
+  .nome-longo {
+    display: none;
+  }
+
+  .nome-curto {
+    display: inline;
+  }
+
+  .lfo-corpo {
+    flex: 1 1 0;
+    min-height: 30px;
+    align-items: stretch;
+  }
+
+  .lfo-corpo .tela-grafico {
+    height: auto;
+  }
+
+  .lfo-corpo .linha-knobs {
+    align-items: center;
+  }
+
+  /* Listas de ligações: se crescerem, só elas rolam */
+  .lista-mod {
+    flex: 0 1 auto;
+    min-height: 28px;
+    overflow-y: auto;
+  }
+
+  .lista-mod-vazia {
+    font-size: 10px;
+  }
+
+  .linha-mod {
+    min-height: 28px;
+    gap: 6px;
+  }
+
+  .linha-mod input {
+    height: 24px;
+  }
+
+  .linha-mod-nome {
+    width: 44px;
+    font-size: 11px;
+  }
+
+  .linha-mod-valor {
+    width: 46px;
+    font-size: 11px;
+  }
+
+  .linha-mod-remover {
+    width: 28px;
+    height: 28px;
+  }
+
+  /* --- Teclado mais baixo --- */
+  .teclado {
+    flex: 0 0 auto;
+    height: clamp(68px, 22vh, 110px);
+    max-height: none;
+    margin-top: 0;
+  }
+
+  .tecla.branca {
+    padding-bottom: 4px;
+    border-radius: 0 0 6px 6px;
+    font-size: 10px;
+  }
+}
+
+/* ---------- Celular deitado no Safari (com as barras do navegador: ~340 px de altura) ----------
+   Tudo alguns px mais baixo (barra de cima, abas, linhas do cartão do oscilador), para o
+   desenho da onda ganhar altura. No app instalado (~393 px) nada disto vale. */
+@media (orientation: landscape) and (max-height: 360px) {
+  .barra-topo .botao,
+  .presets-nome {
+    min-height: 28px;
+    height: 28px;
+  }
+
+  .grupo-volume input {
+    height: 24px;
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .linha-abas .abas {
+    padding-top: 1px;
+    padding-bottom: 1px;
+  }
+
+  .cartao-osc .seletor-wt .seletor-botao,
+  .cartao-osc .seletor-wt-lista {
+    height: 22px;
+  }
+
+  .cartao-osc .cabecalho-cartao .chave,
+  .cartao-osc .linha-wt .chave.rota {
+    min-height: 22px;
+  }
+
+  .cartao-osc .grupo-wtpos input {
+    height: 22px;
+  }
+
+  .linha-afinacao .seletor-numero {
+    height: 20px;
+    line-height: 20px;
+  }
+}
+
+/* ---------- Cartão do oscilador: 2 páginas (Onda | Mais) ----------
+   O título ("A ⋯") é um botão: aceso = página Mais (Pan, Blend, Phase, Rand).
+   A página Onda esconde a Mais e vice-versa; o desenho da onda e o cabeçalho ficam sempre. */
+.botao-pagina {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 7px;
+  background: transparent;
+  font-family: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.botao-pagina .marca-pagina {
+  font-size: 14px;
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.botao-pagina[aria-pressed='true'] {
+  border-color: var(--destaque);
+  background: var(--destaque-escuro);
+  color: #fff;
+}
+
+.pagina-mais {
+  display: none;
+}
+
+.cartao-osc.pagina-2 .linha-wt,
+.cartao-osc.pagina-2 .atalhos-wt,
+.cartao-osc.pagina-2 .linha-afinacao,
+.cartao-osc.pagina-2 [data-knobs-osc] {
+  display: none;
+}
+
+.cartao-osc.pagina-2 .pagina-mais {
+  display: flex;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao-osc .pagina-mais {
+    grid-row: 3;
+  }
+
+  .botao-pagina {
+    padding: 1px 4px;
+  }
+}
+
+/* Página "Mais": linha do Warp (‹ modo ›) em cima, knobs embaixo */
+.cartao-osc.pagina-2 .pagina-mais {
+  flex-direction: column;
+  gap: 4px;
+}
+
+.linha-warp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.rotulo-warp {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Warp ligado: o nome do modo fica em destaque */
+.cartao-osc.com-warp .linha-warp .seletor-wt-nome {
+  color: var(--destaque);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao-osc.pagina-2 .pagina-mais {
+    gap: 2px;
+  }
+
+  .linha-warp .seletor-wt-nome {
+    min-width: 64px;
+  }
+}
+
+/* ---------- Cartão do Ruído ---------- */
+/* Linhas com 2 coisas lado a lado (tipo + rota; Track + 1 ruído) */
+.linha-ruido {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.linha-ruido .seletor-wt {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linha-ruido .seletor-wt-nome {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.linha-ruido .chave {
+  flex: 1 1 0;
+}
+
+/* Loop | One Shot */
+.modo-ruido .botao {
+  flex: 1 1 0;
+  padding: 0 6px;
+}
+
+/* Knob sem efeito agora (ex.: Duração com o ruído em Loop) */
+.knob.desabilitado {
+  opacity: 0.4;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .modo-ruido .botao {
+    min-height: 24px;
+    font-size: 12px;
+  }
+
+  .cartao-ruido .linha-ruido .chave {
+    min-height: 22px;
+    padding: 0 6px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao-ruido .knob-numero,
+  .cartao-ruido .knob-rotulo {
+    line-height: 1.05;
+  }
+
+  .cartao-ruido {
+    row-gap: 3px;
+  }
+}
+
+/* ---------- Aba FX: knobs dos efeitos em até 2 linhas (3 por linha) ---------- */
+[data-knobs-efeito] {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+
+[data-knobs-efeito] .knob {
+  flex: 0 0 31%;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  [data-knobs-efeito] .knob-numero,
+  [data-knobs-efeito] .knob-rotulo {
+    line-height: 1.05;
+  }
+}
+
+/* ---------- Aba FX: páginas "Cor" e "Espaço" ----------
+   Só os cartões da página escolhida aparecem, lado a lado, dividindo a largura. */
+.fx-paginado {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.paginas-fx {
+  display: flex;
+  gap: 6px;
+}
+
+.paginas-fx .botao {
+  flex: 1 1 0;
+  min-height: 36px;
+  font-size: 14px;
+}
+
+.paginas-fx .botao.escolhido {
+  background: var(--destaque-escuro);
+}
+
+.modulos.modulos-fx {
+  grid-template-columns: none;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+}
+
+.modulos-fx[data-pagina-atual='1'] > [data-pagina='2'],
+.modulos-fx[data-pagina-atual='2'] > [data-pagina='1'] {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .modulos.modulos-fx {
+    grid-auto-flow: row;
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Deitado: botões das páginas numa faixa estreita à esquerda (gasta largura, não altura) */
+  .fx-paginado {
+    flex-direction: row;
+    gap: 6px;
+  }
+
+  .paginas-fx {
+    flex-direction: column;
+    flex: 0 0 52px;
+  }
+
+  .paginas-fx .botao {
+    min-height: 0;
+    padding: 0 2px;
+    font-size: 11px;
+  }
+
+  .fx-paginado > .modulos-fx {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+/* Medidor do compressor: barra laranja = quanto está abaixando (0 a 20 dB) */
+.medidor-compressor {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.medidor-trilho {
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: var(--botao);
+}
+
+.medidor-barra {
+  width: 0;
+  height: 100%;
+  background: var(--cor-env2);
+  transition: width 60ms linear;
+}
+
+.medidor-numero {
+  min-width: 48px;
+  text-align: right;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--texto-suave);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* 5 cartões de efeito estreitos: botões e espaços mais justos */
+  .modulos-fx .cartao {
+    row-gap: 3px;
+  }
+
+  .modulos-fx .grupo-botoes {
+    gap: 3px;
+  }
+
+  .modulos-fx .grupo-botoes .botao {
+    padding: 0 3px;
+    font-size: 11px;
+  }
+
+  .modulos-fx .linha-opcao {
+    margin: 0;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .modulos-fx .linha-opcao .chave {
+    min-height: 22px;
+  }
+}
+
+/* ---------- Volume: capotraste no lugar da bolinha ----------
+   A barra de verdade (input range) continua recebendo o dedo/mouse/teclado, mas fica
+   invisível; o trilho é desenhado no fundo dela e o capotraste (SVG) por cima, na posição
+   do valor (--pos, de 0 a 1, atualizado pelo principal.js). A "pegada" invisível tem
+   --pegada de largura: o capotraste anda de meia pegada até (100% - meia pegada), igual a ela.
+   Segurando (.segurando): o capotraste cresce e ganha sombra, como se viesse para perto da tela. */
+.volume-trilho {
+  --pos: 0.59;
+  --pegada: 26px;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.grupo-volume .volume-trilho input {
+  flex: 1;
+  width: 100%;
+  margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(
+      to right,
+      var(--destaque) calc(var(--pegada) / 2 + var(--pos) * (100% - var(--pegada))),
+      #d9dbe3 calc(var(--pegada) / 2 + var(--pos) * (100% - var(--pegada)))
+    )
+    center / 100% 6px no-repeat;
+  border-radius: 3px;
+  cursor: pointer;
+  touch-action: none; /* o dedo na barra não rola a tela */
+}
+
+.grupo-volume .volume-trilho input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: var(--pegada);
+  height: 40px;
+  background: transparent;
+  border: none;
+}
+
+.grupo-volume .volume-trilho input::-moz-range-thumb {
+  width: var(--pegada);
+  height: 40px;
+  background: transparent;
+  border: none;
+}
+
+.grupo-volume .volume-trilho input::-moz-range-track {
+  background: transparent;
+}
+
+.capotraste {
+  position: absolute;
+  left: calc(var(--pegada) / 2 + var(--pos) * (100% - var(--pegada)));
+  top: 50%;
+  height: 100%;
+  max-height: 50px;
+  aspect-ratio: 32 / 50;
+  z-index: 2; /* segurando, ele cresce por cima do que está em volta */
+  transform: translate(-50%, -50%);
+  pointer-events: none; /* o toque passa para a barra de verdade */
+  filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.6));
+  transition:
+    transform 0.14s ease-out,
+    filter 0.14s ease-out;
+}
+
+.volume-trilho.segurando .capotraste {
+  transform: translate(-50%, -50%) scale(1.4);
+  filter: drop-shadow(0 6px 7px rgba(0, 0, 0, 0.75));
+}
+
+.grupo-volume .volume-trilho input:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: 2px;
+}
+
+/* ---------- Tela de carregamento (some quando o app fica pronto) ---------- */
+.tela-carregando {
+  position: fixed;
+  inset: 0;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--fundo);
+  transition: opacity 0.3s ease-out;
+}
+
+.tela-carregando.saindo {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.carregando-onda {
+  width: min(220px, 40vw);
+}
+
+.carregando-onda path {
+  fill: none;
+  stroke: var(--verde);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  stroke-dasharray: 300;
+  animation: carregando-desenhar 2.2s ease-in-out infinite;
+}
+
+@keyframes carregando-desenhar {
+  0% {
+    stroke-dashoffset: 300;
+  }
+  60%,
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.carregando-nome {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.carregando-trilho {
+  width: min(260px, 45vw);
+  height: 4px;
+  border-radius: 2px;
+  background: var(--botao);
+  overflow: hidden;
+}
+
+.carregando-barra {
+  width: 8%;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--verde);
+  transition: width 0.3s ease-out;
+}
+
+.carregando-texto {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+/* ---------- Escolha de idioma (só na primeira vez) ---------- */
+.tela-idioma {
+  position: fixed;
+  inset: 0;
+  z-index: 450;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px;
+  background: var(--fundo);
+}
+
+.tela-idioma[hidden] {
+  display: none;
+}
+
+.idioma-titulo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.idioma-opcoes {
+  display: flex;
+  gap: 14px;
+  width: min(460px, 100%);
+}
+
+.idioma-botao {
+  flex: 1;
+  min-height: 84px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 14px;
+  background: var(--cartao);
+  color: var(--texto);
+  font-family: inherit;
+  touch-action: manipulation;
+}
+
+.idioma-botao:active {
+  border-color: var(--verde);
+  background: var(--botao-apertado);
+}
+
+.idioma-nome {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.idioma-regiao,
+.idioma-dica {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.idioma-dica {
+  margin: 0;
+  text-align: center;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .tela-idioma {
+    gap: 10px;
+  }
+  .idioma-botao {
+    min-height: 64px;
+  }
+}
+
+/* ---------- Logo (canto superior esquerdo) e o mini menu ---------- */
+.barra-topo {
+  position: relative; /* o menu se posiciona a partir da barra */
+}
+
+.botao-logo {
+  flex: 0 0 auto;
+  width: 48px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botao-logo svg {
+  width: 30px;
+  height: 30px;
+}
+
+.botao-logo path {
+  fill: none;
+  stroke: var(--verde);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.botao-logo.aberto {
+  background: var(--botao-apertado);
+  box-shadow: inset 0 0 0 1px var(--verde);
+}
+
+.menu-logo {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 150;
+  min-width: 250px;
+  max-width: calc(100vw - 32px);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--cartao-borda);
+  border-radius: 12px;
+  background: var(--cartao);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+}
+
+.menu-logo[hidden] {
+  display: none;
+}
+
+.menu-item {
+  min-height: 40px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--texto);
+  font-family: inherit;
+  font-size: 15px;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+.menu-item:active {
+  background: var(--botao-apertado);
+}
+
+.menu-secao {
+  padding: 8px 10px 2px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.menu-em-breve {
+  flex: 0 0 auto;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--botao);
+  font-size: 11px;
+  color: var(--texto-suave);
+}
+
+.menu-divisor {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--cartao-borda);
+}
+
+/* Janela de Configurações / Sobre */
+.config-secao + .config-secao {
+  margin-top: 14px;
+}
+
+.config-titulo {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--texto-suave);
+}
+
+.config-texto {
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--texto-suave);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .botao-logo {
+    width: 36px;
+    min-width: 36px;
+  }
+  .botao-logo svg {
+    width: 24px;
+    height: 24px;
+  }
+  .menu-item {
+    min-height: 32px;
+    font-size: 14px;
+  }
+  .menu-secao {
+    padding-top: 4px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 360px) {
+  .botao-logo {
+    width: 30px;
+    min-width: 30px;
+  }
+  .menu-item {
+    min-height: 28px;
+    font-size: 13px;
+  }
+}
+
+/* =====================================================================================
+   CANTOS EM 45° (chanfrados) no lugar dos arredondados — identidade visual do app.
+   - Os cantos são cortados com clip-path (um polígono de 8 pontas). O tamanho do corte é
+     --c (maior nos cartões e janelas, menor nos botões).
+   - Onde havia borda, o corte também cortaria a linha da borda na diagonal. Por isso a borda
+     fica transparente e o contorno é desenhado por uma camada fina por cima (::after), com o
+     MESMO polígono menos o de dentro (1 px): a linha acompanha a diagonal. A cor do contorno
+     é --contorno.
+   - Círculos de verdade (bolinhas, pontos ao vivo, os knobs em si) continuam redondos.
+   ===================================================================================== */
+
+/* 1) Nenhum canto arredondado (também vence as regras do celular deitado) */
+.botao, .aviso, .presets-nome, .janela, .janela-fechar, .presets-item, .presets-apagar, .campo,
+.abas, .aba, .ficha, [data-destino], .knob, .linha-mod, .linha-mod-remover, .seletor-controle,
+.seletor-numero:focus-visible, .cartao, .chave, .tela-grafico, .nome-onda, .seletor-wt, .recado,
+.tecla, .dica-modulacao, .botao-pagina, .medidor-trilho, .grupo-volume .volume-trilho input,
+.carregando-trilho, .carregando-barra, .idioma-botao, .menu-logo, .menu-item, .menu-em-breve,
+.atalhos-wt .botao, .faixas-barra .faixa {
+  border-radius: 0 !important;
+}
+
+/* 2) Tamanho do corte de cada grupo */
+.cartao, .janela, .menu-logo, .idioma-botao, .abas {
+  --c: 10px;
+}
+.botao, .presets-nome, .campo, .ficha, .seletor-controle, .chave, .tela-grafico, .seletor-wt,
+.recado, .aviso, .dica-modulacao, .botao-pagina, .janela-fechar, .presets-item, .presets-apagar,
+.linha-mod-remover {
+  --c: 6px;
+}
+.aba, .menu-item, .nome-onda, .menu-em-breve, .atalhos-wt .botao, .linha-mod {
+  --c: 4px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .cartao, .janela, .menu-logo, .abas {
+    --c: 8px;
+  }
+  .botao, .presets-nome, .chave, .ficha, .seletor-controle, .seletor-wt, .tela-grafico, .botao-pagina {
+    --c: 5px;
+  }
+}
+
+/* 3) O corte (8 pontas) */
+.cartao, .janela, .menu-logo, .idioma-botao, .abas, .botao, .presets-nome, .campo, .ficha,
+.seletor-controle, .chave, .tela-grafico, .seletor-wt, .recado, .aviso, .dica-modulacao,
+.botao-pagina, .janela-fechar, .presets-item, .presets-apagar, .linha-mod-remover, .aba,
+.menu-item, .nome-onda, .menu-em-breve, .linha-mod {
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+
+/* 4) Contorno que acompanha a diagonal (nos que tinham borda) */
+.cartao, .janela, .presets-nome, .seletor-controle, .chave, .tela-grafico, .seletor-wt,
+.botao-pagina, .idioma-botao, .ficha:not(.ficha-fantasma) {
+  position: relative; /* referência para a camada do contorno */
+}
+.cartao, .janela, .menu-logo, .idioma-botao, .presets-nome, .ficha, .seletor-controle, .chave,
+.tela-grafico, .seletor-wt, .recado, .dica-modulacao, .botao-pagina {
+  --contorno: var(--cartao-borda);
+  border-color: transparent !important;
+}
+.presets-nome, .seletor-controle, .tela-grafico, .seletor-wt, .chave.rota {
+  --contorno: var(--tela-onda-borda);
+}
+.ficha {
+  --contorno: var(--cor);
+}
+.recado,
+.chave[aria-pressed='true'],
+.botao-pagina[aria-pressed='true'],
+.idioma-botao:active {
+  --contorno: var(--destaque);
+}
+.dica-modulacao {
+  --contorno: var(--cor-ligando);
+}
+.cartao::after, .janela::after, .menu-logo::after, .idioma-botao::after, .presets-nome::after,
+.ficha::after, .seletor-controle::after, .chave::after, .tela-grafico::after, .seletor-wt::after,
+.recado::after, .dica-modulacao::after, .botao-pagina::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  background: var(--contorno);
+  /* anel de 1 px: o polígono de fora menos o de dentro (regra "evenodd") */
+  --d: calc(var(--c) - 0.41px); /* corte do polígono de dentro (a linha fica com 1 px na diagonal) */
+  clip-path: polygon(
+    evenodd,
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c),
+    var(--c) 0,
+    calc(1px + var(--d)) 1px, calc(100% - 1px - var(--d)) 1px, calc(100% - 1px) calc(1px + var(--d)),
+    calc(100% - 1px) calc(100% - 1px - var(--d)), calc(100% - 1px - var(--d)) calc(100% - 1px),
+    calc(1px + var(--d)) calc(100% - 1px), 1px calc(100% - 1px - var(--d)), 1px calc(1px + var(--d)),
+    calc(1px + var(--d)) 1px
+  );
+}
+
+/* 5) Teclas: corte só nos cantos de baixo (a borda delas é da cor do fundo: o corte já mostra o
+   fundo, então a separação continua certinha) */
+.tecla {
+  --c: 7px;
+  clip-path: polygon(0 0, 100% 0, 100% calc(100% - var(--c)), calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)));
+}
+.tecla.preta {
+  --c: 5px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .tecla {
+    --c: 5px;
+  }
+  .tecla.preta {
+    --c: 4px;
+  }
+}
+
+/* =====================================================================================
+   Escolhas visuais de 25/09/2026 (maquetes aprovadas pelo dono)
+   ===================================================================================== */
+
+/* 1) Tecla tocando: azul, "afunda" (desce um pouco e escurece) e brilha em azul */
+.tecla.branca.ativa {
+  background: linear-gradient(to bottom, #b9e4ff 0%, #8fd3ff 55%, var(--destaque) 100%);
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 -5px 0 var(--destaque),
+    inset 0 0 14px rgba(var(--azul-rgb), 0.55);
+}
+
+.tecla.preta.ativa {
+  background: var(--destaque-escuro);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 -4px 0 var(--destaque),
+    inset 0 0 10px rgba(var(--azul-rgb), 0.8);
+}
+
+/* 2) Aba escolhida: azul cheia (texto escuro) */
+.aba.ativa {
+  background: var(--destaque);
+  color: var(--texto-sobre-destaque);
+  box-shadow: none;
+}
+
+/* 3) Knobs: arco fino com marcas em volta, corpo e ponteiro (tudo no mesmo azul) */
+.knob-trilho,
+.knob-valor {
+  stroke-width: 2.2;
+}
+
+.knob-marcas line {
+  stroke: var(--texto-suave);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+  opacity: 0.7;
+}
+
+.knob-corpo {
+  fill: var(--botao);
+  stroke: var(--cartao-borda);
+  stroke-width: 1;
+}
+
+.knob-ponteiro {
+  stroke-width: 2.4;
+}
+
+/* 4) Chaves On/Off: LED que acende em azul (só nas chaves liga/desliga, que têm aria-pressed) */
+.chave[aria-pressed] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--botao);
+  color: var(--texto-suave);
+}
+
+.chave[aria-pressed]::before {
+  content: '';
+  flex: 0 0 auto;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--led-apagado);
+  transition:
+    background 0.12s,
+    box-shadow 0.12s;
+}
+
+.chave[aria-pressed='true'] {
+  --contorno: var(--cartao-borda); /* o LED mostra que está ligado: o contorno fica neutro */
+  background: var(--botao);
+  color: var(--texto);
+}
+
+.chave[aria-pressed='true']::before {
+  background: var(--destaque);
+  box-shadow: 0 0 6px var(--destaque);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .chave[aria-pressed] {
+    gap: 4px;
+  }
+  .chave[aria-pressed]::before {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* ---------- Escolhas visuais de 25/09/2026 (2ª rodada) ---------- */
+
+/* Nome do preset num visor LCD azul: categoria e número em cima, nome embaixo */
+.presets-nome {
+  --contorno: rgba(var(--azul-rgb), 0.45);
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1px;
+  background: var(--lcd-fundo);
+  color: var(--lcd-texto);
+  font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  text-align: left;
+}
+
+.presets-topo {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--destaque);
+  opacity: 0.8;
+}
+
+.presets-linha-nome {
+  display: flex;
+  min-width: 0;
+  line-height: 1.15;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-shadow: 0 0 6px rgba(var(--azul-rgb), 0.45);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .presets-nome {
+    gap: 0;
+  }
+  .presets-topo {
+    font-size: 8px;
+    line-height: 1;
+  }
+  .presets-linha-nome {
+    font-size: 12px;
+    line-height: 1.05;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .presets-nome {
+    min-width: 140px; /* o visor precisa de espaço para o nome (a barra de volume encolhe) */
+  }
+}
+
+/* Desenho dos envelopes com pontos para arrastar: o dedo arrasta o ponto (não rola a página) */
+.envelope-arrastavel {
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* ---------- Escolhas visuais de 25/09/2026 (3ª rodada) ---------- */
+
+/* Abas com ícone em cima do nome */
+.aba {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  line-height: 1;
+}
+
+.aba-icone {
+  width: 22px;
+  height: 13px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .aba {
+    gap: 2px;
+    font-size: 10px;
+  }
+  .aba-icone {
+    width: 17px;
+    height: 10px;
+  }
+}
+
+/* Quantidade das ligações: barra "do meio para os lados" na cor da fonte (zero no centro).
+   Continua sendo uma barra de arrastar de verdade; só o desenho é nosso (--ini/--fim vêm do JS). */
+.barra-quantidade {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  --trilho-q:
+    linear-gradient(to right, transparent var(--ini, 50%), var(--cor) var(--ini, 50%), var(--cor) var(--fim, 50%), transparent var(--fim, 50%)),
+    linear-gradient(to right, transparent calc(50% - 0.5px), var(--texto-suave) calc(50% - 0.5px), var(--texto-suave) calc(50% + 0.5px), transparent calc(50% + 0.5px)),
+    var(--fundo);
+}
+
+.barra-quantidade::-webkit-slider-runnable-track {
+  height: 10px;
+  background: var(--trilho-q);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.barra-quantidade::-moz-range-track {
+  height: 10px;
+  background: var(--trilho-q);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.barra-quantidade::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 4px;
+  height: 18px;
+  margin-top: -4px;
+  border: none;
+  background: var(--texto);
+}
+
+.barra-quantidade::-moz-range-thumb {
+  width: 4px;
+  height: 18px;
+  border: none;
+  border-radius: 0;
+  background: var(--texto);
+}
+
+.linha-mod-valor {
+  color: var(--cor);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .barra-quantidade::-webkit-slider-runnable-track {
+    height: 8px;
+  }
+  .barra-quantidade::-webkit-slider-thumb {
+    height: 14px;
+    margin-top: -3px;
+  }
+}
+
+/* Seletor de número: número na caixinha + setas ▲ ▼ empilhadas à direita (estilo rack) */
+.seletor-controle {
+  align-items: stretch;
+  min-height: 40px;
+}
+
+.seletor-controle .seletor-numero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 0 6px;
+}
+
+.seletor-setas {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 3px 3px 3px 0;
+}
+
+.seletor-setas .seletor-botao {
+  --c: 3px;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  background: var(--botao);
+  color: var(--texto);
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+
+.seletor-setas .seletor-botao:active:not(:disabled) {
+  background: var(--botao-apertado);
+}
+
+.seletor-setas svg {
+  width: 11px;
+  height: 7px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.linha-afinacao .seletor-setas .seletor-botao {
+  width: 22px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .seletor-controle {
+    min-height: 30px;
+  }
+  .seletor-setas {
+    gap: 1px;
+    padding: 2px 2px 2px 0;
+  }
+  .seletor-setas .seletor-botao {
+    width: 24px;
+  }
+  /* Afinação compacta (Oct/Semi/Fine): só o número (arrastar; toque duplo = 0) */
+  .linha-afinacao .seletor-setas {
+    display: none;
+  }
+  .linha-afinacao .seletor-controle {
+    min-height: 0;
+  }
+}
+
+/* Fichas nunca quebram o nome em 2 linhas; em telas estreitas o desenhinho encolhe */
+.ficha {
+  white-space: nowrap;
+  padding: 0 4px;
+}
+
+@media (max-width: 500px) {
+  .ficha {
+    gap: 3px;
+    font-size: 12px;
+  }
+  .ficha-forma {
+    width: 15px;
+    height: 9px;
+  }
+}
+
+/* Barra do WT Pos: trilho com uma marquinha em cada frame, preenchimento verde (cor dos
+   osciladores) e marcador em forma de seta. --pos e --passo vêm do principal.js.
+   O marcador tem 12 px: o centro dele anda de 6 px até (largura − 6 px), e as marcas e o
+   preenchimento seguem essa mesma faixa. */
+.grupo-wtpos input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  --preenche: calc(6px + (100% - 12px) * var(--pos, 0));
+  --trilho-wt:
+    repeating-linear-gradient(to right, var(--cor-marca, var(--rolagem)) 0 1px, transparent 1px var(--passo, 100%)) 6px 0 /
+      calc(100% - 11px) 100% no-repeat,
+    linear-gradient(to right, rgba(var(--verde-rgb), 0.75) var(--preenche), transparent var(--preenche)),
+    var(--fundo);
+}
+
+.grupo-wtpos input.sem-marcas {
+  --cor-marca: transparent;
+}
+
+.grupo-wtpos input::-webkit-slider-runnable-track {
+  height: 12px;
+  background: var(--trilho-wt);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.grupo-wtpos input::-moz-range-track {
+  height: 12px;
+  background: var(--trilho-wt);
+  box-shadow: inset 0 0 0 1px var(--cartao-borda);
+}
+
+.grupo-wtpos input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 24px;
+  margin-top: -9px;
+  border: none;
+  background: var(--texto);
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%);
+}
+
+.grupo-wtpos input::-moz-range-thumb {
+  width: 12px;
+  height: 24px;
+  border: none;
+  border-radius: 0;
+  background: var(--texto);
+  clip-path: polygon(0 0, 100% 0, 100% 72%, 50% 100%, 0 72%);
+}
+
+.faixas-barra {
+  left: 6px;
+  right: 6px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .grupo-wtpos input::-webkit-slider-runnable-track {
+    height: 9px;
+  }
+  .grupo-wtpos input::-webkit-slider-thumb {
+    height: 18px;
+    margin-top: -7px;
+  }
+  .grupo-wtpos input::-moz-range-thumb {
+    height: 18px;
+  }
+}
+
+/* Botões de tipo de filtro com o desenho da curva (LP 12, LP 24, HP, BP) */
+.curva-filtro {
+  display: block;
+  width: 26px;
+  height: 13px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  overflow: visible;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .curva-filtro {
+    width: 22px;
+    height: 11px;
+  }
+}
+
+/* ---------- Escolhas visuais de 25/09/2026 (5ª rodada) ---------- */
+
+/* Menu da logo como PAINEL LATERAL: sai da esquerda, altura toda da tela; o resto escurece */
+.menu-logo {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  box-sizing: border-box;
+  width: min(280px, 82vw);
+  max-width: none;
+  min-width: 0;
+  padding: 10px 8px calc(10px + env(safe-area-inset-bottom));
+  padding-left: calc(8px + env(safe-area-inset-left));
+  overflow-y: auto;
+  z-index: 160;
+  --c: 0px; /* encosta na borda da tela: sem cantos cortados */
+  clip-path: none;
+}
+
+.menu-logo:not([hidden]) {
+  animation: menu-entrar 0.18s ease-out;
+}
+
+@keyframes menu-entrar {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.menu-logo::after {
+  display: none; /* o contorno fica só na borda da direita */
+}
+
+.menu-logo {
+  border: none;
+  border-right: 1px solid var(--cartao-borda) !important;
+}
+
+.menu-fundo {
+  position: fixed;
+  inset: 0;
+  z-index: 155;
+  background: rgba(3, 5, 8, 0.6);
+}
+
+.menu-fundo[hidden] {
+  display: none;
+}
+
+.menu-cabecalho {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 10px 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--cartao-borda);
+}
+
+.menu-cabecalho svg {
+  width: 30px;
+  height: 30px;
+}
+
+.menu-cabecalho path {
+  fill: none;
+  stroke: var(--verde);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.menu-nome {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--texto);
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .menu-cabecalho {
+    padding-bottom: 6px;
+    margin-bottom: 2px;
+  }
+  .menu-cabecalho svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+/* =====================================================================================
+   NORMALIZAÇÃO (25/09/2026): tudo com cara de sintetizador, nada com cara de "navegador".
+   ===================================================================================== */
+
+/* N1) Barras de rolagem finas e escuras (janelas, listas de ligações, abas que rolam) */
+/* (Firefox: regra padrão; Chrome/Safari: as de baixo — se o Chrome vir a padrão, ignora as de baixo e desenha setinhas) */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--rolagem) transparent;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--rolagem);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--texto-suave);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* N2) Ícones desenhados (interface/icones.js) no lugar de emojis e sinais de texto */
+.icone {
+  display: block;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.seletor-botao,
+.presets-seta,
+.janela-fechar,
+.presets-apagar,
+.linha-mod-remover {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.janela-fechar .icone {
+  width: 16px;
+  height: 16px;
+}
+
+.presets-apagar .icone {
+  width: 16px;
+  height: 16px;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .icone {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* N3) Botão de ação que apaga (janela "Confirmar", no lugar do confirm() do navegador) */
+.botao-perigo {
+  background: #8f2d2d;
+  color: #fff;
+  font-weight: 600;
+}
+
+.botao-perigo:active {
+  background: #6f2222;
+}
+
+/* N4) Categoria ao salvar: botões (4 por linha) no lugar da lista do sistema */
+.categorias-salvar {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.categorias-salvar .botao {
+  min-height: 36px;
+  padding: 0 4px;
+  font-size: 13px;
+}
+
+/* Campo de texto (nome do preset): sem o contorno azul do navegador; foco = borda azul */
+.campo {
+  outline: none;
+  font-family: inherit;
+}
+
+.campo:focus {
+  border-color: var(--destaque);
+}
+
+.campo::placeholder {
+  color: var(--texto-suave);
+  opacity: 0.7;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .categorias-salvar .botao {
+    min-height: 30px;
+  }
+  .campo {
+    min-height: 36px;
+  }
+}
+
+/* N5) Botões de tipo dos efeitos no celular deitado: menos espaço interno, para nomes como
+   "Transist." caberem inteiros no cartão estreito */
+@media (orientation: landscape) and (max-height: 500px) {
+  .modulos-fx [id^='tipos-'] .botao {
+    padding-left: 1px;
+    padding-right: 1px;
+    letter-spacing: -0.01em;
+  }
+}
+
+/* N6) Tela de idioma com a logo (a mesma onda verde do carregamento e do menu) */
+.idioma-logo {
+  width: 44px;
+  height: 44px;
+  fill: none;
+  stroke: var(--verde);
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .idioma-logo {
+    width: 32px;
+    height: 32px;
+  }
+}
+
+/* Títulos das seções nas janelas (Configurações, Sobre): mesmo estilo dos títulos dos cartões */
+.config-titulo {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Janela sem botões embaixo (Configurações, Sobre): sem o rodapé vazio */
+.janela-rodape:empty {
+  display: none;
+}
+
+/* Foco pelo teclado do computador (Tab): contorno azul por DENTRO do botão (o corte em 45°
+   esconderia um contorno por fora). Tocar com o dedo/mouse não mostra nada. */
+button:focus {
+  outline: none;
+}
+
+button:focus-visible,
+input[type='range']:focus-visible {
+  outline: 2px solid var(--destaque);
+  outline-offset: -2px;
+}
+
+/* =====================================================================================
+   TEMAS (interface/tema.js). O "Comum" é o visual de cima (padrão). Cada tema aqui embaixo
+   só troca cores (variáveis) e, se precisar, uns poucos detalhes.
+   ===================================================================================== */
+
+/* ---------- Tema CLARO: fundo claro (bom para tocar no sol) ---------- */
+html[data-tema='claro'] {
+  color-scheme: light;
+  --fundo: #e9ecf1;
+  --barra: #dde1e8;
+  --cartao: #f7f8fb;
+  --cartao-borda: #c5cbd6;
+  --tela-onda: #ffffff;
+  --tela-onda-borda: #bfc6d2;
+  --botao: #e2e6ed;
+  --botao-apertado: #d0d6e0;
+  --texto: #1d222c;
+  --texto-suave: #5c6475;
+  --destaque: #1f7fd1;
+  --destaque-escuro: #1766aa;
+  --azul-rgb: 31, 127, 209;
+
+  --cor-lfo1: #1f9e52;
+  --cor-lfo2: #7b4fd6;
+  --cor-lfo3: #c29a00;
+  --cor-env2: #e0770f;
+  --cor-env3: #e0487f;
+
+  --verde: #1a9e4a;
+  --verde-rgb: 26, 158, 74;
+  --texto-sobre-destaque: #ffffff;
+  --texto-sobre-cor: #ffffff;
+  --lcd-fundo: #f1f7fc;
+  --lcd-texto: #1f5f99;
+  --led-apagado: #b8bfcc;
+  --rolagem: #b8bfcc;
+  --tecla-branca: #ffffff;
+  --tecla-preta: #2a2f3a;
+  --ponto-aovivo: #1d222c;
+
+  --desenho-onda: 26, 158, 74;
+  --desenho-linha: 31, 127, 209;
+  --desenho-apagado: #a4acbb;
+  --desenho-guia: #d3d8e1;
+  --desenho-marca: 214, 140, 20;
+  --desenho-ponto: 29, 34, 44;
+  --desenho-alca: #ffffff;
+}
+
+html[data-tema='claro'] .nome-onda {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+html[data-tema='claro'] .mod-alvo {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+html[data-tema='claro'] .presets-linha-nome {
+  text-shadow: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  html[data-tema='claro'] .dica-modulacao {
+    background: rgba(247, 248, 251, 0.96);
+  }
+}
+
+/* ---------- Tema BÁSICO: parecido com as primeiras versões ----------
+   Cantos arredondados (sem o corte em 45°), ondas azuis, nome do preset sem visor LCD,
+   chaves que acendem inteiras (sem LED), knobs de arco grosso sem marcas, abas só com texto e
+   fichas só com contorno. (Os controles novos — setas, barras, curvas dos filtros — ficam.) */
+html[data-tema='basico'] {
+  --desenho-onda: 63, 184, 255;
+}
+
+/* Sem o corte em 45°: cantos redondos e a borda normal (a camada do contorno some) */
+html[data-tema='basico']
+  :is(.cartao, .janela, .menu-logo, .idioma-botao, .abas, .botao, .presets-nome, .campo, .ficha,
+    .seletor-controle, .chave, .tela-grafico, .seletor-wt, .recado, .aviso, .dica-modulacao,
+    .botao-pagina, .janela-fechar, .presets-item, .presets-apagar, .linha-mod-remover, .aba,
+    .menu-item, .nome-onda, .menu-em-breve, .linha-mod, .tecla, .seletor-setas .seletor-botao) {
+  clip-path: none;
+}
+html[data-tema='basico']
+  :is(.cartao, .janela, .idioma-botao, .presets-nome, .ficha, .seletor-controle, .chave,
+    .tela-grafico, .seletor-wt, .recado, .dica-modulacao, .botao-pagina)::after {
+  display: none;
+}
+html[data-tema='basico']
+  :is(.cartao, .janela, .idioma-botao, .presets-nome, .ficha, .seletor-controle, .chave,
+    .tela-grafico, .seletor-wt, .recado, .dica-modulacao, .botao-pagina) {
+  border-color: var(--contorno) !important;
+}
+html[data-tema='basico'] :is(.cartao, .janela, .abas, .idioma-botao) {
+  border-radius: 12px !important;
+}
+html[data-tema='basico']
+  :is(.botao, .presets-nome, .campo, .seletor-controle, .tela-grafico, .seletor-wt, .recado, .aviso,
+    .dica-modulacao, .botao-pagina, .janela-fechar, .presets-item, .presets-apagar, .aba, .menu-item,
+    .linha-mod) {
+  border-radius: 9px !important;
+}
+html[data-tema='basico'] :is(.ficha, .chave) {
+  border-radius: 999px !important;
+}
+html[data-tema='basico']
+  :is(.linha-mod-remover, .nome-onda, .menu-em-breve, .seletor-setas .seletor-botao, .atalhos-wt .botao) {
+  border-radius: 6px !important;
+}
+html[data-tema='basico'] .tecla {
+  border-radius: 0 0 6px 6px !important;
+}
+html[data-tema='basico'] .menu-logo {
+  border-radius: 0 12px 12px 0 !important;
+}
+
+/* Nome do preset numa caixa simples (sem visor LCD, sem categoria/número) */
+html[data-tema='basico'] .presets-nome {
+  background: var(--tela-onda);
+  color: var(--texto);
+  font-family: inherit;
+}
+html[data-tema='basico'] .presets-topo {
+  display: none;
+}
+html[data-tema='basico'] .presets-linha-nome {
+  text-transform: none;
+  letter-spacing: 0;
+  text-shadow: none;
+}
+
+/* Chaves liga/desliga: acendem inteiras (contorno e texto azuis), sem LED */
+html[data-tema='basico'] .chave[aria-pressed]::before {
+  display: none;
+}
+html[data-tema='basico'] .chave {
+  background: transparent;
+}
+html[data-tema='basico'] .chave[aria-pressed='true'] {
+  --contorno: var(--destaque);
+  background: rgba(var(--azul-rgb), 0.15);
+  color: var(--destaque);
+}
+
+/* Knobs: arco grosso, sem marcas e sem o "corpo" */
+html[data-tema='basico'] .knob-marcas,
+html[data-tema='basico'] .knob-corpo {
+  display: none;
+}
+html[data-tema='basico'] :is(.knob-trilho, .knob-valor) {
+  stroke-width: 4;
+}
+html[data-tema='basico'] .knob-ponteiro {
+  stroke-width: 3;
+}
+
+/* Abas só com texto; a escolhida com a linha azul embaixo */
+html[data-tema='basico'] .aba-icone {
+  display: none;
+}
+html[data-tema='basico'] .aba.ativa {
+  background: var(--botao-apertado);
+  color: var(--texto);
+  box-shadow: inset 0 -3px 0 var(--destaque);
+}
+
+/* Fichas: só contorno e texto coloridos (armada = cheia), sem o desenhinho */
+html[data-tema='basico'] .ficha {
+  background: transparent;
+  color: var(--cor);
+}
+html[data-tema='basico'] .ficha[aria-pressed='true'],
+html[data-tema='basico'] .ficha-fantasma {
+  background: var(--cor);
+  color: var(--texto-sobre-cor);
+}
+html[data-tema='basico'] .ficha-forma {
+  display: none;
+}
+
+/* Tecla tocando: azul claro, sem afundar */
+html[data-tema='basico'] .tecla.branca.ativa {
+  background: #8fd3ff;
+  transform: none;
+  box-shadow: none;
+}
+html[data-tema='basico'] .tecla.preta.ativa {
+  background: var(--destaque-escuro);
+  transform: none;
+  box-shadow: none;
+}
+
+/* ---------- Tela inicial: idioma + tema + "Seguir" ---------- */
+.inicio-secoes {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: min(520px, 100%);
+}
+
+.inicio-secao {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.inicio-secao .idioma-opcoes {
+  width: 100%;
+}
+
+.tela-idioma .idioma-titulo {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+/* Opção marcada: contorno azul + LED aceso (como as chaves On/Off) */
+.idioma-botao[aria-pressed] {
+  position: relative;
+}
+
+.idioma-botao[aria-pressed]::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--led-apagado);
+}
+
+.idioma-botao[aria-pressed='true'] {
+  --contorno: var(--destaque);
+  border-color: var(--destaque);
+}
+
+.idioma-botao[aria-pressed='true']::before {
+  background: var(--destaque);
+  box-shadow: 0 0 6px var(--destaque);
+}
+
+.idioma-botao:active {
+  border-color: var(--destaque);
+}
+
+.tema-botao {
+  gap: 2px;
+  padding: 8px 6px;
+}
+
+.tema-miniatura {
+  width: 100%;
+  max-width: 120px;
+  height: auto;
+  margin-bottom: 4px;
+}
+
+.tema-botao .idioma-nome {
+  font-size: 15px;
+}
+
+.tema-botao .idioma-regiao {
+  font-size: 12px;
+}
+
+.botao-seguir {
+  min-width: 200px;
+  min-height: 44px;
+  font-size: 16px;
+}
+
+/* Celular deitado: Idioma e Tema lado a lado, tudo mais baixo (sem rolar) */
+@media (orientation: landscape) and (max-height: 500px) {
+  .tela-idioma {
+    gap: 8px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: max(8px, env(safe-area-inset-bottom));
+  }
+  .inicio-secoes {
+    flex-direction: row;
+    align-items: stretch;
+    width: min(760px, 100%);
+    gap: 18px;
+  }
+  .inicio-secao:first-child {
+    flex: 0 0 34%;
+  }
+  .inicio-secao {
+    gap: 6px;
+  }
+  .inicio-secao:first-child .idioma-opcoes {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .inicio-secao:first-child .idioma-botao {
+    min-height: 0;
+    flex: 1 1 0;
+  }
+  .idioma-botao {
+    min-height: 0;
+  }
+  .idioma-nome {
+    font-size: 15px;
+  }
+  .tema-miniatura {
+    max-width: 96px;
+    margin-bottom: 2px;
+  }
+  .idioma-opcoes {
+    gap: 8px;
+  }
+  .botao-seguir {
+    min-height: 36px;
+  }
+  .idioma-logo {
+    width: 26px;
+    height: 26px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .inicio-secao .idioma-opcoes {
+    flex: 1 1 auto;
+  }
+  .inicio-secao:first-child .idioma-botao {
+    min-height: 40px;
+  }
+}
+
+.tema-botao[aria-pressed]::before {
+  top: 4px;
+  left: 4px;
+  width: 6px;
+  height: 6px;
+}
+
+/* ---------- Desfazer / Refazer / Hold (barra de cima) ---------- */
+.grupo-acoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.botao-icone {
+  width: 40px;
+  min-width: 40px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.botao-icone .icone {
+  width: 18px;
+  height: 18px;
+}
+
+.botao-icone:disabled {
+  opacity: 0.35;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .grupo-acoes {
+    gap: 4px;
+  }
+  .botao-icone {
+    width: 30px;
+    min-width: 30px;
+  }
+  .botao-icone .icone {
+    width: 15px;
+    height: 15px;
+  }
+  .grupo-acoes .chave {
+    padding: 0 8px;
+  }
+}
+
+/* ---------- Macros (botão "M" + painel) ---------- */
+.linha-abas {
+  position: relative; /* o painel dos Macros abre logo abaixo desta linha */
+}
+
+.ficha-macros {
+  --cor: var(--cor-macro1);
+  flex: 0 0 auto;
+  min-width: 40px;
+  font-size: 15px;
+}
+
+.ficha-macros[aria-expanded='true'],
+.ficha-macros.ligando {
+  background: var(--fundo);
+  color: var(--cor);
+}
+
+html[data-tema='claro'] {
+  --cor-macro1: #14867c;
+  --cor-macro2: #14867c;
+  --cor-macro3: #14867c;
+  --cor-macro4: #14867c;
+}
+
+.painel-macros {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 120;
+  width: min(460px, 100%);
+  max-height: 70vh;
+  overflow-y: auto;
+  padding: 10px;
+  box-sizing: border-box;
+  background: var(--cartao);
+  border: 1px solid var(--cor-macro1);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55);
+  --c: 10px;
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+
+.painel-macros[hidden] {
+  display: none;
+}
+
+html[data-tema='basico'] .painel-macros {
+  clip-path: none;
+  border-radius: 12px;
+}
+
+.macros-colunas {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.macro-coluna {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+
+.macro-coluna [data-knob-macro] {
+  display: flex;
+  justify-content: center;
+}
+
+.macro-coluna [data-ficha-macro] .ficha {
+  width: 100%;
+}
+
+/* Lista de ligações de cada macro: compacta (nome + barra embaixo) */
+.macro-coluna .lista-mod {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+
+.macro-coluna .linha-mod {
+  flex-wrap: wrap;
+  gap: 2px 4px;
+  min-height: 0;
+  padding: 3px 2px 3px 6px;
+}
+
+.macro-coluna .linha-mod-nome {
+  width: auto;
+  flex: 1 1 60%;
+  font-size: 11px;
+}
+
+.macro-coluna .linha-mod-valor {
+  width: auto;
+  font-size: 11px;
+}
+
+.macro-coluna .barra-quantidade {
+  order: 3;
+  flex: 1 1 100%;
+  height: 20px;
+}
+
+.macro-coluna .linha-mod-remover {
+  width: 24px;
+  height: 24px;
+}
+
+.macro-coluna .lista-mod-vazia {
+  font-size: 11px;
+}
+
+/* Arrastando uma ficha de macro: o painel some da frente (dá para soltar nos controles
+   que estão embaixo dele) */
+.arrastando-mod .painel-macros {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .ficha-macros {
+    min-width: 32px;
+    font-size: 13px;
+  }
+  .painel-macros {
+    top: calc(100% + 4px);
+    width: min(520px, 100%);
+    max-height: calc(100dvh - 90px);
+    padding: 8px;
+  }
+  .macro-coluna .lista-mod {
+    max-height: 70px;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Painel dos Macros deitado: sem a frase de ajuda nas listas vazias (falta altura) */
+  .macro-coluna .lista-mod-vazia {
+    display: none;
+  }
+}
+
+/* Painel dos Macros: linha da ligação = [nome … valor ✕] em cima, barra embaixo */
+.macro-coluna .linha-mod-nome {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.macro-coluna .linha-mod-valor {
+  order: 1;
+}
+
+.macro-coluna .linha-mod-remover {
+  order: 2;
+  width: 22px;
+  height: 22px;
+}
+
+/* Telas estreitas (celular em pé): as 6 fichas (M + 5) cabem numa linha — sem o desenhinho —
+   e o painel dos Macros fica em 2 colunas (as listas de ligações ganham largura) */
+@media (max-width: 500px) {
+  #barra-fontes .ficha {
+    min-width: 0;
+    padding: 0 2px;
+  }
+  #barra-fontes .ficha-forma {
+    display: none;
+  }
+  .ficha-macros {
+    flex: 0 0 34px;
+    min-width: 34px;
+  }
+  .macros-colunas {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+}
+
+/* Link no menu da logo (Política de privacidade): igual aos outros itens */
+a.menu-item {
+  text-decoration: none;
+}

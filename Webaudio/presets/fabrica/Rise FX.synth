@@ -1,0 +1,23 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Rise FX",
+      "categoria": "FX",
+      "som": {
+        "parametros": { "wtPos": 0.6666666666666666, "detune": 0.5, "cutoff": 400, "resonancia": 0.5, "ataque": 0.5, "soltura": 1.5 },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp24", "unison": 8 },
+        "fontes": { "lfo2": { "forma": "serraSobe", "rate": 0.25, "modo": "retrig" } },
+        "ligacoes": [
+          { "fonte": "lfo2", "destino": "cutoff", "quantidade": 0.6 },
+          { "fonte": "lfo2", "destino": "wtPos", "quantidade": 0.3 }
+        ],
+        "efeitos": {
+          "delay": { "ligado": true, "tempo": 0.4, "feedback": 0.6, "mix": 0.35, "pingpong": true },
+          "reverb": { "ligado": true, "tamanho": 1, "brilho": 0.7, "mix": 0.5 }
+        }
+      }
+    }
+  ]
+}

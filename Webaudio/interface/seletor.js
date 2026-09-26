@@ -1,0 +1,146 @@
+// interface/seletor.js
+// Caixinha de número inteiro com setas ▲ ▼ empilhadas ao lado (ex.: Unison, número de vozes),
+// estilo aparelho de rack.
+//
+// Como usar na tela:
+// - Tocar em ▲ ou ▼ aumenta/diminui 1.
+// - Arrastar para cima/baixo em cima do número muda mais rápido.
+
+const PIXELS_POR_PASSO = 16;
+
+// opcoes: { rotulo, min, max, padrao, aoMudar, rotuloAoLado, ler, pixelsPorPasso, formatar }
+// Devolve o elemento; elemento.habilitar(sim/não) liga ou desliga o controle.
+// Com "ler" (função que devolve o valor atual do som), ganha elemento.sincronizar().
+// "pixelsPorPasso": quanto arrastar para andar 1 (menor = mais rápido; ex.: Fine, -100 a 100).
+// "formatar": como mostrar o número (ex.: "+7" em vez de "7").
+// Toque duplo no número volta ao valor inicial.
+// "destino" (opcional): nome do controle de som, para receber ligações de modulação.
+//   Ligado: linha colorida embaixo; com nota tocando, o número mostra o valor modulado
+//   (na cor da fonte). A modulação anda na faixa toda: 100% = de min a max.
+export function criarSeletor({
+  destino,
+  rotulo,
+  min,
+  max,
+  padrao,
+  aoMudar,
+  rotuloAoLado = false,
+  ler,
+  pixelsPorPasso = PIXELS_POR_PASSO,
+  formatar = String,
+}) {
+  const elemento = document.createElement('div');
+  elemento.className = 'seletor' + (rotuloAoLado ? ' seletor-linha' : '');
+  elemento.innerHTML = `
+    <div class="seletor-controle">
+      <span class="seletor-numero" role="spinbutton" tabindex="0"
+        aria-label="${rotulo}" aria-valuemin="${min}" aria-valuemax="${max}"></span>
+      <div class="seletor-setas">
+        <button class="seletor-botao seletor-mais" aria-label="${rotulo}: mais">
+          <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M2 6.5L6 2.5L10 6.5" /></svg>
+        </button>
+        <button class="seletor-botao seletor-menos" aria-label="${rotulo}: menos">
+          <svg viewBox="0 0 12 8" aria-hidden="true"><path d="M2 1.5L6 5.5L10 1.5" /></svg>
+        </button>
+      </div>
+    </div>
+    <span class="seletor-rotulo">${rotulo}</span>`;
+  if (rotuloAoLado) elemento.prepend(elemento.querySelector('.seletor-rotulo'));
+
+  const botaoMenos = elemento.querySelector('.seletor-menos');
+  const botaoMais = elemento.querySelector('.seletor-mais');
+  const numero = elemento.querySelector('.seletor-numero');
+  const controle = elemento.querySelector('.seletor-controle');
+  let valor = padrao;
+  let habilitado = true;
+  let aoVivo = null; // valor com a modulação de agora (ou null)
+  if (destino) elemento.dataset.destino = destino;
+
+  function mudar(novo) {
+    if (!habilitado) return;
+    novo = Math.min(max, Math.max(min, Math.round(novo)));
+    if (novo === valor) return;
+    valor = novo;
+    mostrar();
+    aoMudar(valor);
+  }
+
+  function mostrar() {
+    numero.textContent = formatar(aoVivo ?? valor);
+    numero.setAttribute('aria-valuenow', valor);
+    botaoMenos.disabled = !habilitado || valor <= min;
+    botaoMais.disabled = !habilitado || valor >= max;
+  }
+
+  botaoMenos.addEventListener('click', () => mudar(valor - 1));
+  botaoMais.addEventListener('click', () => mudar(valor + 1));
+
+  // Arrastar em cima do número (toque duplo = valor inicial)
+  let arraste = null;
+  let ultimoToque = 0;
+  numero.addEventListener('pointerdown', (evento) => {
+    evento.preventDefault();
+    const agora = Date.now();
+    if (agora - ultimoToque < 300) {
+      mudar(padrao);
+      ultimoToque = 0;
+      return;
+    }
+    ultimoToque = agora;
+    try {
+      numero.setPointerCapture(evento.pointerId);
+    } catch {
+      // Sem captura, o arraste ainda funciona enquanto o dedo estiver no número.
+    }
+    arraste = { id: evento.pointerId, y: evento.clientY, inicio: valor };
+  });
+  numero.addEventListener('pointermove', (evento) => {
+    if (!arraste || evento.pointerId !== arraste.id) return;
+    mudar(arraste.inicio + (arraste.y - evento.clientY) / pixelsPorPasso);
+  });
+  const terminar = (evento) => {
+    if (arraste && evento.pointerId === arraste.id) arraste = null;
+  };
+  numero.addEventListener('pointerup', terminar);
+  numero.addEventListener('pointercancel', terminar);
+
+  // Teclado do computador: setas.
+  numero.addEventListener('keydown', (evento) => {
+    const passos = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1 };
+    if (evento.key in passos) {
+      evento.preventDefault();
+      mudar(valor + passos[evento.key]);
+    }
+  });
+
+  // Põe o número no valor atual do som, sem avisar (ex.: ao carregar um preset).
+  elemento.sincronizar = () => {
+    if (!ler) return;
+    valor = Math.min(max, Math.max(min, Math.round(ler())));
+    mostrar();
+  };
+
+  // Modulação (chamado pela tela de modulação, ~30 vezes por segundo com nota tocando):
+  // faixas = ligações [{ cor, ... }]; deslocamento = quanto está somando agora (0 a 1) ou null.
+  elemento.mostrarModulacao = (faixas, deslocamento) => {
+    const cor = faixas.length > 0 ? faixas[0].cor : '';
+    controle.style.boxShadow = cor ? `inset 0 -2px 0 ${cor}` : '';
+    aoVivo =
+      cor && deslocamento !== null
+        ? Math.min(max, Math.max(min, Math.round(valor + deslocamento * (max - min))))
+        : null;
+    if (aoVivo === valor) aoVivo = null;
+    numero.style.color = aoVivo !== null ? cor : '';
+    mostrar();
+  };
+
+  elemento.habilitar = (sim) => {
+    habilitado = sim;
+    elemento.classList.toggle('desabilitado', !sim);
+    mostrar();
+  };
+
+  mostrar();
+  aoMudar(valor);
+  return elemento;
+}
