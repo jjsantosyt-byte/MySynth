@@ -35,7 +35,7 @@ import { Reverb } from './dsp/efeitos/reverb.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
 
 const MAX_VOZES = 16;
-const PEDACO = 32; // amostras por pedaço de modulação (igual ao da voz)
+const PEDACO = 64; // amostras por pedaço de modulação (igual ao da voz)
 // A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
 const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 30);
 

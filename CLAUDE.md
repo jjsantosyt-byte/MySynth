@@ -248,6 +248,14 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
      "morrendo" (-60 a -100 dB) agora começa limpa, como nota nova (a onda recomeça do ponto
      sorteado em vez de continuar) — o volume varia o mesmo tanto que o motor antigo contra ele
      mesmo com outro sorteio (11–15 dB em janelas de 50 ms, normal do unison).
+- 4ª etapa (26/09/2026, em teste; escolhida pelo dono: ideias C e E; G, D ficaram de fora):
+  C) Modulação a cada 64 amostras (`PEDACO` em dsp/voz.js e no processador; antes 32), sempre com
+     rampa entre os pedaços e a mesma suavização de ~2 ms. Sem ligações: som idêntico. Com ligações:
+     diferença pequena (-40 a -50 dB); LFO 40 Hz no Cutoff: -8,5 dB de diferença de pico (A COMPARAR
+     DE OUVIDO). Peso no PC: 8 notas U8 17,9% → 16,3%; 3 osc U4 com ligações + LP24 49,0% → 44,7%
+     (`_antigo/teste/teste-pedaco.js`, contra `_antigo/head`).
+  E) Desenhos mais leves em TODOS os aparelhos (pedido do dono, sem opção de volta): sem sombra/
+     brilho nas linhas, pontinho do LFO e bolinhas dos envelopes; canvas no máximo 2× a resolução.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
 

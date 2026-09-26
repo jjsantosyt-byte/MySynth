@@ -9,7 +9,7 @@
 //   f1 = Filtro 1 · f2 = Filtro 2 · f12 = Filtro 1 e depois Filtro 2 · f21 = o contrário
 // Cada rota tem os seus próprios filtros (a "memória" de um não mistura com a de outro).
 //
-// Modulação: a voz trabalha em pedaços de 32 amostras (< 1 ms). A cada pedaço
+// Modulação: a voz trabalha em pedaços de 64 amostras (~1,3 ms). A cada pedaço
 // ela lê as fontes, soma as ligações e aplica nos controles. Entre um pedaço e
 // outro os valores andam em linha reta, então não há "degraus" (zíper).
 
@@ -21,7 +21,7 @@ import { DESTINOS_MOD, DESTINOS_OSC, FONTES_MOD, INDICES_LFO, INDICES_ENV, INDIC
 import { NOTA_BASE_RUIDO } from './ruido.js';
 
 const TAMANHO_BLOCO = 128;
-const PEDACO = 32; // amostras por pedaço de modulação
+const PEDACO = 64; // amostras por pedaço de modulação (antes 32: cada nota ficava mais pesada)
 
 // Cutoff: a modulação anda na mesma escala do knob (20 Hz a 20 kHz, exponencial).
 const CORTE_MIN = 20;

@@ -25,9 +25,10 @@ function cores() {
 }
 const rgbaDe = (cor, alfa) => `rgba(${cor[0]}, ${cor[1]}, ${cor[2]}, ${alfa})`;
 
-// Prepara o canvas na resolução certa da tela. Devolve null se estiver escondido.
+// Prepara o canvas na resolução certa da tela (no máximo 2×: mais leve, sem diferença visível).
+// Devolve null se estiver escondido.
 function prepararCanvas(canvas) {
-  const escalaTela = window.devicePixelRatio || 1;
+  const escalaTela = Math.min(window.devicePixelRatio || 1, 2);
   const largura = canvas.clientWidth;
   const altura = canvas.clientHeight;
   if (largura === 0 || altura === 0) return null; // aba escondida: não desenha
@@ -54,8 +55,8 @@ function linhaGuia(g, x1, y1, x2, y2) {
   g.stroke();
 }
 
-// Desenha uma lista de pontos [x, y] como linha brilhante, com preenchimento
-// em degradê até a altura "base".
+// Desenha uma lista de pontos [x, y] como linha, com preenchimento em degradê até a
+// altura "base". (Sem sombra/brilho em volta: pesava no celular.)
 function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = cores().linha) {
   const rgba = (alfa) => `rgba(${cor[0]}, ${cor[1]}, ${cor[2]}, ${alfa})`;
   const tracar = () => {
@@ -77,16 +78,10 @@ function linhaComBrilho(g, pontos, base, altura, apagada = false, cor = cores().
   }
 
   tracar();
-  g.save();
-  if (!apagada) {
-    g.shadowColor = rgba(0.7);
-    g.shadowBlur = 8;
-  }
   g.strokeStyle = apagada ? cores().apagado : rgba(1);
   g.lineWidth = 2.5;
   g.lineJoin = 'round';
   g.stroke();
-  g.restore();
 }
 
 // ---------- Forma de onda ----------
@@ -186,14 +181,10 @@ export function desenharLFO(canvas, forma, aoVivo = null) {
   if (aoVivo) {
     const x = margem + aoVivo.fase * (largura - 2 * margem);
     const y = meio - aoVivo.valor * amplitude;
-    g.save();
     g.fillStyle = rgbaDe(cores().ponto, 1);
-    g.shadowColor = rgbaDe(cores().ponto, 0.9);
-    g.shadowBlur = 8;
     g.beginPath();
     g.arc(x, y, 4.5, 0, 2 * Math.PI);
     g.fill();
-    g.restore();
   }
 }
 
@@ -269,19 +260,13 @@ export function desenharEnvelope(canvas, env) {
 function desenharAlcas(g, pontos, ativa) {
   for (const [nome, [x, y]] of Object.entries(pontos)) {
     const acesa = nome === ativa;
-    g.save();
     g.beginPath();
     g.arc(x, y, acesa ? 6 : 4.5, 0, 2 * Math.PI);
     g.fillStyle = acesa ? rgbaDe(cores().linha, 1) : cores().alca;
     g.fill();
     g.lineWidth = 1.5;
     g.strokeStyle = rgbaDe(cores().ponto, acesa ? 1 : 0.85);
-    if (acesa) {
-      g.shadowColor = rgbaDe(cores().linha, 0.9);
-      g.shadowBlur = 10;
-    }
     g.stroke();
-    g.restore();
   }
 }
 

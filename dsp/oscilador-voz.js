@@ -7,7 +7,7 @@
 // ponto sorteado da onda: é o que deixa o som vivo.
 //
 // O som sai em "somaE"/"somaD" (esquerda/direita), já com o Nível aplicado.
-// Quem usa (a voz) manda cada pedaço de modulação (32 amostras) com processarPedaco().
+// Quem usa (a voz) manda cada pedaço de modulação (64 amostras) com processarPedaco().
 
 import { escolherNiveis, lerAmostra } from './oscilador.js';
 import { W_NENHUM, forcaWarp, aceleracaoWarp, faseWarp, moduladorFM, aceleracaoFM, faseFM } from './warp.js';
