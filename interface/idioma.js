@@ -182,6 +182,7 @@ const TEXTOS = new Map(
     Vozes: 'Voices',
     'Poly: acordes · Mono: uma nota por vez': 'Poly: chords · Mono: one note at a time',
     'notas ao mesmo tempo (Poly)': 'notes at once (Poly)',
+    'notas ao mesmo tempo (Poly · máx. 6 no celular)': 'notes at once (Poly · max. 6 on phones)',
     'deslizar não reinicia o envelope (Mono)': "sliding doesn't restart the envelope (Mono)",
     'Legato só funciona no modo Mono': 'Legato only works in Mono mode',
     Sempre: 'Always',

@@ -23,6 +23,10 @@ const QUEDA_MINIMA = 0.006;
 const QUEDA_60DB = Math.log(0.001);
 // Quando uma voz é "roubada" para outra nota, ela some neste tempo.
 const QUEDA_ROUBO = 0.004;
+// Na soltura, abaixo deste nível (-80 dB) a nota termina e a voz para de ser calculada.
+// (Antes era -100 dB: a voz ficava ~1,7× o tempo do Release sendo calculada; agora ~1,3×.
+// Um degrau de -80 dB no fim é inaudível.)
+const FIM_SOLTURA = 1e-4;
 
 export class Envelope {
   constructor(taxaAmostragem) {
@@ -107,7 +111,7 @@ export class Envelope {
         return this.nivel;
       case SOLTURA: {
         const n = this.nivel * Math.pow(this.rapido ? this.coefRoubo : this.coefSoltura, qtd);
-        if (n >= 1e-5) {
+        if (n >= FIM_SOLTURA) {
           this.nivel = n;
           return n;
         }
@@ -140,7 +144,7 @@ export class Envelope {
 
       case SOLTURA:
         this.nivel *= this.rapido ? this.coefRoubo : this.coefSoltura;
-        if (this.nivel < 1e-5) {
+        if (this.nivel < FIM_SOLTURA) {
           this.nivel = 0;
           this.estagio = PARADO;
           this.rapido = false;

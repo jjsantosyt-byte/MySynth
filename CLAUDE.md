@@ -226,6 +226,30 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   efeitos); peso igual (ex.: 8 notas × 3 osc × U8 + LP24 ≈ 28–29%). Conserto testado com NaN
   forçado em delay, reverb, voz e clipper: o som volta e o aviso aparece.
 - Ainda NÃO medido no celular (o aparelho não estava conectado).
+- 2ª etapa (26/09/2026, em teste; som IDÊNTICO, diferença 0 amostra a amostra, inclusive tirando/
+  recolocando ligações no meio da nota): voz sem nenhuma ligação e com a modulação já em zero pula
+  somar/suavizar os 93 destinos (`modZerada`); Compressor não converte para dB abaixo do joelho
+  (`semCompressao`) nem faz `pow` sem redução. Peso no PC: 8 notas U1 7,5% → 6,9%; Compressor com som
+  baixo 1,25% → 1,00%. Testado e DESCARTADO: laço especial do oscilador para o caso comum (sem ganho).
+- Achados das medições (PC): cada nota tem um custo fixo grande (8 notas U1 ≈ 7%; cada cópia de
+  unison a mais ≈ +0,6% nas 8 notas); efeitos ligados sozinhos: Distorção 3,8%, Saturação 2,5%,
+  Flanger 1,7%, Reverb 1,7%, Chorus 1,2%, os outros < 0,6%.
+- 3ª etapa (26/09/2026, em teste; escolhida pelo dono: opções A e B):
+  A) Celular/tablet (`APARELHO_DE_TOQUE` = `pointer: coarse`, principal.js): no máximo 6 vozes
+     (`MAX_VOZES_APARELHO`). O seletor para em 6 e a explicação diz "máx. 6 no celular"; `enviarOpcao`
+     manda no máximo 6 ao motor. O preset continua guardando o valor dele (8 → no computador toca 8).
+     O seletor só grava quando o número muda de verdade (abrir o app no celular não marca "*").
+     Testado (celular simulado): 6 presets de 8 vozes → mostram 6, motor recebe 6, sem "*";
+     computador: máx. 16, manda 8 (igual a antes).
+  B) Nota termina em -80 dB (`FIM_SOLTURA` = 1e-4 em dsp/envelope.js; antes -100 dB): a voz é
+     calculada ~1,3× o Release (antes ~1,7×). Medido (notas curtas em sequência, 12 notas, U4):
+     vozes tocando em média, Release 0,3 s 2,24 → 1,87, 1 s 6,12 → 5,36, 2 s 7,27 → 6,87; peso 1 s
+     6,8% → 6,0%. Diferença no som: só abaixo de -80 dB; e uma nota que caía numa voz ainda
+     "morrendo" (-60 a -100 dB) agora começa limpa, como nota nova (a onda recomeça do ponto
+     sorteado em vez de continuar) — o volume varia o mesmo tanto que o motor antigo contra ele
+     mesmo com outro sorteio (11–15 dB em janelas de 50 ms, normal do unison).
+- ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
+  antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
 
 **Revisão, 3ª rodada (25/09/2026) — feita, em teste:**
 - Distorção/Saturação: `Interpolador` em dsp/meia-banda.js sobe a taxa sem multiplicar zeros (16

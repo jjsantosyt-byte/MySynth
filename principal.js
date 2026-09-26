@@ -423,6 +423,14 @@ async function ligarSom() {
   }
 }
 
+// Aparelho de toque (celular/tablet): menos força de processamento que um computador.
+const APARELHO_DE_TOQUE = matchMedia('(pointer: coarse)').matches;
+
+// Vozes (Poly): no celular/tablet, no máximo 6 notas ao mesmo tempo (cada nota tem um custo
+// fixo alto: menos notas = bem menos peso = menos estalos). O preset continua guardando o
+// valor dele (ex.: 8): no computador toca com 8; aqui toca e mostra 6.
+const MAX_VOZES_APARELHO = APARELHO_DE_TOQUE ? 6 : 16;
+
 // Tamanho do "buffer" de áudio que o app pede ao navegador:
 // - computador (mouse): 'interactive' = o menor atraso possível;
 // - celular/tablet (toque): 'balanced' = um pouco mais de atraso (~10–40 ms, depende do
@@ -432,7 +440,7 @@ async function ligarSom() {
 function latenciaPedida() {
   const escolhida = new URLSearchParams(location.search).get('latencia');
   if (['interactive', 'balanced', 'playback'].includes(escolhida)) return escolhida;
-  return matchMedia('(pointer: coarse)').matches ? 'balanced' : 'interactive';
+  return APARELHO_DE_TOQUE ? 'balanced' : 'interactive';
 }
 
 // Religa o áudio se ele não estiver rodando. No iPhone, uma ligação, a Siri ou um alarme deixam
@@ -520,7 +528,9 @@ function definirOpcao(nome, valor) {
 }
 
 function enviarOpcao(nome) {
-  estado.synth?.port.postMessage({ tipo: 'opcao', nome, valor: estado.opcoes[nome] });
+  let valor = estado.opcoes[nome];
+  if (nome === 'vozes') valor = Math.min(valor, MAX_VOZES_APARELHO); // limite do aparelho
+  estado.synth?.port.postMessage({ tipo: 'opcao', nome, valor });
 }
 
 // Muda um ajuste de uma fonte de modulação (ex.: rate do LFO 1).
@@ -1073,12 +1083,20 @@ OSCILADORES.forEach(montarOscilador);
 const seletorVozes = criarSeletor({
   rotulo: 'Vozes',
   min: 1,
-  max: 16,
-  padrao: estado.opcoes.vozes,
-  aoMudar: (v) => definirOpcao('vozes', v),
+  max: MAX_VOZES_APARELHO,
+  padrao: Math.min(estado.opcoes.vozes, MAX_VOZES_APARELHO),
+  // Só grava quando o número mostrado muda de verdade (o som guarda 8 e o celular mostra 6:
+  // isso não é uma mudança)
+  aoMudar: (v) => {
+    if (v !== Math.min(estado.opcoes.vozes, MAX_VOZES_APARELHO)) definirOpcao('vozes', v);
+  },
   rotuloAoLado: true,
-  ler: () => estado.opcoes.vozes,
+  ler: () => estado.opcoes.vozes, // (o seletor mostra no máximo MAX_VOZES_APARELHO)
 });
+// A explicação ao lado avisa o limite (no celular deitado as explicações ficam escondidas)
+if (APARELHO_DE_TOQUE) {
+  lugarSeletorVozes.nextElementSibling.textContent = 'notas ao mesmo tempo (Poly · máx. 6 no celular)';
+}
 lugarSeletorVozes.replaceWith(seletorVozes);
 
 modoVoz.querySelectorAll('.botao').forEach((botao) => {

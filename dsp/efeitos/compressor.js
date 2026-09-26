@@ -74,6 +74,9 @@ export class Compressor {
     if (this.compensacao === null) this.compensacao = alvoCompensacao;
     const s = this.suavizar;
     let maior = this.maiorReducao;
+    // Abaixo do começo do joelho não há o que comprimir: nem converte para dB (economia).
+    // A folga de 0,01 dB garante que a conta completa daria 0 também (resultado idêntico).
+    const semCompressao = deDb(threshold - JOELHO / 2 - 0.01);
 
     for (let i = 0; i < tamanhoBloco; i++) {
       this.seco += (alvoSeco - this.seco) * s;
@@ -82,7 +85,7 @@ export class Compressor {
       const e = saidaE[i];
       const d = saidaD[i];
       const nivel = Math.max(Math.abs(e), Math.abs(d));
-      const alvo = reducaoEstatica(paraDb(nivel), threshold, ratio);
+      const alvo = nivel < semCompressao ? 0 : reducaoEstatica(paraDb(nivel), threshold, ratio);
       // Abaixar = Attack; soltar = Release
       this.reducao += (alvo - this.reducao) * (alvo > this.reducao ? coefAtaque : coefSoltura);
       if (this.reducao > maior) maior = this.reducao;
@@ -91,7 +94,8 @@ export class Compressor {
         this.compensacao += (alvoCompensacao - this.compensacao) * s;
         if (Math.abs(this.compensacao - alvoCompensacao) < 1e-7) this.compensacao = alvoCompensacao;
       }
-      const ganho = deDb(-this.reducao) * this.compensacao * this.molhado;
+      // (sem redução, 10^0 = 1: pula a conta)
+      const ganho = (this.reducao === 0 ? 1 : deDb(-this.reducao)) * this.compensacao * this.molhado;
       saidaE[i] = e * this.seco + e * ganho;
       saidaD[i] = d * this.seco + d * ganho;
     }

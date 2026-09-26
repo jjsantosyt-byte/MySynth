@@ -77,6 +77,7 @@ export class Voz {
     this.mod = new Float64Array(DESTINOS_MOD.length); // modulação deste pedaço (suavizada)
     this.modAnterior = new Float64Array(DESTINOS_MOD.length); // do pedaço anterior
     this.modNova = true; // true = ainda não tem "pedaço anterior"
+    this.modZerada = true; // true = mod e modAnterior estão todos em zero (ver processar)
 
     // Filtros com Cutoff/Reso modulados: coeficientes próprios desta voz (um por filtro)
     this.filtrosMod = [1, 2].map(() => {
@@ -278,6 +279,7 @@ export class Voz {
     ruidoBloco.fill(0, 0, tamanhoBloco);
     let temRuido = false;
 
+    const semLigacoes = matriz.ligacoes.length === 0;
     const modulaF1 = matriz.usa(D_CUTOFF) || matriz.usa(D_RESO);
     const modulaF2 = matriz.usa(D_CUTOFF2) || matriz.usa(D_RESO2);
     if (!modulaF1) this.filtrosMod[0].novo = true;
@@ -297,8 +299,17 @@ export class Voz {
 
       // 1) Fontes e soma das ligações neste pedaço
       this.lerFontes(qtd, comum, pedaco);
-      matriz.somar(this.valoresFontes, this.modAlvo);
-      if (this.modNova) {
+      // Sem nenhuma ligação e com a modulação já toda em zero: somar e suavizar daria zero
+      // de novo (93 destinos por pedaço, em cada nota): pula (som idêntico).
+      const pularMod = semLigacoes && this.modZerada;
+      if (pularMod) {
+        this.modNova = false;
+      } else {
+        matriz.somar(this.valoresFontes, this.modAlvo);
+      }
+      if (pularMod) {
+        // (nada: mod e modAnterior continuam zerados)
+      } else if (this.modNova) {
         this.mod.set(this.modAlvo);
         this.modAnterior.set(this.modAlvo);
         this.modNova = false;
@@ -367,7 +378,21 @@ export class Voz {
       if (modulaF1) this.atualizarFiltroModulado(this.filtrosMod[0], cortes, resonancias, D_CUTOFF, D_RESO, inicio, fim);
       if (modulaF2) this.atualizarFiltroModulado(this.filtrosMod[1], cortes2, resonancias2, D_CUTOFF2, D_RESO2, inicio, fim);
 
-      this.modAnterior.set(this.mod);
+      if (!pularMod) {
+        this.modAnterior.set(this.mod);
+        // Sem ligações: quando a modulação chega exatamente a zero, os próximos pedaços pulam
+        this.modZerada = false;
+        if (semLigacoes) {
+          let zerada = true;
+          for (let d = 0; d < this.mod.length; d++) {
+            if (this.mod[d] !== 0) {
+              zerada = false;
+              break;
+            }
+          }
+          this.modZerada = zerada;
+        }
+      }
     }
 
     // --- Caixas das rotas: cada fonte soma o seu som na caixa da sua rota ---
