@@ -53,6 +53,7 @@ import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
 import { avancarCarregamento, terminarCarregamento } from './interface/abertura.js';
 import { criarMenuApp } from './interface/menu-app.js';
 import { medidor, iniciarMedidor } from './interface/medidor.js';
+import { APP_DA_LOJA } from './interface/plataforma.js';
 
 avancarCarregamento('Montando a tela…', 0.2);
 criarMenuApp(); // logo no canto superior esquerdo: Configurações e Arquivo
@@ -302,7 +303,8 @@ function aplicarSom(som, { manterNotas = false } = {}) {
 // ---------- Funcionar sem internet (sw.js) ----------
 // O "service worker" guarda os arquivos do app no aparelho: depois da primeira vez,
 // o app abre mesmo sem internet (com internet, sempre busca a versão nova).
-if ('serviceWorker' in navigator && window.isSecureContext) {
+// No app da loja (Capacitor) não liga: os arquivos já estão dentro do app.
+if ('serviceWorker' in navigator && window.isSecureContext && !APP_DA_LOJA) {
   navigator.serviceWorker.register('sw.js').catch((erro) => console.warn('Não consegui ativar o modo sem internet:', erro));
 }
 

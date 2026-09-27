@@ -1,0 +1,81 @@
+# APK de TESTE do MySynth (app Android com o Capacitor; pasta app-android/).
+# Roda sozinho a cada envio (push) que mexe no app, ou à mão (aba Actions → "APK de teste" →
+# Run workflow). O APK fica:
+#   - na página "Releases" do repositório, em "apk-teste" (link direto para baixar no celular);
+#   - e em Actions → execução → Artifacts.
+# É só para testes: assinado com uma chave nova a cada execução (para instalar uma versão nova,
+# desinstale a anterior). O pacote da Play Store (.aab) terá a chave de verdade, depois.
+name: APK de teste
+
+on:
+  push:
+    paths-ignore:
+      - 'CLAUDE.md'
+      - 'REVISAO-*.md'
+      - 'loja/**'
+      - 'Webaudio/**'
+      - 'Web-F3b/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write # para publicar o APK em Releases
+
+concurrency:
+  group: apk-teste
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Montar o projeto Android
+        working-directory: app-android
+        run: |
+          npm install
+          bash preparar.sh
+
+      - name: Compilar (versão final, sem depuração)
+        working-directory: app-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+
+      - name: Assinar (chave de teste)
+        working-directory: app-android/android
+        run: |
+          FERRAMENTAS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          keytool -genkeypair -keystore teste.jks -storepass mysynth -keypass mysynth -alias teste \
+            -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=MySynth teste"
+          "$FERRAMENTAS/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk alinhado.apk
+          "$FERRAMENTAS/apksigner" sign --ks teste.jks --ks-pass pass:mysynth --out ../../MySynth-teste.apk alinhado.apk
+          "$FERRAMENTAS/apksigner" verify ../../MySynth-teste.apk
+          # Conferência: nenhuma permissão de Internet no APK final
+          if "$FERRAMENTAS/aapt" dump permissions ../../MySynth-teste.apk | grep -i 'INTERNET'; then
+            echo "ERRO: o APK pede Internet"; exit 1
+          fi
+          "$FERRAMENTAS/aapt" dump permissions ../../MySynth-teste.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MySynth-teste
+          path: MySynth-teste.apk
+
+      - name: Publicar em Releases (apk-teste)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete apk-teste --cleanup-tag --yes || true
+          gh release create apk-teste MySynth-teste.apk --prerelease --target "$GITHUB_SHA" \
+            --title "APK de teste" \
+            --notes "APK de TESTE (app Android sem internet). Branch: ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}. Para atualizar: desinstale o anterior e instale este."

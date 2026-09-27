@@ -1,0 +1,13 @@
+{
+  "appId": "io.github.jjsantosytbyte.mysynth",
+  "appName": "MySynth",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "hostname": "app.mysynth"
+  },
+  "android": {
+    "webContentsDebuggingEnabled": false,
+    "loggingBehavior": "none"
+  }
+}

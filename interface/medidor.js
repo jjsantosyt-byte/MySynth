@@ -9,10 +9,12 @@
 //   Atrasos 0  maior 0 ms → vezes em que o som ficou para trás (engasgos)
 //   Tela 0  maior 0 ms    → vezes em que a tela travou mais de 50 ms (atrasa o toque)
 //   Vozes 3 · 48000 Hz · buffer 21 ms
+//   Navegador (ou App)    → onde o app está rodando (Chrome × app da loja)
 //
 // Ligar de novo zera tudo.
 
 import { criar } from './janela.js';
+import { ONDE_RODA } from './plataforma.js';
 
 const CHAVE_MEDIDOR = 'mysynth.medidor.v1';
 
@@ -62,6 +64,7 @@ const [motorMedia, motorPico] = linha('Motor', null, 'pico', null);
 const [atrasos, maiorAtraso] = linha('Atrasos', null, 'maior', null);
 const [travadas, maiorTravada] = linha('Tela', null, 'maior', null);
 const [vozes, info] = linha('Vozes', null, null);
+linha(ONDE_RODA);
 
 // A caixa entra na página quando o app termina de montar a tela (ver iniciarMedidor)
 export function iniciarMedidor() {

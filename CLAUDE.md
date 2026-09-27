@@ -456,6 +456,19 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   40 ms contadas; travada de 5 ms não (o buffer esconde). No Chromium do PC: 3 notas ~5%, 0 atrasos.
   Próximo: app do Capacitor "limpo" (sem Internet, arquivos dentro, APK feito pelo GitHub
   Actions) e comparar no Infinix Hot 50i do dono (Helio G81) × app instalado pelo Chrome.
+- APP ANDROID "LIMPO" (27/09/2026, etapa 2, em teste; pedido do dono: app da loja TOTALMENTE
+  offline, sem atualizar pelo site — por isso Capacitor e não TWA/PWABuilder). Pasta
+  `app-android/` (ver LEIA-ME.txt): Capacitor 8.5.2 sem plugins, id `io.github.jjsantosytbyte.mysynth`
+  (pode mudar até o 1º envio à Play Store), endereço interno https://app.mysynth.
+  `preparar.sh`: copia só o que o app usa para www/ (sem sw.js, cópias, C++, loja), `cap add/sync`,
+  TIRA a permissão INTERNET, tela cheia (windowFullscreen), ícone icone-192. www/, android/ e
+  node_modules/ não vão no Git. `interface/plataforma.js`: `APP_DA_LOJA` (não registra o sw.js;
+  o medidor mostra "App" ou "Navegador"). `.github/workflows/apk-teste.yml`: a cada push gera o
+  APK release (sem depuração), assina com chave de TESTE nova a cada vez (desinstalar antes de
+  atualizar), confere que não há permissão de Internet e publica em Releases "apk-teste"
+  (https://github.com/jjsantosyt-byte/MySynth/releases/tag/apk-teste) + Artifacts.
+  1ª vez (26/09) o Capacitor foi removido: o dono sentiu o app muito pesado (sem medir; o motor
+  ainda era todo JS e a tela tinha animações ao vivo). Agora: comparar com o medidor.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).

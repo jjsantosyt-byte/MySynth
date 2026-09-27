@@ -1,0 +1,6 @@
+# Tudo aqui é montado pelo preparar.sh (no GitHub Actions ou no PC): não vai no Git
+node_modules/
+www/
+android/
+*.apk
+*.jks

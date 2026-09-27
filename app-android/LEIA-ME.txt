@@ -1,0 +1,24 @@
+MySynth como APP ANDROID (Capacitor) — sem internet, arquivos dentro do app
+=========================================================================
+
+O que é: o mesmo app do site, mas com todos os arquivos DENTRO do APK. Ele abre do próprio
+celular, NÃO tem permissão de Internet (não fala com nada fora do celular) e só muda quando
+você instalar uma versão nova (no futuro, pela Play Store).
+
+Como pegar o APK de teste (sem instalar nada no PC):
+  1. A cada envio para o GitHub, o GitHub monta o APK sozinho (aba "Actions", "APK de teste",
+     ~5 minutos).
+  2. No celular, abra: https://github.com/jjsantosyt-byte/MySynth/releases/tag/apk-teste
+     e baixe "MySynth-teste.apk".
+  3. Toque no arquivo baixado para instalar (o Android pede para "permitir instalar apps desta
+     fonte" na primeira vez: permita para o Chrome).
+  4. Versão nova: DESINSTALE a anterior antes (cada APK de teste tem uma assinatura nova).
+
+O que tem aqui:
+  preparar.sh          monta o projeto: copia o app para www/, cria android/ e faz os ajustes
+                       (tira a Internet, tela cheia, ícone)
+  capacitor.config.json nome/id do app; endereço interno https://app.mysynth (não existe fora)
+  package.json         versão do Capacitor
+  (www/, android/ e node_modules/ são montados na hora e não vão para o Git)
+
+A receita do GitHub está em .github/workflows/apk-teste.yml.
