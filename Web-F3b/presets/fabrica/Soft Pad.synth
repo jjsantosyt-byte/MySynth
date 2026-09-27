@@ -1,0 +1,23 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Soft Pad",
+      "categoria": "Pad",
+      "som": {
+        "parametros": {
+          "wtPos": 0.4, "detune": 0.2, "width": 1, "cutoff": 1500, "resonancia": 0.1,
+          "ataque": 1.2, "decaimento": 1, "sustentacao": 0.8, "soltura": 2.5
+        },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp12", "unison": 5 },
+        "fontes": { "lfo2": { "forma": "seno", "rate": 0.2, "modo": "livre" } },
+        "ligacoes": [{ "fonte": "lfo2", "destino": "wtPos", "quantidade": 0.25 }],
+        "efeitos": {
+          "chorus": { "ligado": true, "rate": 0.5, "depth": 0.5, "mix": 0.5 },
+          "reverb": { "ligado": true, "tamanho": 0.8, "brilho": 0.5, "mix": 0.4 }
+        }
+      }
+    }
+  ]
+}

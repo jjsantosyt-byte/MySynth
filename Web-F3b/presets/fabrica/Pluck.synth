@@ -1,0 +1,20 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Pluck",
+      "categoria": "Pluck",
+      "som": {
+        "parametros": { "wtPos": 0.6666666666666666, "cutoff": 300, "resonancia": 0.2, "ataque": 0, "decaimento": 0.25, "sustentacao": 0, "soltura": 0.25 },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp24" },
+        "fontes": { "env2": { "ataque": 0, "decaimento": 0.2, "sustentacao": 0, "soltura": 0.2 } },
+        "ligacoes": [{ "fonte": "env2", "destino": "cutoff", "quantidade": 0.55 }],
+        "efeitos": {
+          "delay": { "ligado": true, "tempo": 0.25, "feedback": 0.35, "mix": 0.25, "pingpong": true },
+          "reverb": { "ligado": true, "mix": 0.3 }
+        }
+      }
+    }
+  ]
+}

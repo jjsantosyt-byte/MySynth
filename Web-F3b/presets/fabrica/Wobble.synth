@@ -1,0 +1,17 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Wobble",
+      "categoria": "Baixo",
+      "som": {
+        "parametros": { "wtPos": 0.6666666666666666, "detune": 0.1, "cutoff": 150, "resonancia": 0.45, "soltura": 0.12 },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp24", "modo": "mono", "unison": 2 },
+        "fontes": { "lfo1": { "forma": "seno", "rate": 3, "modo": "retrig" } },
+        "ligacoes": [{ "fonte": "lfo1", "destino": "cutoff", "quantidade": 0.6 }],
+        "efeitos": { "distorcao": { "ligado": true, "tipo": "valvula", "drive": 0.5, "mix": 1 } }
+      }
+    }
+  ]
+}

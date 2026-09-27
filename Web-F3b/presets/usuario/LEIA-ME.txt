@@ -1,0 +1,10 @@
+Presets seus que vão junto com o app (aparecem em qualquer aparelho, depois de publicar).
+
+Como colocar um preset aqui:
+1. No app, salve o preset e use "Exportar meus presets" (gera um arquivo .synth).
+2. Coloque o arquivo .synth nesta pasta (pode ter um ou vários presets dentro).
+3. Adicione o nome do arquivo na lista "usuario" do arquivo presets/lista.json.
+4. Faça o commit e publique (git push).
+
+Eles aparecem na lista de presets com a marca "meu", mas não podem ser apagados
+pelo app (para tirar, apague o arquivo daqui e da lista).

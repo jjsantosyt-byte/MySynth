@@ -438,6 +438,11 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   73,3 → 27,8% (2,6× mais leve). Tela (Soft Pad, nota tocando, painel escondido = sem contar os
   desenhos): 7,0 → 3,8%. Achado: custo fixo por bloco alto (1 nota já 2,6%; 8 notas U1 5,4%) →
   candidato na F4 (o JS ainda faz o gerente de vozes, parâmetros, clipper).
+- Cópia "Web-F3b" (27/09/2026, pedido do dono, antes do medidor de desempenho e do novo teste com
+  o Capacitor): pasta `Web-F3b/` (commit db1bd1b, motor C++ até a F3b) + branch `backup-f3b` +
+  etiqueta `versao-f3b`. `Web-F3b/Iniciar.bat` abre na porta 8082; online em
+  https://jjsantosyt-byte.github.io/MySynth/Web-F3b/. Só metadados mudados: título/manifest
+  "MySynth F3b" e gaveta do sw.js `mysynth-f3b-v1`. NÃO mexer nessa cópia.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).

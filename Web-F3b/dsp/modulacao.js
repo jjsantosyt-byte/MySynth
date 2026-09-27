@@ -1,0 +1,75 @@
+// dsp/modulacao.js
+// As "ligações" de modulação: qual fonte mexe em qual controle, e quanto.
+//
+// Fontes: LFO 1, 2, 3 (de -1 a +1) e ENV 2, ENV 3 (de 0 a 1).
+// Destinos: controles de som. A modulação soma na posição do knob (0 a 1):
+// quantidade +50% com a fonte no máximo = knob meio giro para cima.
+
+import { MOD_EFEITOS } from './efeitos/modulaveis.js';
+
+// O LFO 3 e os Macros vieram depois: ficam no fim (os índices antigos não mudam).
+// Macros (M1–M4): o valor é o knob do macro (0 a 1), o mesmo para todas as notas e efeitos.
+export const FONTES_MOD = ['lfo1', 'lfo2', 'env2', 'env3', 'lfo3', 'macro1', 'macro2', 'macro3', 'macro4'];
+// Onde cada LFO (1, 2, 3), ENV (2, 3) e Macro (1–4) fica na lista acima
+export const INDICES_LFO = [0, 1, 4];
+export const INDICES_ENV = [2, 3];
+export const INDICES_MACRO = [5, 6, 7, 8];
+// cutoff/resonancia = Filtro 1; cutoff2/resonancia2 = Filtro 2.
+// wtPos/detune/width/nivelOsc = OSC A; os do B e do C têm a letra no fim (sempre no fim da
+// lista: os índices antigos não mudam).
+export const DESTINOS_MOD = [
+  'wtPos', 'detune', 'width', 'cutoff', 'resonancia', 'ruido', 'nivelOsc', 'cutoff2', 'resonancia2',
+  'wtPosB', 'detuneB', 'widthB', 'nivelOscB',
+  'wtPosC', 'detuneC', 'widthC', 'nivelOscC',
+  // Afinação de cada oscilador (Oct e Semi andam em degraus; Fine é contínuo)
+  'oitavaOsc', 'semiOsc', 'fineOsc',
+  'oitavaOscB', 'semiOscB', 'fineOscB',
+  'oitavaOscC', 'semiOscC', 'fineOscC',
+  // Pan (posição no estéreo) e Blend (volume das cópias de fora do unison) de cada oscilador
+  'panOsc', 'blendOsc',
+  'panOscB', 'blendOscB',
+  'panOscC', 'blendOscC',
+  // Quantidade do Warp de cada oscilador
+  'warpOsc', 'warpOscB', 'warpOscC',
+  // Rate dos LFOs 1, 2, 3 e Pitch/Duração do Ruído
+  'rateLfo1', 'rateLfo2', 'rateLfo3', 'ruidoPitch', 'ruidoDuracao',
+  // Knobs dos efeitos ("delay.mix"...; ver dsp/efeitos/modulaveis.js), sempre no fim da lista.
+  // Destino novo que não seja de efeito: ANTES desta linha (índices fixos acima não mudam).
+  ...MOD_EFEITOS.map((m) => m.destino),
+];
+// Onde começam os destinos dos efeitos (na ordem de MOD_EFEITOS)
+export const D_PRIMEIRO_EFEITO = DESTINOS_MOD.indexOf(MOD_EFEITOS[0].destino);
+
+// Índices para acesso rápido
+export const D_WTPOS = 0;
+export const D_DETUNE = 1;
+export const D_WIDTH = 2;
+export const D_CUTOFF = 3;
+export const D_RESO = 4;
+export const D_RUIDO = 5;
+export const D_NIVEL_OSC = 6;
+export const D_CUTOFF2 = 7;
+export const D_RESO2 = 8;
+export const D_RATE_LFO = [35, 36, 37]; // LFO 1, 2, 3
+export const D_RUIDO_PITCH = 38;
+export const D_RUIDO_DURACAO = 39;
+
+// Os destinos de cada oscilador (A, B, C: WT Pos, Detune... Warp) ficam na tabela DESTINOS em
+// motor/motor.cpp (os osciladores estão no C++). Mudou algum índice acima? Mudar lá também
+// (inclusive INDICES_LFO/ENV/MACRO e D_RATE_LFO, que o C++ também usa).
+//
+// A soma das ligações (quanto cada fonte mexe em cada destino) é feita no C++ (etapa F2a):
+// o processador manda a lista de ligações com os números das fontes e destinos daqui.
+
+// Lista da tela ([{ fonte: 'lfo1', destino: 'cutoff', quantidade }]) → números para o C++.
+// Nomes desconhecidos ficam de fora.
+export function ligacoesEmNumeros(lista) {
+  const numeros = [];
+  for (const { fonte, destino, quantidade } of lista) {
+    const iFonte = FONTES_MOD.indexOf(fonte);
+    const iDestino = DESTINOS_MOD.indexOf(destino);
+    if (iFonte < 0 || iDestino < 0) continue;
+    numeros.push({ fonte: iFonte, destino: iDestino, quantidade });
+  }
+  return numeros;
+}
