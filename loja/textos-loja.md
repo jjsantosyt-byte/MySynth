@@ -19,7 +19,7 @@ MySynth é um sintetizador wavetable feito para tocar e criar sons no celular: c
 OSCILADORES
 • 3 osciladores wavetable com morphing suave entre as formas de onda
 • Wavetables próprias (Básica, PWM, Harmônicos, Formante, Sync) ou importe as suas em .wav (ciclos de 2048 pontos, como as do Serum e do Vital)
-• Unison de até 16 vozes com Detune, Width e Blend
+• Unison de até 8 vozes com Detune, Width e Blend
 • Warp: Sync, Bend, PWM e FM entre osciladores
 • Ruído (White, Pink, Brown) com Loop ou One Shot
 
@@ -34,16 +34,16 @@ EFEITOS
 Saturação, Distorção, Filtro Track, EQ, Compressor, Phaser, Flanger, Chorus, Delay e Reverb.
 
 PARA TOCAR
-• Teclado de até 4 oitavas, polifônico (até 16 vozes) ou mono com legato e glide
+• Teclado de até 4 oitavas, polifônico ou mono com legato e glide
 • Hold para segurar as notas e mexer nos controles com as duas mãos
 • Desfazer e refazer qualquer mudança no som
 
 PRESETS
-• Presets de fábrica para baixos, leads, pads, plucks, keys e efeitos
+• 36 presets de fábrica: leads, plucks, keys, pads, efeitos, percussão e baixos
 • Salve os seus, exporte e importe arquivos .synth (as wavetables importadas vão junto)
 
 MAIS
-• Funciona sem internet depois de aberto uma vez
+• 100% offline: o app não usa a internet
 • Português e inglês
 • 3 temas: Comum, Básico e Claro (bom para tocar no sol)
 • Sem anúncios, sem cadastro e sem coleta de dados: tudo fica no seu aparelho
@@ -66,7 +66,7 @@ MySynth is a wavetable synthesizer made for playing and designing sounds on your
 OSCILLATORS
 • 3 wavetable oscillators with smooth morphing between waveforms
 • Built-in wavetables (Basic, PWM, Harmonics, Formant, Sync) or import your own .wav files (2048-point cycles, like Serum and Vital tables)
-• Up to 16-voice unison with Detune, Width and Blend
+• Up to 8-voice unison with Detune, Width and Blend
 • Warp: Sync, Bend, PWM and FM between oscillators
 • Noise (White, Pink, Brown) with Loop or One Shot
 
@@ -81,16 +81,16 @@ EFFECTS
 Saturation, Distortion, Track Filter, EQ, Compressor, Phaser, Flanger, Chorus, Delay and Reverb.
 
 PLAYING
-• Keyboard with up to 4 octaves, polyphonic (up to 16 voices) or mono with legato and glide
+• Keyboard with up to 4 octaves, polyphonic or mono with legato and glide
 • Hold keeps notes playing so you can tweak with both hands
 • Undo and redo any change to the sound
 
 PRESETS
-• Factory presets for basses, leads, pads, plucks, keys and FX
+• 36 factory presets: leads, plucks, keys, pads, FX, drums and basses
 • Save your own, export and import .synth files (imported wavetables go along)
 
 AND MORE
-• Works offline after the first launch
+• 100% offline: the app doesn't use the internet
 • English and Portuguese
 • 3 themes: Standard, Basic and Light (great in sunlight)
 • No ads, no sign-up, no data collection: everything stays on your device
