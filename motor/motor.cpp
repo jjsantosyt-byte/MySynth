@@ -12,6 +12,7 @@
 // Macros e a soma das ligações (matriz).
 // F2b: o resto da VOZ (ruído, Filtros 1 e 2, rotas, glide) e o efeito Filtro Track. A voz
 // inteira é calculada aqui (vozProcessar); o JavaScript só decide quem toca qual nota.
+// F3a: os efeitos de "cor": Saturação, Distorção, EQ e Compressor (+ o Filtro Track da F2b).
 //
 // Como o JavaScript conversa com o C++ ("mesa de troca"):
 //   - wavetables: o JS pede espaço (criarTabela) e copia as ondas para dentro, uma vez só;
@@ -20,7 +21,9 @@
 //     Macros: o JS escreve na mesa uma vez por bloco;
 //   - ligações de modulação: o JS escreve a lista (fonte, destino, quantidade) quando muda;
 //   - o som de cada voz sai em "saidaE/saidaD" dela (o JS soma na saída) e a modulação de
-//     cada voz fica em "mod" (a tela mostra ao vivo).
+//     cada voz fica em "mod" (a tela mostra ao vivo);
+//   - efeitos: o JS escreve os ajustes de cada um na linha dele (ajustesEfeitos) e o som
+//     passa por "somEfeito" (copiado para cá antes do 1º efeito do C++ e de volta no fim).
 //
 // Para compilar: motor\compilar.bat (gera motor\motor.wasm).
 
@@ -185,9 +188,9 @@ constexpr int MEIO = (TAPS - 1) / 2;
 int qtdUteis = 0;             // coeficientes que não são zero
 int deslocUteis[TAPS];
 double coefsUteis[TAPS];
+double coefs[TAPS];           // todos os coeficientes (a subida da taxa usa os pares e o do meio)
 
 void prepararMeiaBanda() {
-  double coefs[TAPS];
   double soma = 0;
   for (int n = 0; n < TAPS; n++) {
     const int k = n - MEIO;
@@ -1492,8 +1495,16 @@ Voz vozes[MAX_VOZES];
 enum CampoFt { FT_LIGADO, FT_NOTA, FT_TRACK, FT_RESO, FT_MIX, FT_REFERENCIA, N_CAMPOS_FT };
 constexpr double NOTA_CENTRO = 60;
 constexpr double NOTA_MINIMA_TRACK = 24, NOTA_MAXIMA_TRACK = 132;
-double ajustesFt[N_CAMPOS_FT];
-double somEfeito[2][BLOCO]; // som entrando e saindo de um efeito (o JS copia): esquerda, direita
+
+// Efeitos no C++, na ordem do caminho do som (mesmos números em motor/ponte.js: EFEITOS_NO_MOTOR).
+// Cada um tem uma linha de ajustes na mesa (o JS escreve antes de processar).
+enum { EF_SATURACAO, EF_DISTORCAO, EF_FILTRO_TRACK, EF_EQ, EF_COMPRESSOR, N_EFEITOS };
+constexpr int MAX_CAMPOS_EFEITO = 16;
+double ajustesEfeitos[N_EFEITOS][MAX_CAMPOS_EFEITO];
+double* const ajustesFt = ajustesEfeitos[EF_FILTRO_TRACK];
+// Som passando pelos efeitos (o JS copia para cá antes do 1º efeito do C++ e de volta
+// depois do último): esquerda, direita
+double somEfeito[2][BLOCO];
 double* const efeitoE = somEfeito[0];
 double* const efeitoD = somEfeito[1];
 
@@ -1577,12 +1588,604 @@ struct FiltroTrack {
 };
 FiltroTrack filtroTrack;
 
+// ================= Efeitos de "cor" (F3a) =================
+// Saturação, Distorção, EQ e Compressor: cópia exata das contas dos antigos
+// dsp/efeitos/saturacao.js, distorcao.js, eq.js e compressor.js.
+
+double suavizar10ms = 0; // ~10 ms por amostra (Mix, Drive)
+double tanhDesvioSat = 0, tanhDesvioDist = 0; // tanh do desvio da Válvula (calculados em iniciar)
+constexpr double LN2 = 0.6931471805599453;
+
+// Coeficiente de um filtro simples de 1 polo (passa-baixas) na frequência fc.
+// Uso: estado += (entrada - estado) * coef → "estado" = som sem os agudos acima de fc.
+inline double coefPolo(double fc) {
+  return 1 - std::exp((-2 * PI * std::fmin(fc, 0.45 * taxa)) / taxa);
+}
+
+// Mix: até 50% o original fica cheio; de 50% a 100% ele some (o efeito entra cheio em 50%)
+struct Mix { double seco, molhado; };
+inline Mix ganhosMix(double mix) { return { std::fmin(1.0, 2 * (1 - mix)), std::fmin(1.0, 2 * mix) }; }
+
+// ln(cosh(x)) sem estourar para valores grandes
+inline double logCosh(double x) {
+  const double a = std::fabs(x);
+  return a + std::log1p(std::exp(-2 * a)) - LN2;
+}
+
+// Sobe para a taxa dobrada: recebe 1 amostra, devolve 2. É o mesmo que intercalar zeros
+// (x, 0, x, 0...) × 2 e passar pelo filtro meia-banda, mas sem multiplicar os zeros: na 1ª
+// amostra só entram os coeficientes pares; na 2ª, só o do meio.
+struct Interpolador {
+  static constexpr int N = (TAPS + 1) / 2; // 16 amostras de entrada
+  double h[N] = {};
+  int p = 0;
+  void limpar() {
+    for (double& v : h) v = 0;
+  }
+  void processar(double x, double* saida) {
+    p = p + 1 == N ? 0 : p + 1;
+    h[p] = 2 * x;
+    double soma = 0;
+    int j = p;
+    for (int i = 0; i < N; i++) {
+      soma += coefs[2 * i] * h[j];
+      j = j == 0 ? N - 1 : j - 1;
+    }
+    saida[0] = soma;
+    int k = p - (MEIO - 1) / 2;
+    if (k < 0) k += N;
+    saida[1] = coefs[MEIO] * h[k];
+  }
+};
+
+// Curvas da Saturação: 0 = Fita, 1 = Válvula, 2 = Transistor
+struct CurvaSaturacao {
+  static double curva(int tipo, double x) {
+    switch (tipo) {
+      case 1: return std::tanh(x + 0.25) - tanhDesvioSat;
+      case 2: return x / std::sqrt(1 + x * x);
+      default:
+        // Fita: x − x³/3 até ±1, depois fica em ±2/3 (arredondado, sem quina)
+        if (x >= 1) return 2.0 / 3;
+        if (x <= -1) return -2.0 / 3;
+        return x - (x * x * x) / 3;
+    }
+  }
+  // "Integral" de cada curva (usada pelo ADAA)
+  static double integral(int tipo, double x) {
+    switch (tipo) {
+      case 1: return logCosh(x + 0.25) - tanhDesvioSat * x;
+      case 2: return std::sqrt(1 + x * x) - 1;
+      default: {
+        const double a = std::fabs(x);
+        if (a >= 1) return (2.0 / 3) * a - 0.25;
+        return (x * x) / 2 - (x * x * x * x) / 12;
+      }
+    }
+  }
+};
+
+// Curvas da Distorção: 0 = Suave (tanh), 1 = Dura (corte), 2 = Válvula (assimétrica)
+struct CurvaDistorcao {
+  static double curva(int tipo, double x) {
+    switch (tipo) {
+      case 1: return x > 1 ? 1 : x < -1 ? -1 : x;
+      case 2: return std::tanh(x + 0.3) - tanhDesvioDist;
+      default: return std::tanh(x);
+    }
+  }
+  static double integral(int tipo, double x) {
+    switch (tipo) {
+      case 1: {
+        const double a = std::fabs(x);
+        return a <= 1 ? 0.5 * x * x : a - 0.5;
+      }
+      case 2: return logCosh(x + 0.3) - tanhDesvioDist * x;
+      default: return logCosh(x);
+    }
+  }
+};
+
+// Um lado (esquerdo ou direito) da Saturação ou da Distorção: sobe a taxa, satura (com ADAA
+// = média da curva entre uma amostra e a seguinte), filtra, desce e tira o desvio (DC).
+template <class Curva>
+struct CanalSaturador {
+  Interpolador subir;
+  Decimador descer;
+  double anterior, integralAnterior, desvio, coefDesvio;
+  int tipoAnterior;
+
+  void nascer() {
+    subir = Interpolador();
+    descer = Decimador();
+    anterior = 0;
+    integralAnterior = 0;
+    desvio = 0;
+    tipoAnterior = 0;
+    coefDesvio = 1 - std::exp((-2 * PI * 10) / taxa); // passa-altas de ~10 Hz
+  }
+
+  void limpar() {
+    subir.limpar();
+    descer.limpar();
+    anterior = 0;
+    integralAnterior = 0;
+    desvio = 0;
+  }
+
+  double processar(double x, int tipo, double ganho, double compensacao) {
+    double altas[2], saturados[2];
+    subir.processar(x, altas);
+    for (int fase = 0; fase < 2; fase++) {
+      const double alto = altas[fase] * ganho;
+      if (tipo != tipoAnterior) {
+        // Trocou de tipo: a integral guardada era da outra curva
+        integralAnterior = Curva::integral(tipo, anterior);
+        tipoAnterior = tipo;
+      }
+      const double integralAtual = Curva::integral(tipo, alto);
+      const double dx = alto - anterior;
+      const double s = std::fabs(dx) < 1e-5 ? Curva::curva(tipo, 0.5 * (alto + anterior))
+                                            : (integralAtual - integralAnterior) / dx;
+      saturados[fase] = s * compensacao;
+      anterior = alto;
+      integralAnterior = integralAtual;
+    }
+    const double saida = descer.processar(saturados[0], saturados[1]);
+    desvio += (saida - desvio) * coefDesvio;
+    return saida - desvio;
+  }
+};
+
+// Atraso do som original (15 amostras), para alinhar com o saturado. Fica SEMPRE ligado
+// (mesmo dormindo): se sumisse ao desligar, o som daria um pulinho.
+struct AtrasoSeco {
+  double e[MEIO + 1], d[MEIO + 1];
+  int p;
+  void nascer() {
+    for (int i = 0; i <= MEIO; i++) e[i] = d[i] = 0;
+    p = 0;
+  }
+  // Guarda a amostra nova e devolve a de 15 amostras atrás
+  void passar(double& le, double& ld) {
+    e[p] = le;
+    d[p] = ld;
+    p = p + 1 == MEIO + 1 ? 0 : p + 1;
+    le = e[p];
+    ld = d[p];
+  }
+};
+
+// ---------- Saturação ----------
+enum { SAT_LIGADO, SAT_TIPO, SAT_DRIVE, SAT_TOM, SAT_MIX, N_CAMPOS_SAT };
+
+struct Saturacao {
+  CanalSaturador<CurvaSaturacao> esquerdo, direito;
+  AtrasoSeco atraso;
+  double ganho, ganhoCompensado, compensacao, seco, molhado, tomE, tomD;
+  int tipoCompensado;
+  bool dormindo;
+
+  static double ganhoDoDrive(double drive) { return 1 + 5 * drive; } // 1× a 6×
+
+  void zerar() {
+    esquerdo.nascer();
+    direito.nascer();
+    atraso.nascer();
+    ganho = ganhoDoDrive(0.3);
+    ganhoCompensado = -1;
+    tipoCompensado = -1;
+    compensacao = 1;
+    seco = 1;
+    molhado = 0;
+    tomE = tomD = 0;
+    dormindo = true;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) {
+      // Dormindo: só o atraso do som original (barato)
+      for (int i = 0; i < tamanho; i++) atraso.passar(efeitoE[i], efeitoD[i]);
+      return;
+    }
+    const double* a = ajustesEfeitos[EF_SATURACAO];
+    const bool ligado = a[SAT_LIGADO] != 0;
+    int tipo = static_cast<int>(a[SAT_TIPO]);
+    if (tipo < 0 || tipo > 2) tipo = 0;
+    const Mix mix = ganhosMix(a[SAT_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = ligado ? mix.molhado : 0;
+    const double alvoGanho = ganhoDoDrive(a[SAT_DRIVE]);
+    const double s = suavizar10ms;
+    const bool comTom = a[SAT_TOM] < 0.999;
+    const double cTom = comTom ? coefPolo(1500 * std::pow(20000.0 / 1500, a[SAT_TOM])) : 0;
+
+    for (int i = 0; i < tamanho; i++) {
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      ganho += (alvoGanho - ganho) * s;
+      // Compensação: um sinal de 0,5 sai com 0,5 em qualquer Drive (recalculada só quando
+      // o Drive ou o tipo mudam)
+      if (ganho != ganhoCompensado || tipo != tipoCompensado) {
+        double v = CurvaSaturacao::curva(tipo, 0.5 * ganho);
+        if (v == 0) v = 1;
+        compensacao = 0.5 / std::fabs(v);
+        ganhoCompensado = ganho;
+        tipoCompensado = tipo;
+      }
+      double satE = esquerdo.processar(efeitoE[i], tipo, ganho, compensacao);
+      double satD = direito.processar(efeitoD[i], tipo, ganho, compensacao);
+      if (comTom) {
+        tomE += (satE - tomE) * cTom;
+        tomD += (satD - tomD) * cTom;
+        satE = tomE;
+        satD = tomD;
+      } else {
+        // Tom aberto: a memória acompanha o som, para fechar o Tom de novo sem tique
+        tomE = satE;
+        tomD = satD;
+      }
+      double originalE = efeitoE[i], originalD = efeitoD[i];
+      atraso.passar(originalE, originalD);
+      efeitoE[i] = originalE * seco + satE * molhado;
+      efeitoD[i] = originalD * seco + satD * molhado;
+    }
+
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      esquerdo.limpar();
+      direito.limpar();
+      tomE = tomD = 0;
+      seco = 1;
+      molhado = 0;
+    }
+  }
+};
+Saturacao saturacao;
+
+// ---------- Distorção ----------
+enum { DIS_LIGADO, DIS_TIPO, DIS_DRIVE, DIS_MIX, DIS_TOM, DIS_LOWCUT, N_CAMPOS_DIS };
+
+struct Distorcao {
+  CanalSaturador<CurvaDistorcao> esquerdo, direito;
+  AtrasoSeco atraso;
+  double graveE, graveD, tomE, tomD;
+  double ganho, ganhoCompensado, compensacao, seco, molhado;
+  int tipoCompensado;
+  bool dormindo;
+
+  static double ganhoDoDrive(double drive) { return 1 + 29 * drive * drive; } // 1× a 30×
+
+  void zerar() {
+    esquerdo.nascer();
+    direito.nascer();
+    atraso.nascer();
+    graveE = graveD = tomE = tomD = 0;
+    ganho = ganhoDoDrive(0.4);
+    ganhoCompensado = -1;
+    tipoCompensado = -1;
+    compensacao = 1;
+    seco = 1;
+    molhado = 0;
+    dormindo = true;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) {
+      for (int i = 0; i < tamanho; i++) atraso.passar(efeitoE[i], efeitoD[i]);
+      return;
+    }
+    const double* a = ajustesEfeitos[EF_DISTORCAO];
+    const bool ligado = a[DIS_LIGADO] != 0;
+    int tipo = static_cast<int>(a[DIS_TIPO]);
+    if (tipo < 0 || tipo > 2) tipo = 0;
+    const Mix mix = ganhosMix(a[DIS_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = ligado ? mix.molhado : 0;
+    const double alvoGanho = ganhoDoDrive(a[DIS_DRIVE]);
+    const double s = suavizar10ms;
+    // Low Cut (antes de distorcer; 20 Hz = desligado) e Tom (depois; 100% = aberto)
+    const bool comLowCut = a[DIS_LOWCUT] > 20.5;
+    const double cGrave = comLowCut ? coefPolo(a[DIS_LOWCUT]) : 0;
+    const bool comTom = a[DIS_TOM] < 0.999;
+    const double cTom = comTom ? coefPolo(800 * std::pow(20000.0 / 800, a[DIS_TOM])) : 0;
+    // Low Cut desligado: a memória dele fica zerada, para ligar de novo sem tique
+    if (!comLowCut) graveE = graveD = 0;
+
+    for (int i = 0; i < tamanho; i++) {
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      ganho += (alvoGanho - ganho) * s;
+      // Compensação: um sinal de 0,5 sai com 0,5 em qualquer Drive; a Válvula (assimétrica)
+      // soa mais alta com a mesma conta e leva um desconto
+      if (ganho != ganhoCompensado || tipo != tipoCompensado) {
+        const double desconto = tipo == 2 ? 0.7 : 1;
+        double v = CurvaDistorcao::curva(tipo, 0.5 * ganho);
+        if (v == 0) v = 1;
+        compensacao = (desconto * 0.5) / std::fabs(v);
+        ganhoCompensado = ganho;
+        tipoCompensado = tipo;
+      }
+      double entradaE = efeitoE[i], entradaD = efeitoD[i];
+      if (comLowCut) {
+        graveE += (entradaE - graveE) * cGrave;
+        graveD += (entradaD - graveD) * cGrave;
+        entradaE -= graveE;
+        entradaD -= graveD;
+      }
+      double distE = esquerdo.processar(entradaE, tipo, ganho, compensacao);
+      double distD = direito.processar(entradaD, tipo, ganho, compensacao);
+      if (comTom) {
+        tomE += (distE - tomE) * cTom;
+        tomD += (distD - tomD) * cTom;
+        distE = tomE;
+        distD = tomD;
+      } else {
+        tomE = distE;
+        tomD = distD;
+      }
+      double originalE = efeitoE[i], originalD = efeitoD[i];
+      atraso.passar(originalE, originalD);
+      efeitoE[i] = originalE * seco + distE * molhado;
+      efeitoD[i] = originalD * seco + distD * molhado;
+    }
+
+    // Desligado e já sem distorção na mistura: dorme (o atraso do original continua)
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      esquerdo.limpar();
+      direito.limpar();
+      graveE = graveD = tomE = tomD = 0;
+      seco = 1;
+      molhado = 0;
+    }
+  }
+};
+Distorcao distorcao;
+
+// ---------- EQ de 3 bandas ----------
+// Grave: prateleira em 150 Hz; Médio: sino na Freq (largura Q); Agudo: prateleira em 5 kHz.
+// Filtros "biquad" (receitas de R. Bristow-Johnson), forma "transposta II".
+enum { EQ_LIGADO, EQ_GRAVE, EQ_MEDIO, EQ_AGUDO, EQ_FREQ, EQ_Q, EQ_SAIDA, EQ_MIX, N_CAMPOS_EQ };
+constexpr double FREQ_GRAVE_EQ = 150, FREQ_AGUDO_EQ = 5000;
+constexpr double RAIZ_METADE = 0.7071067811865476; // inclinação das prateleiras (suave)
+
+struct Biquad {
+  double b0 = 1, b1 = 0, b2 = 0, a1 = 0, a2 = 0;
+  double z[4] = {}; // memória: esquerda 1 e 2, direita 1 e 2
+
+  void limpar() {
+    for (double& v : z) v = 0;
+  }
+  void guardar(double nb0, double nb1, double nb2, double a0, double na1, double na2) {
+    b0 = nb0 / a0;
+    b1 = nb1 / a0;
+    b2 = nb2 / a0;
+    a1 = na1 / a0;
+    a2 = na2 / a0;
+  }
+  void prateleiraGrave(double fc, double db) {
+    const double A = std::pow(10.0, db / 40);
+    const double w = (2 * PI * fc) / taxa;
+    const double cs = std::cos(w);
+    const double alfa = (std::sin(w) / 2) * std::sqrt((A + 1 / A) * (1 / RAIZ_METADE - 1) + 2);
+    const double raiz = 2 * std::sqrt(A) * alfa;
+    guardar(A * (A + 1 - (A - 1) * cs + raiz), 2 * A * (A - 1 - (A + 1) * cs), A * (A + 1 - (A - 1) * cs - raiz),
+            A + 1 + (A - 1) * cs + raiz, -2 * (A - 1 + (A + 1) * cs), A + 1 + (A - 1) * cs - raiz);
+  }
+  void prateleiraAguda(double fc, double db) {
+    const double A = std::pow(10.0, db / 40);
+    const double w = (2 * PI * fc) / taxa;
+    const double cs = std::cos(w);
+    const double alfa = (std::sin(w) / 2) * std::sqrt((A + 1 / A) * (1 / RAIZ_METADE - 1) + 2);
+    const double raiz = 2 * std::sqrt(A) * alfa;
+    guardar(A * (A + 1 + (A - 1) * cs + raiz), -2 * A * (A - 1 + (A + 1) * cs), A * (A + 1 + (A - 1) * cs - raiz),
+            A + 1 - (A - 1) * cs + raiz, 2 * (A - 1 - (A + 1) * cs), A + 1 - (A - 1) * cs - raiz);
+  }
+  void sino(double fc, double db, double q) {
+    const double A = std::pow(10.0, db / 40);
+    const double w = (2 * PI * std::fmin(fc, 0.45 * taxa)) / taxa;
+    const double cs = std::cos(w);
+    const double alfa = std::sin(w) / (2 * q);
+    guardar(1 + alfa * A, -2 * cs, 1 - alfa * A, 1 + alfa / A, -2 * cs, 1 - alfa / A);
+  }
+  // Filtra uma amostra do lado "lado" (0 = esquerda, 1 = direita)
+  double processar(double x, int lado) {
+    const int k = lado * 2;
+    const double y = b0 * x + z[k];
+    z[k] = b1 * x - a1 * y + z[k + 1];
+    z[k + 1] = b2 * x - a2 * y;
+    return y;
+  }
+};
+
+struct Eq {
+  Biquad grave, media, aguda;
+  // Valores suavizados (andam até o ajuste a cada bloco) e os usados na última conta
+  double atGrave, atMedio, atAgudo, atFreq, atQ, atSaida;
+  double calcGrave, calcMedio, calcAgudo, calcFreq, calcQ;
+  bool temCalculado;
+  double seco, molhado, suavizarBloco;
+  bool dormindo;
+
+  void zerar() {
+    grave = Biquad();
+    media = Biquad();
+    aguda = Biquad();
+    atGrave = atMedio = atAgudo = atSaida = 0;
+    atFreq = 1000;
+    atQ = 1;
+    temCalculado = false;
+    seco = 1;
+    molhado = 0;
+    suavizarBloco = 1 - std::exp(-128 / (0.02 * taxa)); // ~20 ms, por bloco
+    dormindo = true;
+  }
+
+  // Suaviza os ajustes e recalcula os filtros só se algo mudou de verdade
+  void atualizar(const double* a) {
+    const double k = suavizarBloco;
+    atGrave += (a[EQ_GRAVE] - atGrave) * k;
+    atMedio += (a[EQ_MEDIO] - atMedio) * k;
+    atAgudo += (a[EQ_AGUDO] - atAgudo) * k;
+    atSaida += (a[EQ_SAIDA] - atSaida) * k;
+    // Freq e Q andam na escala "multiplicativa" (como o ouvido percebe)
+    atFreq *= std::pow(a[EQ_FREQ] / atFreq, k);
+    atQ *= std::pow(a[EQ_Q] / atQ, k);
+    if (temCalculado && std::fabs(calcGrave - atGrave) < 0.01 && std::fabs(calcMedio - atMedio) < 0.01 &&
+        std::fabs(calcAgudo - atAgudo) < 0.01 && std::fabs(calcFreq / atFreq - 1) < 0.001 &&
+        std::fabs(calcQ / atQ - 1) < 0.001) {
+      return;
+    }
+    grave.prateleiraGrave(FREQ_GRAVE_EQ, atGrave);
+    media.sino(atFreq, atMedio, atQ);
+    aguda.prateleiraAguda(FREQ_AGUDO_EQ, atAgudo);
+    calcGrave = atGrave;
+    calcMedio = atMedio;
+    calcAgudo = atAgudo;
+    calcFreq = atFreq;
+    calcQ = atQ;
+    temCalculado = true;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_EQ];
+    atualizar(a);
+    const bool ligado = a[EQ_LIGADO] != 0;
+    const Mix mix = ganhosMix(a[EQ_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = ligado ? mix.molhado : 0;
+    const double s = suavizar10ms;
+    const double ganhoSaida = std::pow(10.0, atSaida / 20);
+    for (int i = 0; i < tamanho; i++) {
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      const double e = efeitoE[i];
+      const double d = efeitoD[i];
+      const double eqE = aguda.processar(media.processar(grave.processar(e, 0), 0), 0) * ganhoSaida;
+      const double eqD = aguda.processar(media.processar(grave.processar(d, 1), 1), 1) * ganhoSaida;
+      efeitoE[i] = e * seco + eqE * molhado;
+      efeitoD[i] = d * seco + eqD * molhado;
+    }
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      grave.limpar();
+      media.limpar();
+      aguda.limpar();
+      seco = 1;
+      molhado = 0;
+    }
+  }
+};
+Eq eq;
+
+// ---------- Compressor ----------
+// Estéreo ligado (mesma redução nos 2 lados), detector de pico, joelho suave de 6 dB.
+enum { CO_LIGADO, CO_THRESHOLD, CO_RATIO, CO_ATTACK, CO_RELEASE, CO_GANHO, CO_MIX, N_CAMPOS_CO };
+constexpr double JOELHO = 6; // dB
+
+inline double paraDb(double x) { return 20 * std::log10(x + 1e-12); }
+inline double deDb(double db) { return std::pow(10.0, db / 20); }
+
+// Quanto abaixar (dB, positivo) para um nível de entrada "nivelDb"
+inline double reducaoEstatica(double nivelDb, double threshold, double ratio) {
+  const double acima = nivelDb - threshold;
+  const double inclinacao = 1 - 1 / ratio;
+  if (acima <= -JOELHO / 2) return 0;
+  if (acima >= JOELHO / 2) return acima * inclinacao;
+  // Dentro do joelho: entra aos poucos (curva suave)
+  const double x = acima + JOELHO / 2;
+  return (inclinacao * x * x) / (2 * JOELHO);
+}
+
+struct Compressor {
+  double reducao;      // dB que está abaixando agora (suavizado pelo Attack/Release)
+  double maiorReducao; // maior redução desde a última leitura (medidor da tela)
+  double seco, molhado, compensacao;
+  bool temCompensacao; // falso = ainda não começou (ao acordar, começa no valor certo)
+  bool dormindo;
+
+  void zerar() {
+    reducao = maiorReducao = 0;
+    seco = 1;
+    molhado = 0;
+    compensacao = 1;
+    temCompensacao = false;
+    dormindo = true;
+  }
+
+  double lerReducao() {
+    const double r = maiorReducao;
+    maiorReducao = 0;
+    return r;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_COMPRESSOR];
+    const bool ligado = a[CO_LIGADO] != 0;
+    const Mix mix = ganhosMix(a[CO_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = ligado ? mix.molhado : 0;
+    const double threshold = std::fmin(0.0, std::fmax(-60.0, a[CO_THRESHOLD]));
+    const double ratio = std::fmax(1.0, a[CO_RATIO]);
+    const double coefAtaque = 1 - std::exp(-1 / (std::fmax(0.0001, a[CO_ATTACK]) * taxa));
+    const double coefSoltura = 1 - std::exp(-1 / (std::fmax(0.005, a[CO_RELEASE]) * taxa));
+    // Compensação automática: metade do que um som em 0 dB perderia, + o Ganho escolhido
+    // (anda suave, ~10 ms; ao acordar, já começa no valor certo)
+    const double alvoCompensacao = deDb(reducaoEstatica(0, threshold, ratio) * 0.5 + a[CO_GANHO]);
+    if (!temCompensacao) {
+      compensacao = alvoCompensacao;
+      temCompensacao = true;
+    }
+    const double s = suavizar10ms;
+    double maior = maiorReducao;
+    // Abaixo do começo do joelho não há o que comprimir: nem converte para dB (economia)
+    const double semCompressao = deDb(threshold - JOELHO / 2 - 0.01);
+
+    for (int i = 0; i < tamanho; i++) {
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      const double e = efeitoE[i];
+      const double d = efeitoD[i];
+      const double nivel = std::fmax(std::fabs(e), std::fabs(d));
+      const double alvo = nivel < semCompressao ? 0 : reducaoEstatica(paraDb(nivel), threshold, ratio);
+      // Abaixar = Attack; soltar = Release
+      reducao += (alvo - reducao) * (alvo > reducao ? coefAtaque : coefSoltura);
+      if (reducao > maior) maior = reducao;
+      if (compensacao != alvoCompensacao) {
+        compensacao += (alvoCompensacao - compensacao) * s;
+        if (std::fabs(compensacao - alvoCompensacao) < 1e-7) compensacao = alvoCompensacao;
+      }
+      const double ganho = (reducao == 0 ? 1 : deDb(-reducao)) * compensacao * molhado;
+      efeitoE[i] = e * seco + e * ganho;
+      efeitoD[i] = d * seco + d * ganho;
+    }
+    maiorReducao = maior;
+
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      seco = 1;
+      molhado = 0;
+      reducao = 0;
+      temCompensacao = false;
+    }
+  }
+};
+Compressor compressor;
+
+// Quantos ajustes cada efeito tem (o JS confere se combina com a lista dele)
+constexpr int CAMPOS_EFEITO[N_EFEITOS] = { N_CAMPOS_SAT, N_CAMPOS_DIS, N_CAMPOS_FT, N_CAMPOS_EQ, N_CAMPOS_CO };
+
 }  // namespace
 
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 4; }
+EXPORTAR int versao() { return 5; }
+
+EXPORTAR void efeitoZerar(int ef); // (mais abaixo)
 
 // Liga o motor na taxa de amostragem do aparelho (chamada uma vez, ao nascer).
 // "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length no JS).
@@ -1595,6 +2198,9 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   suavizarLigacoes = 1 - std::exp(-BLOCO / (0.01 * taxa));
   suavizarMacros = 1 - std::exp(-BLOCO / (0.01 * taxa));
   freqMaximaFiltro = std::fmin(20000.0, 0.45 * taxa);
+  suavizar10ms = 1 - std::exp(-1 / (0.01 * taxa));
+  tanhDesvioSat = std::tanh(0.25);
+  tanhDesvioDist = std::tanh(0.3);
   prepararMeiaBanda();
   // Os 3 trechos de ruído (4 s cada), montados uma vez
   tamanhoTrecho = static_cast<int>(arredondar(SEGUNDOS_TRECHO * taxa));
@@ -1607,7 +2213,7 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   for (auto& voz : osciladores)
     for (auto& osc : voz) osc.zerar();
   for (auto& v : vozes) v.zerar();
-  filtroTrack.zerar();
+  for (int ef = 0; ef < N_EFEITOS; ef++) efeitoZerar(ef);
   return 1;
 }
 
@@ -1621,7 +2227,8 @@ EXPORTAR double* enderecoMacros() { return macrosAlvo; }
 EXPORTAR double* enderecoLigacoes() { return entradaLigacoes; }
 EXPORTAR double* enderecoAjustesVoz() { return ajustesVoz; }
 EXPORTAR double* enderecoCortesResos() { return &cortesResos[0][0]; } // Cutoff 1, Reso 1, Cutoff 2, Reso 2
-EXPORTAR double* enderecoAjustesFt() { return ajustesFt; }
+EXPORTAR double* enderecoAjustesEfeito(int ef) { return ajustesEfeitos[ef]; }
+EXPORTAR int camposEfeito(int ef) { return CAMPOS_EFEITO[ef]; }
 EXPORTAR double* enderecoEfeito() { return efeitoE; } // esquerda; a direita vem logo depois (+ BLOCO)
 EXPORTAR int camposVoz() { return N_CAMPOS_VOZ; }
 // Som da voz v no bloco: esquerda; a direita vem logo depois (+ BLOCO números)
@@ -1820,16 +2427,53 @@ EXPORTAR void vozProcessar(int v, int tamanho, double sorteioRuido, int dona) {
   vozes[v].processar(v, tamanho, sorteioRuido, dona != 0);
 }
 
-// ---------- Filtro Track (efeito) ----------
-// O JS copia o som para "somEfeito", chama ftProcessar e copia de volta (se devolver 1).
-EXPORTAR void ftZerar() { filtroTrack.zerar(); }
+// ---------- Efeitos (Saturação, Distorção, Filtro Track, EQ, Compressor) ----------
+// "ef" = número do efeito (EF_SATURACAO...). O som está em "somEfeito" (o JS copia para cá
+// antes do 1º efeito do C++ e de volta depois do último); os ajustes, na linha do efeito.
+EXPORTAR void efeitoProcessar(int ef, int tamanho) {
+  switch (ef) {
+    case EF_SATURACAO: saturacao.processar(tamanho); break;
+    case EF_DISTORCAO: distorcao.processar(tamanho); break;
+    case EF_FILTRO_TRACK: filtroTrack.processar(tamanho); break;
+    case EF_EQ: eq.processar(tamanho); break;
+    case EF_COMPRESSOR: compressor.processar(tamanho); break;
+  }
+}
+// Memória limpa (como novo); volta dormindo
+EXPORTAR void efeitoZerar(int ef) {
+  switch (ef) {
+    case EF_SATURACAO: saturacao.zerar(); break;
+    case EF_DISTORCAO: distorcao.zerar(); break;
+    case EF_FILTRO_TRACK: filtroTrack.zerar(); break;
+    case EF_EQ: eq.zerar(); break;
+    case EF_COMPRESSOR: compressor.zerar(); break;
+  }
+}
+static bool* dormindoDe(int ef) {
+  switch (ef) {
+    case EF_SATURACAO: return &saturacao.dormindo;
+    case EF_DISTORCAO: return &distorcao.dormindo;
+    case EF_FILTRO_TRACK: return &filtroTrack.dormindo;
+    case EF_EQ: return &eq.dormindo;
+    case EF_COMPRESSOR: return &compressor.dormindo;
+  }
+  return nullptr;
+}
+EXPORTAR int efeitoDormindo(int ef) {
+  const bool* d = dormindoDe(ef);
+  return d && *d ? 1 : 0;
+}
+// Ligado: acorda (mesmo jeito dos efeitos em JavaScript: cada "definir" com ligado acorda)
+EXPORTAR void efeitoAcordar(int ef) {
+  if (bool* d = dormindoDe(ef)) *d = false;
+}
+// Medidor do Compressor: maior redução (dB) desde a última leitura (e zera)
+EXPORTAR double compressorReducao() { return compressor.lerReducao(); }
+// Filtro Track: troca de tipo (LP 12, LP 24, HP, BP), com a transição suave do filtro
 EXPORTAR void ftTipo(int tipo) {
   filtroTrack.esquerdo.definirTipo(tipo);
   filtroTrack.direito.definirTipo(tipo);
 }
-EXPORTAR void ftAcordar() { filtroTrack.dormindo = false; }
-EXPORTAR int ftDormindo() { return filtroTrack.dormindo ? 1 : 0; }
-EXPORTAR int ftProcessar(int tamanho) { return filtroTrack.processar(tamanho); }
 
 // Para a tela (pontinhos ao vivo): fase e valor do LFO l na voz v (v = -1: o LFO Livre)
 EXPORTAR double lfoFase(int v, int l) { return v < 0 ? livres[l].fase : vozes[v].lfos[l].fase; }

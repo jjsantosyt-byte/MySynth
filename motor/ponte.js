@@ -7,6 +7,8 @@
 // lugar e as vistas antigas deixam de valer: renovar() cria de novo (chamar depois de guardar
 // uma tabela e no começo de cada bloco — é só uma comparação quando nada mudou).
 
+import { TIPOS_SATURACAO, TIPOS_DISTORCAO } from '../dsp/efeitos/modulaveis.js';
+
 // Campos dos ajustes de cada oscilador (mesma ordem do enum Campo em motor.cpp)
 export const CAMPOS_OSC = {
   tabela: 0,
@@ -37,8 +39,16 @@ export const CAMPOS_VOZ = {
   ruidoPitch: 10, ruidoUnico: 11,
   qtdCortes1: 12, qtdResos1: 13, qtdCortes2: 14, qtdResos2: 15,
 };
-// Ajustes do Filtro Track (mesma ordem do enum CampoFt em motor.cpp)
-export const CAMPOS_FT = { ligado: 0, nota: 1, track: 2, reso: 3, mix: 4, referencia: 5 };
+// Efeitos calculados no C++: número de cada um (enum EF_... em motor.cpp) e os seus ajustes,
+// na mesma ordem dos enums SAT_/DIS_/CampoFt/EQ_/CO_ de lá. "tipos" = a lista que vira número.
+// (O Filtro Track troca de tipo por ftTipo, com transição suave; "referencia" = nota tocada.)
+export const EFEITOS_NO_MOTOR = {
+  saturacao: { numero: 0, campos: ['ligado', 'tipo', 'drive', 'tom', 'mix'], tipos: TIPOS_SATURACAO },
+  distorcao: { numero: 1, campos: ['ligado', 'tipo', 'drive', 'mix', 'tom', 'lowcut'], tipos: TIPOS_DISTORCAO },
+  filtroTrack: { numero: 2, campos: ['ligado', 'nota', 'track', 'reso', 'mix', 'referencia'] },
+  eq: { numero: 3, campos: ['ligado', 'grave', 'medio', 'agudo', 'freq', 'q', 'saida', 'mix'] },
+  compressor: { numero: 4, campos: ['ligado', 'threshold', 'ratio', 'attack', 'release', 'ganho', 'mix'] },
+};
 // Rotas de filtro → número no C++
 export const ROTAS = { f1: 0, f2: 1, f12: 2, f21: 3 };
 
@@ -65,20 +75,28 @@ export class Ponte {
     this.iLigacoes = this.c.enderecoLigacoes() / 8;
     this.iAjustesVoz = this.c.enderecoAjustesVoz() / 8;
     this.iCortesResos = this.c.enderecoCortesResos() / 8; // Cutoff 1, Reso 1, Cutoff 2, Reso 2 (BLOCO cada)
-    this.iAjustesFt = this.c.enderecoAjustesFt() / 8;
-    this.iEfeito = this.c.enderecoEfeito() / 8; // som de um efeito: esquerda; direita BLOCO depois
+    for (const { numero, campos } of Object.values(EFEITOS_NO_MOTOR)) {
+      if (this.c.camposEfeito(numero) !== campos.length) throw new Error('motor.wasm e ponte.js não combinam (efeitos)');
+    }
+    this.iEfeito = this.c.enderecoEfeito() / 8; // som passando pelos efeitos: esquerda; direita BLOCO depois
+    this.renovar(true); // (as vistas somE/somD precisam de iEfeito)
     this.iModEfeitos = this.c.enderecoModEfeitos() / 8;
     this.iUsos = this.c.enderecoUsos(); // (em bytes: lido com u8)
   }
 
-  renovar() {
+  renovar(forcar = false) {
     const b = this.c.memory.buffer;
-    if (b === this.buffer) return;
+    if (b === this.buffer && !forcar) return;
     this.buffer = b;
     this.f64 = new Float64Array(b);
     this.f32 = new Float32Array(b);
     this.i32 = new Int32Array(b);
     this.u8 = new Uint8Array(b);
+    // Som passando pelos efeitos do C++ (esquerda e direita)
+    if (this.iEfeito !== undefined) {
+      this.somE = this.f64.subarray(this.iEfeito, this.iEfeito + BLOCO);
+      this.somD = this.f64.subarray(this.iEfeito + BLOCO, this.iEfeito + 2 * BLOCO);
+    }
   }
 
   // Onde fica a modulação da voz v (posição em f64; um número por destino)

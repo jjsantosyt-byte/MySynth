@@ -7,6 +7,10 @@
 // tocada por último (um LFO em modo Livre mexe no efeito mesmo sem nota tocando).
 // Só contas: nada do navegador.
 
+// Tipos da Saturação e da Distorção (os efeitos estão no C++, motor.cpp: mesma ordem = mesmo número)
+export const TIPOS_SATURACAO = ['fita', 'valvula', 'transistor'];
+export const TIPOS_DISTORCAO = ['suave', 'dura', 'valvula'];
+
 // Filtro Track: faixa do Cutoff em notas (C1 a C10; o efeito está no C++, motor.cpp)
 export const NOTA_MINIMA_TRACK = 24; // C1 (~33 Hz)
 export const NOTA_MAXIMA_TRACK = 132; // C10 (~16,7 kHz)

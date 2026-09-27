@@ -1,8 +1,8 @@
 // dsp/meia-banda.js
 // Filtro "meia-banda": usado para trabalhar em taxa DOBRADA (oversampling 2×) e voltar.
-// Ex.: a Distorção e o Warp dos osciladores criam agudos além do limite do áudio digital;
-// fazendo as contas na taxa dobrada e filtrando antes de voltar, esses agudos são cortados
-// em vez de voltarem como chiado (aliasing).
+// Ex.: o soft clipper da saída cria agudos além do limite do áudio digital; fazendo as contas
+// na taxa dobrada e filtrando antes de voltar, esses agudos são cortados em vez de voltarem
+// como chiado (aliasing). (Warp, Saturação e Distorção têm a mesma peça no motor.cpp.)
 //
 // 31 coeficientes, janela de Blackman: corta tudo acima da metade da taxa original.
 // Nesse tipo de filtro, metade dos coeficientes é zero: só os outros são calculados.

@@ -5,6 +5,8 @@
 // Ele é o "gerente de vozes": cada nota tocada ganha uma voz completa
 // (OSC A, B, C + ruído → filtros → envelope). A voz é calculada inteira no motor em C++
 // (motor/motor.cpp, etapas F1 e F2); aqui fica só quem toca o quê. A saída é estéreo.
+// Efeitos: Saturação, Distorção, Filtro Track, EQ e Compressor também são calculados no C++
+// (etapa F3a); Phaser, Flanger, Chorus, Delay e Reverb ainda em JavaScript (dsp/efeitos/).
 //
 // - Poly: até N notas ao mesmo tempo. Se faltar voz, "rouba" a melhor
 //   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
@@ -22,17 +24,13 @@ import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { DESTINOS_MOD, D_PRIMEIRO_EFEITO, ligacoesEmNumeros } from './dsp/modulacao.js';
 import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
-import { Distorcao } from './dsp/efeitos/distorcao.js';
-import { Compressor } from './dsp/efeitos/compressor.js';
-import { Saturacao } from './dsp/efeitos/saturacao.js';
-import { Eq } from './dsp/efeitos/eq.js';
 import { Phaser } from './dsp/efeitos/phaser.js';
 import { Flanger } from './dsp/efeitos/flanger.js';
 import { Chorus } from './dsp/efeitos/chorus.js';
 import { Delay } from './dsp/efeitos/delay.js';
 import { Reverb } from './dsp/efeitos/reverb.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
-import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, CAMPOS_FT, ROTAS } from './motor/ponte.js';
+import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, EFEITOS_NO_MOTOR, ROTAS } from './motor/ponte.js';
 
 const MAX_VOZES = 16;
 const MAX_UNISON = 16;
@@ -144,18 +142,61 @@ class Voz {
   }
 }
 
-// Filtro Track (efeito): as contas estão no C++; esta peça só leva os ajustes e o som até
-// lá, com o mesmo jeito dos outros efeitos (ajustes, definir, processar, dormindo).
-class FiltroTrack {
-  constructor(ponte) {
+// Efeito calculado no C++ (Saturação, Distorção, Filtro Track, EQ, Compressor): esta peça só
+// guarda os ajustes (a tela manda; a modulação dos knobs mexe) e os escreve na mesa do C++
+// antes de cada bloco. O som já está lá dentro (ponte.somE/somD: ver process).
+// Mesmo jeito dos efeitos em JavaScript (ajustes, definir, dormindo), mais "noMotor".
+class EfeitoNoMotor {
+  constructor(ponte, id, ajustes) {
+    const { numero, campos, tipos } = EFEITOS_NO_MOTOR[id];
     this.ponte = ponte;
-    this.ajustes = { ligado: false, tipo: 'lp24', nota: 72, track: 1, reso: 0.2, mix: 1 };
-    this.notaReferencia = 60; // o motor atualiza a cada bloco (última nota tocada)
-    this.tipoAtual = 'lp24';
+    this.numero = numero;
+    this.campos = campos;
+    this.tipos = tipos ?? null;
+    this.ajustes = ajustes;
+    this.noMotor = true;
+    this.iAjustes = ponte.c.enderecoAjustesEfeito(numero) / 8;
   }
 
   get dormindo() {
-    return this.ponte.c.ftDormindo() === 1;
+    return this.ponte.c.efeitoDormindo(this.numero) === 1;
+  }
+
+  definir(ajustes) {
+    Object.assign(this.ajustes, ajustes);
+    if (this.ajustes.ligado) this.ponte.c.efeitoAcordar(this.numero);
+  }
+
+  // Memória limpa (depois de um conserto): como novo
+  zerar() {
+    this.ponte.c.efeitoZerar(this.numero);
+  }
+
+  // Ajustes → mesa do C++ (liga/desliga = 1/0; tipo = número na lista, desconhecido = o 1º),
+  // depois processa o som que está em ponte.somE/somD. Um valor inválido (NaN, infinito,
+  // texto) é ignorado: fica o último valor bom.
+  processar(tamanhoBloco) {
+    const f64 = this.ponte.f64;
+    const a = this.ajustes;
+    for (let k = 0; k < this.campos.length; k++) {
+      const nome = this.campos[k];
+      const v = a[nome];
+      if (nome === 'tipo') f64[this.iAjustes + k] = Math.max(0, this.tipos.indexOf(v));
+      else if (typeof v === 'boolean') f64[this.iAjustes + k] = v ? 1 : 0;
+      else if (Number.isFinite(v)) f64[this.iAjustes + k] = v;
+    }
+    this.ponte.c.efeitoProcessar(this.numero, tamanhoBloco);
+  }
+}
+
+// Filtro Track: a troca de tipo passa pela transição suave do filtro (ftTipo) e o Cutoff
+// segue a nota de referência (a última nota tocada, com o Glide)
+class FiltroTrack extends EfeitoNoMotor {
+  constructor(ponte) {
+    super(ponte, 'filtroTrack', { ligado: false, tipo: 'lp24', nota: 72, track: 1, reso: 0.2, mix: 1 });
+    this.notaReferencia = 60; // o motor atualiza a cada bloco (última nota tocada)
+    this.tipoAtual = 'lp24';
+    this.iReferencia = this.iAjustes + this.campos.indexOf('referencia');
   }
 
   definir(ajustes) {
@@ -164,38 +205,26 @@ class FiltroTrack {
       this.ponte.c.ftTipo(TIPOS_FILTRO.indexOf(this.ajustes.tipo));
       this.tipoAtual = this.ajustes.tipo;
     }
-    if (this.ajustes.ligado) this.ponte.c.ftAcordar();
+    if (this.ajustes.ligado) this.ponte.c.efeitoAcordar(this.numero);
   }
 
-  // Memória limpa (depois de um conserto): como novo, com o tipo padrão
+  // Volta com o tipo padrão (LP 24)
   zerar() {
-    this.ponte.c.ftZerar();
+    super.zerar();
     this.tipoAtual = 'lp24';
   }
 
-  processar(saidaE, saidaD, tamanhoBloco) {
-    const { ponte, ajustes: a } = this;
-    const c = ponte.c;
-    if (c.ftDormindo()) return;
-    const f64 = ponte.f64;
-    const i = ponte.iAjustesFt;
-    f64[i + CAMPOS_FT.ligado] = a.ligado ? 1 : 0;
-    f64[i + CAMPOS_FT.nota] = a.nota;
-    f64[i + CAMPOS_FT.track] = a.track;
-    f64[i + CAMPOS_FT.reso] = a.reso;
-    f64[i + CAMPOS_FT.mix] = a.mix;
-    f64[i + CAMPOS_FT.referencia] = this.notaReferencia;
-    const e = ponte.iEfeito;
-    const d = e + BLOCO;
-    for (let k = 0; k < tamanhoBloco; k++) {
-      f64[e + k] = saidaE[k];
-      f64[d + k] = saidaD[k];
-    }
-    if (!c.ftProcessar(tamanhoBloco)) return;
-    for (let k = 0; k < tamanhoBloco; k++) {
-      saidaE[k] = f64[e + k];
-      saidaD[k] = f64[d + k];
-    }
+  processar(tamanhoBloco) {
+    this.ponte.f64[this.iReferencia] = this.notaReferencia;
+    super.processar(tamanhoBloco);
+  }
+}
+
+// Compressor: + o medidor de quanto está abaixando (a tela mostra)
+class Compressor extends EfeitoNoMotor {
+  // Maior redução (dB) desde a última vez que a tela perguntou (e zera)
+  lerReducao() {
+    return this.ponte.c.compressorReducao();
   }
 }
 // A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
@@ -385,16 +414,20 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     ];
     // Efeitos (depois das notas somadas):
     // Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
-    this.filtroTrack = new FiltroTrack(this.ponte); // (contas no C++)
-    this.eq = new Eq(sampleRate);
-    this.saturacao = new Saturacao(sampleRate);
-    this.distorcao = new Distorcao(sampleRate);
+    // Os 5 primeiros são calculados no C++ (valores iniciais = os dos antigos em JavaScript)
+    const ponte = this.ponte;
+    this.saturacao = new EfeitoNoMotor(ponte, 'saturacao', { ligado: false, tipo: 'fita', drive: 0.3, tom: 1, mix: 1 });
+    this.distorcao = new EfeitoNoMotor(ponte, 'distorcao', { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 });
+    this.filtroTrack = new FiltroTrack(ponte);
+    this.eq = new EfeitoNoMotor(ponte, 'eq', { ligado: false, grave: 0, medio: 0, agudo: 0, freq: 1000, q: 1, saida: 0, mix: 1 });
+    this.compressor = new Compressor(ponte, 'compressor', {
+      ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1,
+    });
     this.phaser = new Phaser(sampleRate);
     this.flanger = new Flanger(sampleRate);
     this.chorus = new Chorus(sampleRate);
     this.delay = new Delay(sampleRate);
     this.reverb = new Reverb(sampleRate);
-    this.compressor = new Compressor(sampleRate);
     this.enviouCompressor = false;
     this.efeitos = {
       saturacao: this.saturacao,
@@ -776,7 +809,13 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Filtro Track: a nota de referência é a da voz da nota tocada por último ("ruidoDona" é
     // essa voz, nos dois modos), já com o Glide (altura em semitons)
     if (this.ruidoDona) this.filtroTrack.notaReferencia = this.ruidoDona.altura;
-    let pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
+    // Efeitos do C++: o som é copiado para dentro dele antes do primeiro e fica lá enquanto
+    // os seguintes também forem do C++ (sem cópias de ida e volta entre eles); volta para a
+    // saída antes de um efeito em JavaScript (ou no fim).
+    const ponte = this.ponte;
+    let somE = saidaE; // onde o som está agora: na saída ou dentro do C++ (ponte.somE/somD)
+    let somD = saidaD;
+    let pico = picoDoBloco(somE, somD, tamanhoBloco);
     for (const item of this.cadeiaEfeitos) {
       const entradaSilenciosa = pico < LIMIAR_SILENCIO;
       if (item.parado) {
@@ -788,18 +827,38 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         item.parado = false; // chegou som: acorda
         item.silencio = 0;
       }
-      item.efeito.processar(saidaE, saidaD, tamanhoBloco);
-      if (temInvalido(saidaE, saidaD, tamanhoBloco)) {
+      if (item.efeito.noMotor) {
+        if (somE === saidaE) {
+          ponte.somE.set(saidaE);
+          ponte.somD.set(saidaD);
+          somE = ponte.somE;
+          somD = ponte.somD;
+        }
+        item.efeito.processar(tamanhoBloco);
+      } else {
+        if (somE !== saidaE) {
+          saidaE.set(somE.subarray(0, tamanhoBloco));
+          saidaD.set(somD.subarray(0, tamanhoBloco));
+          somE = saidaE;
+          somD = saidaD;
+        }
+        item.efeito.processar(saidaE, saidaD, tamanhoBloco);
+      }
+      if (temInvalido(somE, somD, tamanhoBloco)) {
         // Conta inválida neste efeito: limpa a memória dele (fica como novo, com os mesmos ajustes)
-        this.consertar(item.id, saidaE, saidaD, tamanhoBloco);
+        this.consertar(item.id, somE, somD, tamanhoBloco);
         const ajustes = { ...item.efeito.ajustes };
         if (item.efeito.zerar) item.efeito.zerar(); // (efeitos no C++)
         else Object.assign(item.efeito, new item.efeito.constructor(sampleRate));
         item.efeito.definir(ajustes);
       }
-      pico = picoDoBloco(saidaE, saidaD, tamanhoBloco);
+      pico = picoDoBloco(somE, somD, tamanhoBloco);
       item.silencio = entradaSilenciosa && pico < LIMIAR_SILENCIO ? item.silencio + tamanhoBloco : 0;
       if (item.silencio > this.esperaSilencio) item.parado = true;
+    }
+    if (somE !== saidaE) {
+      saidaE.set(somE.subarray(0, tamanhoBloco));
+      saidaD.set(somD.subarray(0, tamanhoBloco));
     }
 
     // Volume geral (suave: a barra usa rampas) e soft clipper
