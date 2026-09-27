@@ -8,6 +8,7 @@
 #   2. Cria o projeto Android (android/) com o Capacitor, se ainda não existir, e copia www/ para ele.
 #   3. Ajustes no Android:
 #      - TIRA a permissão de Internet (o app não consegue falar com nada fora do celular);
+#      - sempre DEITADO (vira para os dois lados deitados, nunca em pé);
 #      - tela cheia de verdade (sem a barra de status e sem a de navegação) e texto sempre em
 #        100% (sem o "tamanho da fonte" do Android): MainActivity.java desta pasta;
 #      - ícone do MySynth.
@@ -38,6 +39,13 @@ MANIFESTO=android/app/src/main/AndroidManifest.xml
 sed -i '/android.permission.INTERNET/d' "$MANIFESTO"
 if grep -q 'android.permission' "$MANIFESTO"; then
   echo "Atenção: sobrou alguma permissão no AndroidManifest.xml:"; grep 'android.permission' "$MANIFESTO"
+fi
+
+# Sempre deitado (pedido do dono, 27/09/2026). "sensorLandscape" = gira entre os 2 lados deitados.
+# (Obs.: no Android 16, em tablets grandes, o sistema pode ignorar e deixar girar: o app também
+# funciona em pé.)
+if ! grep -q 'screenOrientation' "$MANIFESTO"; then
+  sed -i 's#android:name=".MainActivity"#&\n            android:screenOrientation="sensorLandscape"#' "$MANIFESTO"
 fi
 
 # Tela cheia (o tema do app sem a barra de status)

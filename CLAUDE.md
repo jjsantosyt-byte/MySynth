@@ -475,6 +475,9 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   refeito ao voltar o foco) + `plugins.SystemBars.hidden = true` no capacitor.config.json (o
   SystemBars do Capacitor 8 mostrava as barras ao abrir). Tema Claro/inglês no app: escolhas da
   tela de boas-vindas (o app guarda separado do Chrome), não defeito.
+  Tela do app confirmada pelo dono no Infinix (27/09). App SEMPRE DEITADO (pedido do dono):
+  `android:screenOrientation="sensorLandscape"` posto pelo preparar.sh (só no app Android; o
+  site/app do Chrome continua girando).
   Ordem das categorias (27/09/2026, pedido do dono: mais audíveis no celular primeiro; o baixo
   quase não se ouve no alto-falante do celular): Início → Lead → Pluck → Keys → Pad → FX →
   Outros → Baixo (`presets/lista.json` e a reserva em `interface/presets-projeto.js`). Vale para a
