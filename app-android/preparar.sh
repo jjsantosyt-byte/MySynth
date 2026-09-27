@@ -8,7 +8,8 @@
 #   2. Cria o projeto Android (android/) com o Capacitor, se ainda não existir, e copia www/ para ele.
 #   3. Ajustes no Android:
 #      - TIRA a permissão de Internet (o app não consegue falar com nada fora do celular);
-#      - tela cheia (sem a barra de status em cima);
+#      - tela cheia de verdade (sem a barra de status e sem a de navegação) e texto sempre em
+#        100% (sem o "tamanho da fonte" do Android): MainActivity.java desta pasta;
 #      - ícone do MySynth.
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -44,6 +45,9 @@ ESTILOS=android/app/src/main/res/values/styles.xml
 if ! grep -q 'windowFullscreen' "$ESTILOS"; then
   sed -i 's#<style name="AppTheme.NoActionBar" parent="Theme.AppCompat.DayNight.NoActionBar">#&\n        <item name="android:windowFullscreen">true</item>#' "$ESTILOS"
 fi
+
+# Tela cheia + texto em 100% (MainActivity.java desta pasta)
+cp MainActivity.java android/app/src/main/java/io/github/jjsantosytbyte/mysynth/MainActivity.java
 
 # Ícone: o do MySynth (192 px) no lugar do ícone padrão do Capacitor
 RES=android/app/src/main/res

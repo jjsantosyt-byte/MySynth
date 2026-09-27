@@ -467,6 +467,14 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   APK release (sem depuração), assina com chave de TESTE nova a cada vez (desinstalar antes de
   atualizar), confere que não há permissão de Internet e publica em Releases "apk-teste"
   (https://github.com/jjsantosyt-byte/MySynth/releases/tag/apk-teste) + Artifacts.
+  1º teste no Infinix (27/09): DESEMPENHO ÓTIMO (Moving Pad, 12 notas, motor ~50%, 0 atrasos).
+  Problema: espaço da tela. Causas: (1) o WebView segue o "tamanho da fonte" do Android (Chrome
+  não) → texto maior e sobreposto; (2) barra de navegação visível (~80 px) → largura < 720 px CSS
+  → teclado com 1 oitava. Consertado em `app-android/MainActivity.java` (copiado pelo preparar.sh):
+  `setTextZoom(100)` + tela cheia imersiva (esconde status e navegação; arrastar da borda mostra;
+  refeito ao voltar o foco) + `plugins.SystemBars.hidden = true` no capacitor.config.json (o
+  SystemBars do Capacitor 8 mostrava as barras ao abrir). Tema Claro/inglês no app: escolhas da
+  tela de boas-vindas (o app guarda separado do Chrome), não defeito.
   1ª vez (26/09) o Capacitor foi removido: o dono sentiu o app muito pesado (sem medir; o motor
   ainda era todo JS e a tela tinha animações ao vivo). Agora: comparar com o medidor.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
