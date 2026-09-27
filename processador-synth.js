@@ -223,6 +223,111 @@ function temInvalido(e, d, n) {
   return false;
 }
 
+// ---------- Medidor de desempenho (Configurações → Medidor) ----------
+// Só olha o relógio: não muda nada no som. Dentro do motor o único relógio é o Date.now(), que
+// anda de 1 em 1 ms (um bloco leva ~3 ms): um bloco sozinho não dá para medir, mas somando
+// muitos os erros se cancelam (a média fica certa).
+// - Ocupado: quanto do tempo o motor passa calculando (100% = no limite: o som engasga).
+//   Média de 1 s e o pior trecho de 250 ms.
+// - Atrasos: o relógio do som anda junto com o relógio do aparelho enquanto o motor dá conta.
+//   Se o motor não entrega a tempo, o som fica para trás (é quando engasga). A cada 250 ms
+//   pega a MAIOR diferença entre os dois relógios (o momento mais atrasado do trecho: pega
+//   até uma travada curta); se ela passou mais de 8 ms do normal (referência), conta um
+//   atraso (e guarda o maior, em ms). Obs.: um atraso que o buffer do aparelho consegue
+//   esconder não chega a estalar; e atrasos com o motor leve (%) vêm do sistema, não do motor.
+// O recado para a tela vai 1 vez por segundo, só com o medidor ligado.
+const MEDIDOR_JANELA = Math.round((sampleRate * 0.25) / 128); // blocos em 250 ms
+const MEDIDOR_LIMIAR_MS = 8;
+const MEDIDOR_AQUECER = 8; // janelas ignoradas depois de ligar/voltar (2 s: o áudio se acomoda)
+
+class Medidor {
+  constructor(port) {
+    this.port = port;
+    this.ligado = false;
+    this.zerar();
+  }
+
+  zerar() {
+    this.inicio = -1; // relógio do aparelho no começo da contagem (ms)
+    this.quadros = 0; // amostras entregues desde o começo
+    this.ultimo = 0;
+    this.blocos = 0;
+    this.ocupadoJanela = 0;
+    this.quadrosJanela = 0;
+    this.maiorDiferenca = -Infinity;
+    this.referencia = null;
+    this.aquecendo = MEDIDOR_AQUECER;
+    this.atrasado = false;
+    this.atrasos = 0;
+    this.maiorAtraso = 0;
+    this.janelas = 0;
+    this.ocupadoSegundo = 0;
+    this.quadrosSegundo = 0;
+    this.picoSegundo = 0;
+  }
+
+  // Chamado no fim de cada bloco: antes/depois = relógio no começo e no fim do process()
+  bloco(antes, depois, tamanho, vozes) {
+    // Motor parado por mais de 1 s (app no fundo, áudio pausado): recomeça a comparação
+    if (this.inicio < 0 || antes - this.ultimo > 1000) {
+      const { atrasos, maiorAtraso } = this;
+      this.zerar();
+      this.atrasos = atrasos;
+      this.maiorAtraso = maiorAtraso;
+      this.inicio = antes;
+    }
+    this.ultimo = antes;
+    const diferenca = antes - this.inicio - (this.quadros * 1000) / sampleRate;
+    if (diferenca > this.maiorDiferenca) this.maiorDiferenca = diferenca;
+    this.quadros += tamanho;
+    this.ocupadoJanela += depois - antes;
+    this.quadrosJanela += tamanho;
+    if (++this.blocos < MEDIDOR_JANELA) return;
+
+    // Fim de uma janela de 250 ms
+    const duracao = (this.quadrosJanela * 1000) / sampleRate;
+    const ocupado = this.ocupadoJanela / duracao;
+    if (this.aquecendo > 0) {
+      this.aquecendo--;
+      this.referencia = this.maiorDiferenca;
+    } else {
+      if (ocupado > this.picoSegundo) this.picoSegundo = ocupado;
+      this.ocupadoSegundo += this.ocupadoJanela;
+      this.quadrosSegundo += this.quadrosJanela;
+      const acima = this.maiorDiferenca - this.referencia;
+      if (acima > MEDIDOR_LIMIAR_MS) {
+        if (!this.atrasado) this.atrasos++;
+        this.atrasado = true;
+        if (acima > this.maiorAtraso) this.maiorAtraso = acima;
+      } else {
+        this.atrasado = false;
+        // A referência acompanha devagar (os 2 relógios nunca andam exatamente juntos)
+        this.referencia = Math.min(this.referencia + 0.025, this.maiorDiferenca);
+      }
+    }
+    this.blocos = 0;
+    this.ocupadoJanela = 0;
+    this.quadrosJanela = 0;
+    this.maiorDiferenca = -Infinity;
+
+    if (++this.janelas < 4) return;
+    this.janelas = 0;
+    if (this.ligado && this.quadrosSegundo > 0) {
+      this.port.postMessage({
+        tipo: 'medidor',
+        media: this.ocupadoSegundo / ((this.quadrosSegundo * 1000) / sampleRate),
+        pico: this.picoSegundo,
+        atrasos: this.atrasos,
+        maiorAtraso: this.maiorAtraso,
+        vozes,
+      });
+    }
+    this.ocupadoSegundo = 0;
+    this.quadrosSegundo = 0;
+    this.picoSegundo = 0;
+  }
+}
+
 class ProcessadorSynth extends AudioWorkletProcessor {
   // Uma peça do motor (vozes, um efeito, o clipper) soltou valores inválidos: o bloco vira
   // silêncio (quem chamou limpa a memória da peça) e a tela é avisada de qual peça foi
@@ -447,12 +552,17 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.macrosAlvo = new Float64Array(4);
 
     this.blocosDesdeEnvio = 0; // (recado do soft clipper: ver vigiarClipper)
+    this.medidor = new Medidor(this.port);
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
   }
 
   receberMensagem(msg) {
     switch (msg.tipo) {
+      case 'medidor': // ligar/desligar o medidor de desempenho (ligar = começa do zero)
+        if (msg.ligado && !this.medidor.ligado) this.medidor.zerar();
+        this.medidor.ligado = !!msg.ligado;
+        break;
       case 'wavetable': {
         // Qual oscilador: 'A' (padrão), 'B' ou 'C'.
         // A tela manda a tabela inteira só na primeira vez (uma importada grande tem ~9 MB);
@@ -728,6 +838,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   // ---------- Som ----------
 
   process(entradas, saidas, parametros) {
+    const antes = Date.now(); // (medidor de desempenho)
     const saidaE = saidas[0][0];
     const saidaD = saidas[0][1];
     const tamanhoBloco = saidaE.length;
@@ -820,6 +931,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
 
     this.vigiarClipper();
+    let vozes = 0;
+    for (const voz of this.vozes) if (voz.ativa) vozes++;
+    this.medidor.bloco(antes, Date.now(), tamanhoBloco, vozes);
     return true;
   }
 
