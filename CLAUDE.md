@@ -595,6 +595,10 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
     instrumentos de sample em outros apps.
 
 ## Aparelhos de teste
+- ACHADO (27/09/2026, Infinix Hot 50i): no ALTO-FALANTE, o Init (seno puro) "abaixa de volume
+  sozinho" e sons ricos (Rage Synth) parecem bem mais altos. Medido: o motor entrega volume
+  constante (Init −18,2 dB RMS o tempo todo; Rage −18 a −24 dB). Com fone NÃO acontece; no app do
+  Chrome acontece igual → é a proteção do alto-falante do celular (graves puros), não o app.
 - Android: do dono do projeto. FUNCIONA: Chrome → ⋮ → "Instalar app" (o Chrome cria o app,
   com ícone, tela cheia e sem internet) — aprovado pelo dono ("bem legal", 24/09/2026).
   APK do PWABuilder (TWA, opção A com barrinha): instala mas fica parado no ícone (splash) e
