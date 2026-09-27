@@ -490,7 +490,9 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   quase não se ouve no alto-falante do celular): Início → Lead → Pluck → Keys → Pad → FX →
   Outros → Baixo (`presets/lista.json` e a reserva em `interface/presets-projeto.js`). Vale para a
   lista, as setas, o número "02/20" e os botões de categoria ao salvar. Dono vai fazer mais
-  presets (6 por categoria).
+  presets (6 por categoria). 27/09/2026: +16 de fábrica feitos pelo dono (4 Pad, 3 Keys, 3 Outros,
+  2 Pluck, 2 Baixo, 2 FX; sem Lead novo) → 36 no total. Dentro da categoria: ordem alfabética.
+  Conferido: os 36 carregam sem erro e tocam (pico máx. −3,3 dB no Kick).
   1ª vez (26/09) o Capacitor foi removido: o dono sentiu o app muito pesado (sem medir; o motor
   ainda era todo JS e a tela tinha animações ao vivo). Agora: comparar com o medidor.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.

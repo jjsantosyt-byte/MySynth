@@ -1,0 +1,225 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "A Dream",
+      "categoria": "Keys",
+      "som": {
+        "parametros": {
+          "wtPos": 0.094,
+          "detune": 0.2,
+          "width": 1,
+          "nivelOsc": 1,
+          "fineOsc": 0,
+          "panOsc": 0,
+          "blendOsc": 1,
+          "warpOsc": 0,
+          "wtPosB": 0.068,
+          "detuneB": 0.25,
+          "widthB": 1,
+          "nivelOscB": 0.595,
+          "fineOscB": 0,
+          "panOscB": 0,
+          "blendOscB": 1,
+          "warpOscB": 0,
+          "wtPosC": 0.3333333333333333,
+          "detuneC": 0.25,
+          "widthC": 1,
+          "nivelOscC": 1,
+          "fineOscC": 0,
+          "panOscC": 0,
+          "blendOscC": 1,
+          "warpOscC": 0.15,
+          "ruido": 0.5,
+          "cutoff": 2000,
+          "resonancia": 0.1,
+          "cutoff2": 873.0316644803324,
+          "resonancia2": 0.895,
+          "ataque": 0,
+          "decaimento": 1.0609463664312293,
+          "sustentacao": 0,
+          "soltura": 0.08
+        },
+        "opcoes": {
+          "wavetable": "basica",
+          "oscLigado": true,
+          "filtroLigado": false,
+          "filtroTipo": "lp24",
+          "filtro2Ligado": true,
+          "filtro2Tipo": "lp24",
+          "rotaOsc": "f1",
+          "rotaRuido": "f1",
+          "modo": "poly",
+          "vozes": 8,
+          "legato": true,
+          "unison": 1,
+          "glide": 0,
+          "glideSempre": false,
+          "ruidoLigado": false,
+          "ruidoTipo": "white",
+          "ruidoModo": "loop",
+          "ruidoDuracao": 0.2,
+          "ruidoTrack": false,
+          "ruidoPitch": 0,
+          "ruidoUnico": true,
+          "oitavaOsc": -1,
+          "semiOsc": 0,
+          "faseOsc": 0,
+          "randOsc": 1,
+          "warpModoOsc": "nenhum",
+          "wavetableB": "harmonicos",
+          "oscBLigado": true,
+          "unisonB": 1,
+          "rotaOscB": "f1",
+          "oitavaOscB": 0,
+          "semiOscB": 0,
+          "faseOscB": 0,
+          "randOscB": 1,
+          "warpModoOscB": "nenhum",
+          "wavetableC": "basica",
+          "oscCLigado": true,
+          "unisonC": 2,
+          "rotaOscC": "f2",
+          "oitavaOscC": -1,
+          "semiOscC": 0,
+          "faseOscC": 0,
+          "randOscC": 1,
+          "warpModoOscC": "sync"
+        },
+        "fontes": {
+          "lfo1": {
+            "forma": "seno",
+            "rate": 2,
+            "modo": "retrig"
+          },
+          "lfo2": {
+            "forma": "triangulo",
+            "rate": 0.5,
+            "modo": "retrig"
+          },
+          "lfo3": {
+            "forma": "seno",
+            "rate": 1,
+            "modo": "retrig"
+          },
+          "env2": {
+            "ataque": 0.005,
+            "decaimento": 0.3,
+            "sustentacao": 0,
+            "soltura": 0.2
+          },
+          "env3": {
+            "ataque": 0.005,
+            "decaimento": 0.3,
+            "sustentacao": 0,
+            "soltura": 0.2
+          },
+          "macro1": {
+            "valor": 0
+          },
+          "macro2": {
+            "valor": 0
+          },
+          "macro3": {
+            "valor": 0
+          },
+          "macro4": {
+            "valor": 0
+          }
+        },
+        "ligacoes": [],
+        "efeitos": {
+          "saturacao": {
+            "ligado": true,
+            "tipo": "fita",
+            "drive": 0.14500000000000002,
+            "tom": 1,
+            "mix": 0.7000000000000001
+          },
+          "distorcao": {
+            "ligado": false,
+            "tipo": "suave",
+            "drive": 0.4,
+            "mix": 1,
+            "tom": 1,
+            "lowcut": 20
+          },
+          "filtroTrack": {
+            "ligado": false,
+            "tipo": "lp24",
+            "nota": 72,
+            "track": 1,
+            "reso": 0.2,
+            "mix": 1
+          },
+          "eq": {
+            "ligado": false,
+            "grave": 0,
+            "medio": 0,
+            "agudo": 0,
+            "freq": 1000,
+            "q": 1,
+            "saida": 0,
+            "mix": 1
+          },
+          "compressor": {
+            "ligado": false,
+            "threshold": -18,
+            "ratio": 4,
+            "attack": 0.01,
+            "release": 0.15,
+            "ganho": 0,
+            "mix": 1
+          },
+          "phaser": {
+            "ligado": false,
+            "rate": 0.5,
+            "depth": 0.7,
+            "freq": 800,
+            "feedback": 0.5,
+            "stereo": 0.5,
+            "mix": 0.5
+          },
+          "flanger": {
+            "ligado": false,
+            "rate": 0.3,
+            "depth": 0.7,
+            "atraso": 0.002,
+            "feedback": 0.5,
+            "stereo": 0.5,
+            "mix": 0.5
+          },
+          "chorus": {
+            "ligado": false,
+            "rate": 0.8,
+            "depth": 0.5,
+            "mix": 0.5,
+            "atraso": 0.012,
+            "feedback": 0,
+            "width": 1
+          },
+          "delay": {
+            "ligado": true,
+            "tempo": 0.2742481756762075,
+            "feedback": 0.5187499999999999,
+            "mix": 0.19500000000000003,
+            "pingpong": false,
+            "lowcut": 144.88719201499805,
+            "highcut": 9689.827588274902,
+            "width": 1
+          },
+          "reverb": {
+            "ligado": true,
+            "tamanho": 0.14,
+            "brilho": 0.6,
+            "mix": 0.09999999999999998,
+            "predelay": 0,
+            "lowcut": 120,
+            "width": 1
+          }
+        }
+      }
+    }
+  ]
+}
