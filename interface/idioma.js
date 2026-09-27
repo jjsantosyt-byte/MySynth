@@ -101,6 +101,7 @@ const TEXTOS = new Map(
     maior: 'max',
     Tela: 'Screen',
     'toque uma nota': 'play a note',
+    Navegador: 'Browser',
 
     // Osciladores e wavetables
     Básica: 'Basic',

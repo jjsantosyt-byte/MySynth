@@ -45,6 +45,7 @@ const ARQUIVOS = [
   'interface/historico.js',
   'interface/menu-app.js',
   'interface/medidor.js',
+  'interface/plataforma.js',
   'interface/janela.js',
   'interface/knob.js',
   'interface/modulacao.js',

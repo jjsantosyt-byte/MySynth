@@ -1,0 +1,15 @@
+{
+  "name": "mysynth-android",
+  "private": true,
+  "description": "MySynth como app Android (Capacitor): arquivos dentro do app, sem internet",
+  "scripts": {
+    "preparar": "bash preparar.sh"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.2",
+    "@capacitor/core": "8.5.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.2"
+  }
+}

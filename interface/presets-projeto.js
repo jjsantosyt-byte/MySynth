@@ -12,8 +12,9 @@
 // Se a lista não puder ser lida (ex.: sem internet e sem cópia guardada), o app
 // continua funcionando só com o Init.
 const RESERVA = {
-  categorias: ['Início', 'Baixo', 'Lead', 'Pad', 'Pluck', 'Keys', 'FX', 'Outros'],
-  presets: [{ nome: 'Init', categoria: 'Início', som: {}, fabrica: true, pasta: 'fabrica' }],
+  categorias: ['Início', 'Lead', 'Pluck', 'Keys', 'Pad', 'FX', 'Outros', 'Baixo'], // (mais audíveis no celular primeiro; Baixo por último)
+  // Init = onda Serra (WT Pos 2/3 da Básica), como no arquivo presets/fabrica/Init.synth
+  presets: [{ nome: 'Init', categoria: 'Início', som: { parametros: { wtPos: 2 / 3 } }, fabrica: true, pasta: 'fabrica' }],
 };
 
 async function lerJson(endereco) {

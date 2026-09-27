@@ -456,6 +456,43 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   40 ms contadas; travada de 5 ms não (o buffer esconde). No Chromium do PC: 3 notas ~5%, 0 atrasos.
   Próximo: app do Capacitor "limpo" (sem Internet, arquivos dentro, APK feito pelo GitHub
   Actions) e comparar no Infinix Hot 50i do dono (Helio G81) × app instalado pelo Chrome.
+- APP ANDROID "LIMPO" (27/09/2026, etapa 2, em teste; pedido do dono: app da loja TOTALMENTE
+  offline, sem atualizar pelo site — por isso Capacitor e não TWA/PWABuilder). Pasta
+  `app-android/` (ver LEIA-ME.txt): Capacitor 8.5.2 sem plugins, id `io.github.jjsantosytbyte.mysynth`
+  (pode mudar até o 1º envio à Play Store), endereço interno https://app.mysynth.
+  `preparar.sh`: copia só o que o app usa para www/ (sem sw.js, cópias, C++, loja), `cap add/sync`,
+  TIRA a permissão INTERNET, tela cheia (windowFullscreen), ícone icone-192. www/, android/ e
+  node_modules/ não vão no Git. `interface/plataforma.js`: `APP_DA_LOJA` (não registra o sw.js;
+  o medidor mostra "App" ou "Navegador"). `.github/workflows/apk-teste.yml`: a cada push gera o
+  APK release (sem depuração), assina com chave de TESTE nova a cada vez (desinstalar antes de
+  atualizar), confere que não há permissão de Internet e publica em Releases "apk-teste"
+  (https://github.com/jjsantosyt-byte/MySynth/releases/tag/apk-teste) + Artifacts.
+  1º teste no Infinix (27/09): DESEMPENHO ÓTIMO (Moving Pad, 12 notas, motor ~50%, 0 atrasos).
+  Problema: espaço da tela. Causas: (1) o WebView segue o "tamanho da fonte" do Android (Chrome
+  não) → texto maior e sobreposto; (2) barra de navegação visível (~80 px) → largura < 720 px CSS
+  → teclado com 1 oitava. Consertado em `app-android/MainActivity.java` (copiado pelo preparar.sh):
+  `setTextZoom(100)` + tela cheia imersiva (esconde status e navegação; arrastar da borda mostra;
+  refeito ao voltar o foco) + `plugins.SystemBars.hidden = true` no capacitor.config.json (o
+  SystemBars do Capacitor 8 mostrava as barras ao abrir). Tema Claro/inglês no app: escolhas da
+  tela de boas-vindas (o app guarda separado do Chrome), não defeito.
+  Tela do app confirmada pelo dono no Infinix (27/09). App SEMPRE DEITADO (pedido do dono):
+  `android:screenOrientation="sensorLandscape"` posto pelo preparar.sh (só no app Android; o
+  site/app do Chrome continua girando).
+  Identificador do app CONFIRMADO pelo dono: `io.github.jjsantosytbyte.mysynth` (não muda mais).
+  CHAVE DE ENVIO (27/09/2026): criada pelo Claude (PKCS12, RSA 4096, alias `mysynth`, válida até
+  2054; SHA-256 do certificado 48:D6:62:B3:...:18:E1:2B:1D) e entregue ao dono (jks + senha +
+  base64 + LEIA-ME). NUNCA no Git. Vai nos segredos do repositório KEYSTORE_BASE64 e KEYSTORE_SENHA.
+  O workflow (`apk-teste.yml`): com os segredos → APK e `MySynth-loja.aab` assinados com ela
+  (apksigner / jarsigner); sem eles → APK com chave de teste e sem .aab. versionCode =
+  `github.run_number`, versionName 0.9.<n> (`VERSAO_NUMERO` no preparar.sh). Na Play Console:
+  aceitar o Play App Signing.
+  Ordem das categorias (27/09/2026, pedido do dono: mais audíveis no celular primeiro; o baixo
+  quase não se ouve no alto-falante do celular): Início → Lead → Pluck → Keys → Pad → FX →
+  Outros → Baixo (`presets/lista.json` e a reserva em `interface/presets-projeto.js`). Vale para a
+  lista, as setas, o número "02/20" e os botões de categoria ao salvar. Dono vai fazer mais
+  presets (6 por categoria).
+  1ª vez (26/09) o Capacitor foi removido: o dono sentiu o app muito pesado (sem medir; o motor
+  ainda era todo JS e a tela tinha animações ao vivo). Agora: comparar com o medidor.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
@@ -558,6 +595,14 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
     instrumentos de sample em outros apps.
 
 ## Aparelhos de teste
+- ACHADO (27/09/2026, Infinix Hot 50i): no ALTO-FALANTE, o Init (seno puro) "abaixa de volume
+  sozinho" e sons ricos (Rage Synth) parecem bem mais altos. Medido: o motor entrega volume
+  constante (Init −18,2 dB RMS o tempo todo; Rage −18 a −24 dB). Com fone NÃO acontece; no app do
+  Chrome acontece igual → é a proteção do alto-falante do celular (graves puros), não o app.
+  Por isso (pedido do dono, 27/09/2026): o preset Init começa na onda SERRA (WT Pos 2/3 da Básica;
+  `presets/fabrica/Init.synth` e a reserva em presets-projeto.js). O app APLICA o Init ao abrir
+  (principal.js, depois de criarPresets; não marca "*"). SOM_PADRAO (base de todos os presets)
+  continua no Seno — os presets guardam o som inteiro, então nenhum outro mudou.
 - Android: do dono do projeto. FUNCIONA: Chrome → ⋮ → "Instalar app" (o Chrome cria o app,
   com ícone, tela cheia e sem internet) — aprovado pelo dono ("bem legal", 24/09/2026).
   APK do PWABuilder (TWA, opção A com barrinha): instala mas fica parado no ícone (splash) e

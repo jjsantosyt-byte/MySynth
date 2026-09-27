@@ -1,0 +1,124 @@
+# App Android do MySynth (Capacitor; pasta app-android/): APK para instalar direto no celular e
+# .aab para a Play Store.
+# Roda sozinho a cada envio (push) que mexe no app, ou à mão (aba Actions → "APK de teste" →
+# Run workflow). Os arquivos ficam:
+#   - na página "Releases" do repositório, em "apk-teste" (link direto para baixar no celular);
+#   - e em Actions → execução → Artifacts.
+#
+# Assinatura:
+#   - com a CHAVE DE ENVIO do dono nos segredos do repositório (Settings → Secrets and variables →
+#     Actions: KEYSTORE_BASE64 e KEYSTORE_SENHA): APK e .aab assinados com ela (versões novas
+#     instalam por cima; o .aab vai para a Play Store);
+#   - sem os segredos: APK com uma chave de TESTE nova a cada vez (desinstalar antes de
+#     atualizar) e sem .aab.
+# Número da versão = número desta execução (a Play Store exige um maior a cada envio).
+name: APK de teste
+
+on:
+  push:
+    paths-ignore:
+      - 'CLAUDE.md'
+      - 'REVISAO-*.md'
+      - 'loja/**'
+      - 'Webaudio/**'
+      - 'Web-F3b/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write # para publicar os arquivos em Releases
+
+concurrency:
+  group: apk-teste
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Montar o projeto Android
+        working-directory: app-android
+        env:
+          VERSAO_NUMERO: ${{ github.run_number }}
+        run: |
+          npm install
+          bash preparar.sh
+
+      - name: Compilar (versão final, sem depuração)
+        working-directory: app-android/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease bundleRelease --no-daemon
+
+      - name: Assinar
+        working-directory: app-android/android
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_SENHA: ${{ secrets.KEYSTORE_SENHA }}
+        run: |
+          FERRAMENTAS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEYSTORE_SENHA" ]; then
+            echo "Assinando com a CHAVE DE ENVIO (oficial)"
+            echo "$KEYSTORE_BASE64" | base64 -d > chave.jks
+            SENHA="$KEYSTORE_SENHA"
+            OFICIAL=1
+          else
+            echo "Sem a chave de envio nos segredos: chave de TESTE (sem .aab)"
+            SENHA=mysynth
+            keytool -genkeypair -keystore chave.jks -storepass "$SENHA" -keypass "$SENHA" -alias mysynth \
+              -keyalg RSA -keysize 2048 -validity 3650 -dname "CN=MySynth teste"
+            OFICIAL=0
+          fi
+          echo "OFICIAL=$OFICIAL" >> "$GITHUB_ENV"
+
+          "$FERRAMENTAS/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk alinhado.apk
+          "$FERRAMENTAS/apksigner" sign --ks chave.jks --ks-pass pass:"$SENHA" --ks-key-alias mysynth \
+            --out ../../MySynth-teste.apk alinhado.apk
+          "$FERRAMENTAS/apksigner" verify ../../MySynth-teste.apk
+          # Conferência: nenhuma permissão de Internet no APK final
+          if "$FERRAMENTAS/aapt" dump permissions ../../MySynth-teste.apk | grep -i 'INTERNET'; then
+            echo "ERRO: o APK pede Internet"; exit 1
+          fi
+          "$FERRAMENTAS/aapt" dump permissions ../../MySynth-teste.apk
+          "$FERRAMENTAS/aapt" dump badging ../../MySynth-teste.apk | head -1
+
+          if [ "$OFICIAL" = 1 ]; then
+            jarsigner -keystore chave.jks -storepass "$SENHA" -sigalg SHA256withRSA -digestalg SHA-256 \
+              -signedjar ../../MySynth-loja.aab app/build/outputs/bundle/release/app-release.aab mysynth
+            jarsigner -verify ../../MySynth-loja.aab | tail -1
+          fi
+          rm -f chave.jks
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MySynth-${{ github.run_number }}
+          path: |
+            MySynth-teste.apk
+            MySynth-loja.aab
+          if-no-files-found: ignore
+
+      - name: Publicar em Releases (apk-teste)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          ARQUIVOS="MySynth-teste.apk"
+          if [ "$OFICIAL" = 1 ]; then
+            ARQUIVOS="$ARQUIVOS MySynth-loja.aab"
+            CHAVE="assinado com a chave de envio (instala por cima da versão anterior; o .aab é para a Play Store)"
+          else
+            CHAVE="chave de TESTE (desinstale o anterior antes de instalar este)"
+          fi
+          gh release delete apk-teste --cleanup-tag --yes || true
+          gh release create apk-teste $ARQUIVOS --prerelease --target "$GITHUB_SHA" \
+            --title "APK de teste · versão 0.9.${{ github.run_number }}" \
+            --notes "App Android sem internet, versão 0.9.${{ github.run_number }} (branch ${GITHUB_REF_NAME}, commit ${GITHUB_SHA::7}): $CHAVE."
