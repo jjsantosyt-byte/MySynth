@@ -475,6 +475,11 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   refeito ao voltar o foco) + `plugins.SystemBars.hidden = true` no capacitor.config.json (o
   SystemBars do Capacitor 8 mostrava as barras ao abrir). Tema Claro/inglês no app: escolhas da
   tela de boas-vindas (o app guarda separado do Chrome), não defeito.
+  Ordem das categorias (27/09/2026, pedido do dono: mais audíveis no celular primeiro; o baixo
+  quase não se ouve no alto-falante do celular): Início → Lead → Pluck → Keys → Pad → FX →
+  Outros → Baixo (`presets/lista.json` e a reserva em `interface/presets-projeto.js`). Vale para a
+  lista, as setas, o número "02/20" e os botões de categoria ao salvar. Dono vai fazer mais
+  presets (6 por categoria).
   1ª vez (26/09) o Capacitor foi removido: o dono sentiu o app muito pesado (sem medir; o motor
   ainda era todo JS e a tela tinha animações ao vivo). Agora: comparar com o medidor.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
