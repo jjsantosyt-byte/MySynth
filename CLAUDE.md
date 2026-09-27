@@ -486,6 +486,10 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   (apksigner / jarsigner); sem eles → APK com chave de teste e sem .aab. versionCode =
   `github.run_number`, versionName 0.9.<n> (`VERSAO_NUMERO` no preparar.sh). Na Play Console:
   aceitar o Play App Signing.
+  27/09/2026: dono cadastrou os segredos; 1º .aab OFICIAL = versão 0.9.13 (execução 13, main
+  e15f90a), certificado conferido (SHA-256 48:D6:62:B3...). Dono criando o app no Play Console
+  (nome da loja: até 30 caracteres; ex. "MySynth Wave - Sintetizador"). Textos da loja
+  (`loja/textos-loja.md`) corrigidos: unison até 8, sem nº de vozes, 36 presets, 100% offline.
   Ordem das categorias (27/09/2026, pedido do dono: mais audíveis no celular primeiro; o baixo
   quase não se ouve no alto-falante do celular): Início → Lead → Pluck → Keys → Pad → FX →
   Outros → Baixo (`presets/lista.json` e a reserva em `interface/presets-projeto.js`). Vale para a
