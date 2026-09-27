@@ -430,6 +430,14 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   efeitos 17,6% → 13,0% (régua em JS: 22,1%). Conserto (Grave 1e308 no EQ): 1 bloco de silêncio,
   aviso "eq", som volta. App: versão 6, 10 efeitos ligados tocando, sem erros.
   Cópia da F3a para comparar: `_antigo/f3a` + `_antigo/motor-f3a.wasm`.
+- Teste de desempenho Webaudio × atual (27/09/2026, depois da F3b; PC; `_antigo/teste/
+  teste-webaudio-vs-atual.js`, Unison ≤ 8): motor 1 nota 3,2 → 2,6%; 8 notas U1 6,7 → 5,4%;
+  U8 13,8 → 7,5%; 3 osc U4 18,2 → 10,8%; U4 + F1→F2 21,3 → 9,1%; U4 + 4 ligações 18,1 → 7,8%;
+  U4 + Warp Bend 30,2 → 18,3%; U1 + 10 efeitos 22,9 → 12,9%; silêncio com 10 efeitos 0,1 → 0,2%;
+  6 notas × 3 osc U8 + filtros + modulação + 10 efeitos 60,0 → 23,1%; o mesmo com 8 notas
+  73,3 → 27,8% (2,6× mais leve). Tela (Soft Pad, nota tocando, painel escondido = sem contar os
+  desenhos): 7,0 → 3,8%. Achado: custo fixo por bloco alto (1 nota já 2,6%; 8 notas U1 5,4%) →
+  candidato na F4 (o JS ainda faz o gerente de vozes, parâmetros, clipper).
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
