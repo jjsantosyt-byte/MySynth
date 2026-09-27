@@ -599,6 +599,10 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
   sozinho" e sons ricos (Rage Synth) parecem bem mais altos. Medido: o motor entrega volume
   constante (Init −18,2 dB RMS o tempo todo; Rage −18 a −24 dB). Com fone NÃO acontece; no app do
   Chrome acontece igual → é a proteção do alto-falante do celular (graves puros), não o app.
+  Por isso (pedido do dono, 27/09/2026): o preset Init começa na onda SERRA (WT Pos 2/3 da Básica;
+  `presets/fabrica/Init.synth` e a reserva em presets-projeto.js). O app APLICA o Init ao abrir
+  (principal.js, depois de criarPresets; não marca "*"). SOM_PADRAO (base de todos os presets)
+  continua no Seno — os presets guardam o som inteiro, então nenhum outro mudou.
 - Android: do dono do projeto. FUNCIONA: Chrome → ⋮ → "Instalar app" (o Chrome cria o app,
   com ícone, tela cheia e sem internet) — aprovado pelo dono ("bem legal", 24/09/2026).
   APK do PWABuilder (TWA, opção A com barrinha): instala mas fica parado no ícone (splash) e

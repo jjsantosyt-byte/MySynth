@@ -2094,6 +2094,10 @@ const presets = criarPresets({
 });
 avisarModificado = () => presets.marcarModificado();
 
+// O app abre no Init: aplica o som dele (desde 27/09/2026 o Init começa na onda Serra, mais
+// audível no alto-falante do celular que o Seno do som padrão). Não conta como "mexeu no som".
+if (doProjeto.presets[0]?.nome === 'Init') aplicarSom(doProjeto.presets[0].som);
+
 // ---------- Desfazer / Refazer ----------
 // Cada mudança no som (knob, botão, ligação, preset carregado) vira um passo, depois que
 // o som fica parado por um instante. Desfazer não solta as notas que estão tocando.
