@@ -122,7 +122,6 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino, 
       <path class="knob-valor" />
       <circle class="knob-corpo" cx="24" cy="24" r="13" />
       <line class="knob-ponteiro" x1="24" y1="24" x2="24" y2="12.5" />
-      <circle class="knob-aovivo" r="3" cx="24" cy="5" style="display: none" />
     </svg>
     <span class="knob-numero"></span>
     <span class="knob-rotulo">${rotulo}</span>`;
@@ -131,29 +130,16 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino, 
   const ponteiro = elemento.querySelector('.knob-ponteiro');
   const numero = elemento.querySelector('.knob-numero');
   const grupoFaixas = elemento.querySelector('.knob-faixas');
-  const pontoAoVivo = elemento.querySelector('.knob-aovivo');
 
   const posicaoPadrao = escala.paraPosicao(padrao);
   let posicao = posicaoPadrao;
 
-  // Modulação: faixas coloridas (arco externo) e ponto do valor ao vivo.
+  // Modulação: faixas coloridas paradas no arco externo (até onde a modulação vai)
   let faixas = []; // [{ cor, quantidade, bipolar }]
-  let deslocamentoAoVivo = null; // quanto a modulação está somando agora (ou null)
 
   let faixasDesenhadas = ''; // para só redesenhar os arcos quando algo mudar
 
   function desenharModulacao() {
-    desenharFaixas();
-    if (deslocamentoAoVivo === null || faixas.length === 0) {
-      pontoAoVivo.style.display = 'none';
-    } else {
-      const ao = Math.min(1, Math.max(0, posicao + deslocamentoAoVivo));
-      pontoAoVivo.style.display = '';
-      pontoAoVivo.setAttribute('transform', `rotate(${INICIO + ao * GIRO_TOTAL} 24 24)`);
-    }
-  }
-
-  function desenharFaixas() {
     const chave = posicao + JSON.stringify(faixas);
     if (chave === faixasDesenhadas) return;
     faixasDesenhadas = chave;
@@ -169,10 +155,9 @@ export function criarKnob({ rotulo, escala, padrao, formatar, aoMudar, destino, 
     }
   }
 
-  // Chamado pela tela de modulação: quais ligações este knob tem e o valor ao vivo.
-  elemento.mostrarModulacao = (novasFaixas, deslocamento) => {
+  // Chamado pela tela de modulação quando as ligações mudam: quais este knob tem
+  elemento.mostrarModulacao = (novasFaixas) => {
     faixas = novasFaixas;
-    deslocamentoAoVivo = deslocamento;
     desenharModulacao();
   };
 

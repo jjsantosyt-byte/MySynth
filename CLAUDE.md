@@ -256,6 +256,23 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
      (`_antigo/teste/teste-pedaco.js`, contra `_antigo/head`).
   E) Desenhos mais leves em TODOS os aparelhos (pedido do dono, sem opção de volta): sem sombra/
      brilho nas linhas, pontinho do LFO e bolinhas dos envelopes; canvas no máximo 2× a resolução.
+**Tela sem animações ao vivo + Unison máx. 8 (27/09/2026, pedido do dono, em teste):**
+- Problema (no celular do dono): com LFO ligado, a tela pesava muito e as notas atrasavam
+  > 100 ms. Medido no PC (Soft Pad, 1 LFO → WT Pos): tela ocupada 11,7% (Init: 4,1%); com 1 só
+  ligação, os 93 controles eram redesenhados ~30×/s (~2.700 chamadas/s) + onda/filtro/números.
+- Decidido: NADA na tela se mexe sozinho. O motor não manda mais `aoVivo` (modulação e LFOs)
+  nem o medidor do Compressor (medidor tirado da tela; `compressorReducao`, `lfoFase`/`lfoValor`
+  saíram do C++). Único recado frequente: o do soft clipper (`vigiarClipper`, ~6×/s).
+  Controles modulados mostram só a FAIXA PARADA (até onde a modulação vai): arco nos knobs,
+  faixa no WT Pos, linha nos seletores; redesenhadas só quando as ligações mudam
+  (`mostrarFaixas` em interface/modulacao.js). Onda, marcas do detune, curva do filtro e
+  desenho do LFO mostram o valor do knob (sem modulação). REGRA: não voltar a animar valores
+  da modulação na tela sem o dono pedir.
+- Medido depois: Soft Pad com nota tocando, tela ocupada 4,5% (≈ Init), 0 chamadas nos knobs.
+- Unison: máximo 8 em tudo (`UNISON_MAXIMO` no principal.js e no processador; o C++ continua
+  comportando 16). Presets de fábrica Bright Keys, Moving Pad (A e B) e Sad Keys (C) passaram de
+  16/10 para 8. Preset do usuário com mais de 8: toca e mostra 8.
+
 **Motor em C++ / WebAssembly (F) — começou em 26/09/2026 (aprovado pelo dono):**
 - Cópia da última versão com o som todo em JavaScript: pasta `Webaudio/` + etiqueta Git
   `versao-webaudio` (commit e39a083). É a RÉGUA dos testes A/B. O `Webaudio/Iniciar.bat` abre a
@@ -558,7 +575,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - Poly (padrão, 8 vozes) / Mono (voz 1, Legato só no Mono). Trocar de modo solta as notas.
 - Roubo de voz: prefere voz já solta e mais baixa; senão a mais antiga. A voz roubada
   some em ~4 ms e depois toca a nota nova (sem estalo).
-- Unison 1–16 (seletor ‹ N ›), Detune (100% = pontas a ±1 semitom, espalhadas por igual),
+- Unison 1–16 (desde 27/09/2026: 1–8) (seletor ‹ N ›), Detune (100% = pontas a ±1 semitom, espalhadas por igual),
   Width (estéreo de potência igual). Volume por cópia 1/√N. Fase sorteada a cada nota.
 - Saída estéreo. Marcas do detune desenhadas no painel da onda (estilo Serum).
 - Fileira de voz abaixo das abas: [Mono|Poly] Vozes ‹ 8 › (Legato).
@@ -580,7 +597,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
   Bolinhas coloridas no canto dos controles ligados.
 - Peso: 8 vozes × 8 cópias com 4 ligações ≈ 33% do tempo real (sem ligações ≈ 23%).
 
-**Item 4b (visual da modulação ao vivo) — feito, aguardando aprovação:**
+**Item 4b (visual da modulação ao vivo) — REMOVIDO em 27/09/2026 (pesava o celular; ver "Tela sem animações ao vivo"):**
 - O motor manda ~30x/s os valores da nota mais recente (quanto cada destino está
   sendo modulado + fase/valor dos LFOs). Sem nota e sem LFO livre, avisa uma vez e para.
 - Knobs: arco externo na cor da fonte (LFO: para os dois lados; ENV: para um lado)
@@ -767,7 +784,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
   (0,1–100 ms), Release (10 ms–1 s), Ganho (-12 a +24 dB) por cima da compensação automática
   (metade da redução que um som em 0 dB teria), Mix (paralelo, `ganhosMix`). Dorme desligado.
 - Cadeia: Distorção → Compressor → Chorus → Delay → Reverb.
-- Medidor: o motor manda `{ tipo: 'compressor', reducao }` ~30×/s enquanto ele está acordado
+- (Medidor REMOVIDO em 27/09/2026.) Medidor: o motor mandava `{ tipo: 'compressor', reducao }` ~30×/s acordado
   (maior redução do período) e 0 quando dorme; a tela mostra barra laranja (0–20 dB) + número.
 - Aba FX: 5 cartões lado a lado (`.modulos-fx`, 160 px cada a 852 px); chaves On/Off (antes
   "Ligado/Desligado"), botões e espaços mais justos no celular deitado. Em pé: 1 coluna.

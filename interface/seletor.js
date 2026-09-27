@@ -15,8 +15,8 @@ const PIXELS_POR_PASSO = 16;
 // "formatar": como mostrar o número (ex.: "+7" em vez de "7").
 // Toque duplo no número volta ao valor inicial.
 // "destino" (opcional): nome do controle de som, para receber ligações de modulação.
-//   Ligado: linha colorida embaixo; com nota tocando, o número mostra o valor modulado
-//   (na cor da fonte). A modulação anda na faixa toda: 100% = de min a max.
+//   Ligado: linha colorida embaixo (na cor da fonte). A modulação anda na faixa toda:
+//   100% = de min a max.
 export function criarSeletor({
   destino,
   rotulo,
@@ -53,7 +53,6 @@ export function criarSeletor({
   const controle = elemento.querySelector('.seletor-controle');
   let valor = padrao;
   let habilitado = true;
-  let aoVivo = null; // valor com a modulação de agora (ou null)
   if (destino) elemento.dataset.destino = destino;
 
   function mudar(novo) {
@@ -66,7 +65,7 @@ export function criarSeletor({
   }
 
   function mostrar() {
-    numero.textContent = formatar(aoVivo ?? valor);
+    numero.textContent = formatar(valor);
     numero.setAttribute('aria-valuenow', valor);
     botaoMenos.disabled = !habilitado || valor <= min;
     botaoMais.disabled = !habilitado || valor >= max;
@@ -120,18 +119,11 @@ export function criarSeletor({
     mostrar();
   };
 
-  // Modulação (chamado pela tela de modulação, ~30 vezes por segundo com nota tocando):
-  // faixas = ligações [{ cor, ... }]; deslocamento = quanto está somando agora (0 a 1) ou null.
-  elemento.mostrarModulacao = (faixas, deslocamento) => {
+  // Modulação (chamado pela tela de modulação quando as ligações mudam): linha colorida
+  // embaixo na cor da fonte. faixas = ligações [{ cor, ... }].
+  elemento.mostrarModulacao = (faixas) => {
     const cor = faixas.length > 0 ? faixas[0].cor : '';
     controle.style.boxShadow = cor ? `inset 0 -2px 0 ${cor}` : '';
-    aoVivo =
-      cor && deslocamento !== null
-        ? Math.min(max, Math.max(min, Math.round(valor + deslocamento * (max - min))))
-        : null;
-    if (aoVivo === valor) aoVivo = null;
-    numero.style.color = aoVivo !== null ? cor : '';
-    mostrar();
   };
 
   elemento.habilitar = (sim) => {

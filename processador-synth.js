@@ -33,7 +33,8 @@ import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
 import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, EFEITOS_NO_MOTOR, ROTAS } from './motor/ponte.js';
 
 const MAX_VOZES = 16;
-const MAX_UNISON = 16;
+const MAX_UNISON = 16; // cópias que o motor em C++ comporta (sorteios de início de nota)
+const UNISON_MAXIMO = 8; // escolha máxima no app (decisão do dono, 27/09/2026: leveza no celular)
 
 // Uma voz, do lado do JavaScript: só o que o gerente de vozes precisa saber (qual nota, se a
 // tecla está segurada, a ordem, a nota esperando) e os sorteios do começo da nota. O som dela
@@ -220,15 +221,9 @@ class FiltroTrack extends EfeitoNoMotor {
   }
 }
 
-// Compressor: + o medidor de quanto está abaixando (a tela mostra)
-class Compressor extends EfeitoNoMotor {
-  // Maior redução (dB) desde a última vez que a tela perguntou (e zera)
-  lerReducao() {
-    return this.ponte.c.compressorReducao();
-  }
-}
-// A cada quantos blocos manda os valores "ao vivo" para a tela (~30 vezes por segundo).
-const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 30);
+// A cada quantos blocos o recado do soft clipper vai para a tela (~6 vezes por segundo; o
+// pico é o maior desde a última leitura, então nada escapa).
+const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 6);
 
 // Efeitos parados no silêncio: abaixo deste nível (-120 dB) é silêncio. A espera é maior que o
 // maior "buraco" possível dentro de um efeito (Delay de 2 s + folga), para não parar um eco
@@ -420,7 +415,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.distorcao = new EfeitoNoMotor(ponte, 'distorcao', { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 });
     this.filtroTrack = new FiltroTrack(ponte);
     this.eq = new EfeitoNoMotor(ponte, 'eq', { ligado: false, grave: 0, medio: 0, agudo: 0, freq: 1000, q: 1, saida: 0, mix: 1 });
-    this.compressor = new Compressor(ponte, 'compressor', {
+    this.compressor = new EfeitoNoMotor(ponte, 'compressor', {
       ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1,
     });
     this.phaser = new Phaser(sampleRate);
@@ -428,7 +423,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.chorus = new Chorus(sampleRate);
     this.delay = new Delay(sampleRate);
     this.reverb = new Reverb(sampleRate);
-    this.enviouCompressor = false;
     this.efeitos = {
       saturacao: this.saturacao,
       distorcao: this.distorcao,
@@ -465,14 +459,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     // Macros M1–M4: valor escolhido na tela (o C++ suaviza ~10 ms)
     this.macrosAlvo = new Float64Array(4);
 
-    // Valores "ao vivo" para a tela (pontinhos que se mexem)
-    this.blocosDesdeEnvio = 0;
-    this.enviouAtivo = false;
-    this.envioAoVivo = {
-      recado: { tipo: 'aoVivo', mod: null, lfos: this.ajustesLfo.map(() => null) },
-      mod: new Float64Array(DESTINOS_MOD.length),
-      itensLfo: this.ajustesLfo.map(() => ({ fase: 0, valor: 0 })),
-    };
+    this.blocosDesdeEnvio = 0; // (recado do soft clipper: ver vigiarClipper)
 
     this.port.onmessage = (evento) => this.receberMensagem(evento.data);
   }
@@ -581,7 +568,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
     achado = /^unison([BC]?)$/.exec(nome);
     if (achado) {
-      ajustesOsc(achado[1]).unison = Math.min(16, Math.max(1, Math.round(valor) || 1));
+      ajustesOsc(achado[1]).unison = Math.min(UNISON_MAXIMO, Math.max(1, Math.round(valor) || 1));
       return;
     }
     achado = /^osc([BC]?)Ligado$/.exec(nome);
@@ -884,7 +871,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       Object.assign(this.clipper, new Clipper(sampleRate));
     }
 
-    this.enviarAoVivo(); // LFOs livres continuam aparecendo andando mesmo em silêncio
+    this.vigiarClipper();
     return true;
   }
 
@@ -1039,61 +1026,18 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     }
   }
 
-  // Manda para a tela o que a nota mais recente está fazendo: quanto cada
-  // controle está sendo modulado e onde estão os LFOs (fase e valor).
-  enviarAoVivo() {
+  // Recado do soft clipper para a tela (~6 vezes por segundo): o maior pico que chegou nele
+  // (antes de arredondar), quando passa do ponto em que ele começa a agir; e um 0 quando volta
+  // a ficar abaixo (a tela para de avisar). É o ÚNICO recado frequente: a modulação e o
+  // Compressor não mandam valores "ao vivo" (a tela do celular pesava e atrasava as notas).
+  vigiarClipper() {
     if (++this.blocosDesdeEnvio < BLOCOS_ENTRE_ENVIOS) return;
     this.blocosDesdeEnvio = 0;
-
-    // Medidor do compressor (quanto está abaixando, em dB). Dormindo: avisa 0 uma vez.
-    if (!this.compressor.dormindo || this.enviouCompressor) {
-      const dormindo = this.compressor.dormindo;
-      const reducao = this.compressor.lerReducao();
-      this.port.postMessage({ tipo: 'compressor', reducao: dormindo ? 0 : reducao });
-      this.enviouCompressor = !dormindo;
-    }
-
-    // Soft clipper: o maior pico que chegou nele (antes de arredondar), quando passa do ponto
-    // em que ele começa a agir; e um 0 quando volta a ficar abaixo (a tela para de avisar).
     const picoSaida = this.clipper.lerPico();
     if (picoSaida > LIMIAR_CLIPPER || this.enviouPico) {
       this.port.postMessage({ tipo: 'clipper', pico: picoSaida > LIMIAR_CLIPPER ? picoSaida : 0 });
       this.enviouPico = picoSaida > LIMIAR_CLIPPER;
     }
-
-    let voz = null;
-    for (const v of this.vozes) {
-      if (v.envelopeAtivo && (!voz || v.idade > voz.idade)) voz = v;
-    }
-    const algumLivre = this.ajustesLfo.some((a) => a.modo === 'livre');
-    if (!voz && !algumLivre) {
-      // Nada acontecendo: avisa uma vez só, para a tela esconder os pontinhos.
-      if (this.enviouAtivo) this.port.postMessage({ tipo: 'aoVivo', mod: null, lfos: [null, null, null] });
-      this.enviouAtivo = false;
-      return;
-    }
-
-    // O recado reaproveita as mesmas listas e objetos a cada envio (sem lixo na memória;
-    // o postMessage manda uma cópia para a tela)
-    // (valores lidos do C++: v = -1 é o LFO Livre)
-    const envio = this.envioAoVivo;
-    const c = this.ponte.c;
-    for (let l = 0; l < this.ajustesLfo.length; l++) {
-      const item = envio.itensLfo[l];
-      const livre = this.ajustesLfo[l].modo === 'livre';
-      if (livre || voz) {
-        const v = livre ? -1 : voz.indice;
-        item.fase = c.lfoFase(v, l);
-        item.valor = c.lfoValor(v, l);
-        envio.recado.lfos[l] = item;
-      } else {
-        envio.recado.lfos[l] = null;
-      }
-    }
-    if (voz) envio.mod.set(this.ponte.f64.subarray(voz.iMod, voz.iMod + envio.mod.length));
-    envio.recado.mod = voz ? envio.mod : null;
-    this.port.postMessage(envio.recado);
-    this.enviouAtivo = true;
   }
 }
 

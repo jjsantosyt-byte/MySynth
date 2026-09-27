@@ -24,7 +24,6 @@ import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
 import { envelopeArrastavel } from './interface/envelope-arrastar.js';
 import { icone, botaoComIcone } from './interface/icones.js';
 import { criarHistorico } from './interface/historico.js';
-import { DESTINOS_MOD } from './dsp/modulacao.js';
 import {
   MOD_EFEITOS, NOTA_MINIMA_TRACK, NOTA_MAXIMA_TRACK, TIPOS_DISTORCAO, TIPOS_SATURACAO,
 } from './dsp/efeitos/modulaveis.js';
@@ -69,8 +68,6 @@ const telaEnvelope = document.getElementById('tela-envelope');
 const botaoLegato = document.getElementById('legato');
 const knobsEnvelope = document.getElementById('knobs-envelope');
 const modoVoz = document.getElementById('modo-voz');
-const painelLfo = document.querySelector('[data-painel="lfo"]');
-let telaSemAoVivo = false; // true = a tela já foi desenhada sem modulação (ver onmessage)
 const lugarSeletorVozes = document.getElementById('seletor-vozes');
 
 // Os 3 osciladores. Os controles do A não têm letra (wtPos, unison...), para os presets
@@ -220,9 +217,6 @@ const estado = {
     delay: { ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false, lowcut: 20, highcut: 6000, width: 1 },
     reverb: { ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1 },
   },
-  // O que a nota mais recente está fazendo agora (vem do motor ~30 vezes por segundo):
-  // mod = quanto cada controle está sendo modulado; lfos = fase e valor de cada LFO.
-  aoVivo: { mod: null, lfos: [null, null, null] },
   contexto: null, // o "motor" de áudio do navegador
   synth: null, // nosso processador de som
   ganho: null, // volume geral
@@ -367,12 +361,10 @@ async function ligarSom() {
     tabelasNoMotor.clear();
     for (const osc of OSCILADORES) enviarWavetable(osc, synth);
 
-    // Valores ao vivo vindos do motor: atualizam os pontinhos e os desenhos.
+    // Recados do motor. (Ele NÃO manda valores "ao vivo" da modulação: redesenhar a tela
+    // ~30 vezes por segundo pesava o celular e atrasava as notas. Os controles modulados
+    // mostram só a faixa parada, até onde a modulação vai.)
     synth.port.onmessage = (evento) => {
-      if (evento.data.tipo === 'compressor') {
-        mostrarReducaoCompressor(evento.data.reducao);
-        return;
-      }
       if (evento.data.tipo === 'clipper') {
         avisarClipper(evento.data.pico);
         return;
@@ -385,26 +377,7 @@ async function ligarSom() {
         // O motor achou uma conta inválida e limpou a peça (o som seguiu). Fica registrado
         // no console para achar a causa.
         console.warn(`MySynth: valores inválidos consertados em "${evento.data.origem}"`);
-        return;
       }
-      if (evento.data.tipo !== 'aoVivo') return;
-      // Sem nenhuma ligação, nada na tela muda com os valores ao vivo (a modulação é zero):
-      // só redesenha se a aba LFO estiver aberta (o pontinho andando no desenho do LFO).
-      // Economiza o processador do celular enquanto se toca. (Desenha uma última vez sem
-      // modulação, para nada ficar parado numa posição antiga ao tirar a última ligação.)
-      if (estado.ligacoes.length === 0 && painelLfo.hidden) {
-        estado.aoVivo = { mod: null, lfos: evento.data.lfos };
-        if (!telaSemAoVivo) {
-          telaSemAoVivo = true;
-          telaModulacao.atualizarAoVivo(null);
-          pedirDesenho();
-        }
-        return;
-      }
-      telaSemAoVivo = false;
-      estado.aoVivo = evento.data;
-      telaModulacao.atualizarAoVivo(evento.data.mod);
-      pedirDesenho();
     };
 
     estado.synth = synth;
@@ -441,6 +414,10 @@ const APARELHO_DE_TOQUE = matchMedia('(pointer: coarse)').matches;
 // fixo alto: menos notas = bem menos peso = menos estalos). O preset continua guardando o
 // valor dele (ex.: 8): no computador toca com 8; aqui toca e mostra 6.
 const MAX_VOZES_APARELHO = APARELHO_DE_TOQUE ? 6 : 16;
+
+// Unison: no máximo 8 cópias por oscilador, em qualquer aparelho (decisão do dono, 27/09/2026:
+// leveza no celular). O motor também limita (um preset antigo com 16 toca com 8).
+const UNISON_MAXIMO = 8;
 
 // Tamanho do "buffer" de áudio que o app pede ao navegador:
 // - computador (mouse): 'interactive' = o menor atraso possível;
@@ -572,22 +549,6 @@ function enviarLigacoes() {
   estado.synth?.port.postMessage({ tipo: 'modulacoes', lista: estado.ligacoes.map((l) => ({ ...l })) });
 }
 
-// ---------- Valores modulados "ao vivo" (para os desenhos) ----------
-
-// Controle de 0 a 1 somado à modulação que a nota mais recente está recebendo agora.
-function modulado(base, destino) {
-  const mod = estado.aoVivo.mod;
-  if (!mod) return base;
-  return Math.min(1, Math.max(0, base + mod[DESTINOS_MOD.indexOf(destino)]));
-}
-
-// Cutoff ao vivo: a modulação anda na escala do knob (exponencial de 20 Hz a 20 kHz).
-// "nome" = 'cutoff' (Filtro 1) ou 'cutoff2' (Filtro 2): é também o nome do destino de modulação.
-const escalaCutoff = escalaExponencial(20, 20000);
-function corteAoVivo(nome) {
-  return escalaCutoff.paraValor(modulado(escalaCutoff.paraPosicao(estado.parametros[nome]), nome));
-}
-
 // Os dois filtros: nomes das opções e dos parâmetros de cada um
 const FILTROS = [
   { numero: 1, ligado: 'filtroLigado', tipo: 'filtroTipo', corte: 'cutoff', reso: 'resonancia' },
@@ -612,14 +573,14 @@ function pedirDesenho() {
       desenharFiltro(cartaoFiltro(f.numero).querySelector('[data-filtro-tela]'), {
         tipo: estado.opcoes[f.tipo],
         ligado: estado.opcoes[f.ligado],
-        corte: corteAoVivo(f.corte),
-        resonancia: modulado(estado.parametros[f.reso], f.reso),
+        corte: estado.parametros[f.corte],
+        resonancia: estado.parametros[f.reso],
         taxa: estado.contexto?.sampleRate || 48000,
       });
     }
     telasLfo.forEach((tela) => {
       const id = tela.dataset.telaLfo;
-      desenharLFO(tela, estado.fontes[id].forma, estado.aoVivo.lfos[{ lfo1: 0, lfo2: 1, lfo3: 2 }[id]]);
+      desenharLFO(tela, estado.fontes[id].forma);
     });
     telasEnv.forEach((tela) => desenharEnvelope(tela, estado.fontes[tela.dataset.telaEnv]));
   });
@@ -709,7 +670,7 @@ function afinacaoTela(osc) {
 function ondaModuladora(osc) {
   const { wavetable, nomes } = osc;
   const ultimo = wavetable.frames.length - 1;
-  const wt = modulado(estado.parametros[nomes.wtPos], nomes.wtPos) * ultimo;
+  const wt = estado.parametros[nomes.wtPos] * ultimo;
   const f0 = Math.min(Math.floor(wt), ultimo);
   const f1 = Math.min(f0 + 1, ultimo);
   const t = wt - f0;
@@ -779,18 +740,18 @@ function montarOscilador(osc) {
   }
   controleWTPos.addEventListener('input', () => definirWTPos(Number(controleWTPos.value)));
 
-  // Faixas de modulação e ponto ao vivo embaixo da barra do WT Pos
-  // (o equivalente ao arco colorido dos knobs).
+  // Faixas de modulação embaixo da barra do WT Pos (paradas: até onde a modulação vai;
+  // o equivalente ao arco colorido dos knobs)
   const grupoWTPos = cartao.querySelector('.grupo-wtpos');
   const faixasWTPos = peca('faixas-wtpos');
-  let modulacaoWTPos = { faixas: [], deslocamento: null };
-  grupoWTPos.mostrarModulacao = (faixas, deslocamento) => {
-    modulacaoWTPos = { faixas, deslocamento };
+  let faixasModWTPos = [];
+  grupoWTPos.mostrarModulacao = (faixas) => {
+    faixasModWTPos = faixas;
     desenharModulacaoWTPos();
   };
   function desenharModulacaoWTPos() {
     const base = estado.parametros[nomes.wtPos];
-    const { faixas, deslocamento } = modulacaoWTPos;
+    const faixas = faixasModWTPos;
     faixasWTPos.innerHTML = '';
     for (const faixa of faixas) {
       const [ini, fim] = faixaModulacao(base, faixa.quantidade, faixa.bipolar);
@@ -800,12 +761,6 @@ function montarOscilador(osc) {
       trecho.style.width = (fim - ini) * 100 + '%';
       trecho.style.background = faixa.cor;
       faixasWTPos.appendChild(trecho);
-    }
-    if (deslocamento !== null && faixas.length > 0) {
-      const ponto = document.createElement('span');
-      ponto.className = 'ponto-aovivo';
-      ponto.style.left = Math.min(1, Math.max(0, base + deslocamento)) * 100 + '%';
-      faixasWTPos.appendChild(ponto);
     }
   }
   // Acompanha quando um preset é carregado
@@ -844,20 +799,20 @@ function montarOscilador(osc) {
   // Posições das cópias de unison para as marcas no desenho (de -1 a +1, vezes o Detune).
   // Mesma distribuição que o motor de som usa.
   function marcasUnison() {
-    const qtd = estado.opcoes[nomes.unison];
+    const qtd = Math.min(UNISON_MAXIMO, estado.opcoes[nomes.unison]);
     if (qtd < 2) return [];
     const marcas = [];
-    const detune = modulado(estado.parametros[nomes.detune], nomes.detune);
+    const detune = estado.parametros[nomes.detune];
     for (let c = 0; c < qtd; c++) marcas.push(((c / (qtd - 1)) * 2 - 1) * detune);
     return marcas;
   }
 
   osc.desenhar = () => {
     // Mesma mistura que o motor de som faz, usando a versão mais cheia da onda.
-    // Com modulação no WT Pos, mostra a onda na posição modulada, ao vivo.
+    // (Mostra a onda na posição do knob; a modulação aparece só como faixa na barra do WT Pos.)
     const wavetable = osc.wavetable;
     const ultimoFrame = wavetable.frames.length - 1;
-    const posicao = modulado(estado.parametros[nomes.wtPos], nomes.wtPos);
+    const posicao = estado.parametros[nomes.wtPos];
     const wt = posicao * ultimoFrame;
     const f0 = Math.min(Math.floor(wt), ultimoFrame);
     const f1 = Math.min(f0 + 1, ultimoFrame);
@@ -872,7 +827,7 @@ function montarOscilador(osc) {
     const codigo = codigoWarp(estado.opcoes[nomes.warpModo]);
     let desenho = ondaDesenhada;
     if (codigo !== W_NENHUM) {
-      const forca = forcaWarp(codigo, modulado(estado.parametros[nomes.warp], nomes.warp));
+      const forca = forcaWarp(codigo, estado.parametros[nomes.warp]);
       const n = ondaDesenhada.length;
       const qual = moduladorFM(codigo);
       const modulador = qual >= 0 ? ondaModuladora(OSCILADORES[qual]) : null;
@@ -912,7 +867,7 @@ function montarOscilador(osc) {
     criarSeletor({
       rotulo: 'Unison',
       min: 1,
-      max: 16,
+      max: UNISON_MAXIMO,
       padrao: estado.opcoes[nomes.unison],
       aoMudar: (v) => definirOpcao(nomes.unison, v),
       ler: () => estado.opcoes[nomes.unison],
@@ -1340,7 +1295,7 @@ document.querySelector('[data-knobs-efeito="eq"]').append(
   knobEfeito('eq', 'Saída', 'saida', escalaLinear(-12, 12), formatarDb)
 );
 
-// Compressor: 6 knobs + medidor de quanto está abaixando
+// Compressor: 6 knobs
 document.querySelector('[data-knobs-efeito="compressor"]').append(
   knobEfeito('compressor', 'Threshold', 'threshold', escalaLinear(-40, 0), (v) => Math.round(v) + ' dB'),
   knobEfeito('compressor', 'Ratio', 'ratio', escalaExponencial(1, 20), (v) => (v < 9.95 ? v.toFixed(1).replace('.', ',') : Math.round(v)) + ':1'),
@@ -1349,13 +1304,6 @@ document.querySelector('[data-knobs-efeito="compressor"]').append(
   knobEfeito('compressor', 'Ganho', 'ganho', escalaLinear(-12, 24), (v) => (v > 0.05 ? '+' : '') + v.toFixed(1).replace('.', ',') + ' dB'),
   knobEfeito('compressor', 'Mix', 'mix', escalaLinear(0, 1), formatarPorcentagem)
 );
-const barraReducao = document.getElementById('compressor-reducao');
-const numeroReducao = document.getElementById('compressor-reducao-db');
-// Medidor: barra de 0 a 20 dB de redução + o número
-function mostrarReducaoCompressor(db) {
-  barraReducao.style.width = Math.min(100, (db / 20) * 100) + '%';
-  numeroReducao.textContent = db < 0.1 ? '0 dB' : '-' + db.toFixed(1).replace('.', ',') + ' dB';
-}
 
 // Phaser e Flanger: Stereo = diferença de balanço entre os lados (100% = opostos)
 const escalaRateFx = escalaExponencial(0.02, 10);

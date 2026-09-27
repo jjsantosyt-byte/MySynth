@@ -18,7 +18,7 @@ function cores() {
     apagado: ler('--desenho-apagado', '#56607a'),
     guia: ler('--desenho-guia', '#3d4661'),
     marca: rgb('--desenho-marca', '255, 200, 87'), // marcas do unison
-    ponto: rgb('--desenho-ponto', '255, 255, 255'), // pontinho ao vivo, contorno das bolinhas
+    ponto: rgb('--desenho-ponto', '255, 255, 255'), // contorno das bolinhas (envelopes)
     alca: ler('--desenho-alca', '#0b0d12'), // miolo das bolinhas dos envelopes
   };
   return coresTema;
@@ -157,9 +157,8 @@ function valorLFODesenho(forma, fase) {
   return 0;
 }
 
-// Desenha um ciclo da forma do LFO.
-// "aoVivo" (opcional): { fase, valor } — onde o LFO está agora (pontinho que anda).
-export function desenharLFO(canvas, forma, aoVivo = null) {
+// Desenha um ciclo da forma do LFO (parado: sem animação, para não pesar a tela).
+export function desenharLFO(canvas, forma) {
   const tela = prepararCanvas(canvas);
   if (!tela) return;
   const { g, largura, altura } = tela;
@@ -176,16 +175,6 @@ export function desenharLFO(canvas, forma, aoVivo = null) {
     pontos.push([margem + (k / qtd) * (largura - 2 * margem), meio - valorLFODesenho(forma, fase) * amplitude]);
   }
   linhaComBrilho(g, pontos, meio, altura);
-
-  // Pontinho na posição atual do LFO (usa o valor de verdade, inclusive no S&H).
-  if (aoVivo) {
-    const x = margem + aoVivo.fase * (largura - 2 * margem);
-    const y = meio - aoVivo.valor * amplitude;
-    g.fillStyle = rgbaDe(cores().ponto, 1);
-    g.beginPath();
-    g.arc(x, y, 4.5, 0, 2 * Math.PI);
-    g.fill();
-  }
 }
 
 // ---------- Envelope (ADSR) ----------

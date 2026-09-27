@@ -175,7 +175,6 @@ const TEXTOS = new Map(
     Brilho: 'Bright',
     Tamanho: 'Size',
     Tempo: 'Time',
-    'Quanto o compressor está abaixando o volume': 'How much the compressor is turning the volume down',
 
     // Global
     Voz: 'Voice',

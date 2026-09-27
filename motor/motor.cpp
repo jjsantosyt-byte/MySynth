@@ -2101,24 +2101,17 @@ inline double reducaoEstatica(double nivelDb, double threshold, double ratio) {
 
 struct Compressor {
   double reducao;      // dB que está abaixando agora (suavizado pelo Attack/Release)
-  double maiorReducao; // maior redução desde a última leitura (medidor da tela)
   double seco, molhado, compensacao;
   bool temCompensacao; // falso = ainda não começou (ao acordar, começa no valor certo)
   bool dormindo;
 
   void zerar() {
-    reducao = maiorReducao = 0;
+    reducao = 0;
     seco = 1;
     molhado = 0;
     compensacao = 1;
     temCompensacao = false;
     dormindo = true;
-  }
-
-  double lerReducao() {
-    const double r = maiorReducao;
-    maiorReducao = 0;
-    return r;
   }
 
   void processar(int tamanho) {
@@ -2140,7 +2133,6 @@ struct Compressor {
       temCompensacao = true;
     }
     const double s = suavizar10ms;
-    double maior = maiorReducao;
     // Abaixo do começo do joelho não há o que comprimir: nem converte para dB (economia)
     const double semCompressao = deDb(threshold - JOELHO / 2 - 0.01);
 
@@ -2153,7 +2145,6 @@ struct Compressor {
       const double alvo = nivel < semCompressao ? 0 : reducaoEstatica(paraDb(nivel), threshold, ratio);
       // Abaixar = Attack; soltar = Release
       reducao += (alvo - reducao) * (alvo > reducao ? coefAtaque : coefSoltura);
-      if (reducao > maior) maior = reducao;
       if (compensacao != alvoCompensacao) {
         compensacao += (alvoCompensacao - compensacao) * s;
         if (std::fabs(compensacao - alvoCompensacao) < 1e-7) compensacao = alvoCompensacao;
@@ -2162,7 +2153,6 @@ struct Compressor {
       efeitoE[i] = e * seco + e * ganho;
       efeitoD[i] = d * seco + d * ganho;
     }
-    maiorReducao = maior;
 
     if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
       dormindo = true;
@@ -2467,18 +2457,10 @@ EXPORTAR int efeitoDormindo(int ef) {
 EXPORTAR void efeitoAcordar(int ef) {
   if (bool* d = dormindoDe(ef)) *d = false;
 }
-// Medidor do Compressor: maior redução (dB) desde a última leitura (e zera)
-EXPORTAR double compressorReducao() { return compressor.lerReducao(); }
 // Filtro Track: troca de tipo (LP 12, LP 24, HP, BP), com a transição suave do filtro
 EXPORTAR void ftTipo(int tipo) {
   filtroTrack.esquerdo.definirTipo(tipo);
   filtroTrack.direito.definirTipo(tipo);
-}
-
-// Para a tela (pontinhos ao vivo): fase e valor do LFO l na voz v (v = -1: o LFO Livre)
-EXPORTAR double lfoFase(int v, int l) { return v < 0 ? livres[l].fase : vozes[v].lfos[l].fase; }
-EXPORTAR double lfoValor(int v, int l) {
-  return v < 0 ? valoresLivres[l][ultimoPedacoLivre] : vozes[v].fontes[INDICES_LFO[l]];
 }
 
 // Nível atual do oscilador k da voz v (o motor usa para trocar a wavetable no silêncio)

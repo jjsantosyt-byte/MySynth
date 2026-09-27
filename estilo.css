@@ -38,7 +38,6 @@
   --rolagem: #3a4152; /* barras de rolagem, marcas da barra do WT Pos */
   --tecla-branca: #ececef;
   --tecla-preta: #22252e;
-  --ponto-aovivo: #fff; /* ponto da modulação ao vivo */
 
   /* Desenhos (canvas: onda, filtro, envelopes, LFO) — lidos pelo visualizacao.js */
   --desenho-onda: 70, 240, 110; /* ondas dos osciladores */
@@ -972,11 +971,6 @@ h1 {
   opacity: 0.9;
 }
 
-.knob-aovivo {
-  fill: var(--ponto-aovivo);
-  filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.9));
-}
-
 .knob.girando .knob-valor {
   filter: drop-shadow(0 0 3px var(--destaque));
 }
@@ -1045,17 +1039,6 @@ h1 {
   height: 100%;
   border-radius: 2px;
   opacity: 0.85;
-}
-
-.faixas-barra .ponto-aovivo {
-  position: absolute;
-  top: -3px;
-  width: 10px;
-  height: 10px;
-  margin-left: -5px;
-  border-radius: 50%;
-  background: var(--ponto-aovivo);
-  box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
 }
 
 /* Linha do WT Pos + botão de rota de filtro */
@@ -2018,36 +2001,6 @@ h1 {
   }
 }
 
-/* Medidor do compressor: barra laranja = quanto está abaixando (0 a 20 dB) */
-.medidor-compressor {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.medidor-trilho {
-  flex: 1;
-  height: 6px;
-  overflow: hidden;
-  border-radius: 3px;
-  background: var(--botao);
-}
-
-.medidor-barra {
-  width: 0;
-  height: 100%;
-  background: var(--cor-env2);
-  transition: width 60ms linear;
-}
-
-.medidor-numero {
-  min-width: 48px;
-  text-align: right;
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  color: var(--texto-suave);
-}
-
 @media (orientation: landscape) and (max-height: 500px) {
   /* 5 cartões de efeito estreitos: botões e espaços mais justos */
   .modulos-fx .cartao {
@@ -2460,7 +2413,7 @@ h1 {
 .botao, .aviso, .presets-nome, .janela, .janela-fechar, .presets-item, .presets-apagar, .campo,
 .abas, .aba, .ficha, [data-destino], .knob, .linha-mod, .linha-mod-remover, .seletor-controle,
 .seletor-numero:focus-visible, .cartao, .chave, .tela-grafico, .nome-onda, .seletor-wt, .recado,
-.tecla, .dica-modulacao, .botao-pagina, .medidor-trilho, .grupo-volume .volume-trilho input,
+.tecla, .dica-modulacao, .botao-pagina, .grupo-volume .volume-trilho input,
 .carregando-trilho, .carregando-barra, .idioma-botao, .menu-logo, .menu-item, .menu-em-breve,
 .atalhos-wt .botao, .faixas-barra .faixa {
   border-radius: 0 !important;
@@ -3305,7 +3258,6 @@ html[data-tema='claro'] {
   --rolagem: #b8bfcc;
   --tecla-branca: #ffffff;
   --tecla-preta: #2a2f3a;
-  --ponto-aovivo: #1d222c;
 
   --desenho-onda: 26, 158, 74;
   --desenho-linha: 31, 127, 209;
