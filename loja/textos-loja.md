@@ -106,8 +106,8 @@ Beta version: the app is in testing. Feedback and bug reports are very welcome t
 | Ícone (512 × 512) | `icones/icone-512.png` | 512 × 512 |
 | Imagem de destaque (PT) | `loja/destaque-pt.png` | 1024 × 500 |
 | Feature graphic (EN) | `loja/destaque-en.png` | 1024 × 500 |
-| Capturas de tela (PT) | `loja/capturas/01-…` a `06-…` | 1704 × 852 |
-| Screenshots (EN) | `loja/capturas/en-01-…` a `en-06-…` | 1704 × 852 |
+| Capturas de tela (PT) | `loja/capturas/01-…` a `06-…` | 1920 × 1080 (16:9) |
+| Screenshots (EN) | `loja/capturas/en-01-…` a `en-06-…` | 1920 × 1080 (16:9) |
 
 Capturas: 01 osciladores · 02 efeitos · 03 envelopes · 04 macros · 05 filtro · 06 tema Claro.
 O Google pede de 2 a 8 capturas de celular; dá para usar as 6.
