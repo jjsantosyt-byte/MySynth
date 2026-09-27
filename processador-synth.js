@@ -5,8 +5,7 @@
 // Ele é o "gerente de vozes": cada nota tocada ganha uma voz completa
 // (OSC A, B, C + ruído → filtros → envelope). A voz é calculada inteira no motor em C++
 // (motor/motor.cpp, etapas F1 e F2); aqui fica só quem toca o quê. A saída é estéreo.
-// Efeitos: Saturação, Distorção, Filtro Track, EQ e Compressor também são calculados no C++
-// (etapa F3a); Phaser, Flanger, Chorus, Delay e Reverb ainda em JavaScript (dsp/efeitos/).
+// Os 10 efeitos também são calculados no C++ (etapas F3a e F3b); aqui ficam os ajustes deles.
 //
 // - Poly: até N notas ao mesmo tempo. Se faltar voz, "rouba" a melhor
 //   candidata (uma que já está sumindo, ou a mais antiga) sem estalo.
@@ -24,11 +23,6 @@ import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { DESTINOS_MOD, D_PRIMEIRO_EFEITO, ligacoesEmNumeros } from './dsp/modulacao.js';
 import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
-import { Phaser } from './dsp/efeitos/phaser.js';
-import { Flanger } from './dsp/efeitos/flanger.js';
-import { Chorus } from './dsp/efeitos/chorus.js';
-import { Delay } from './dsp/efeitos/delay.js';
-import { Reverb } from './dsp/efeitos/reverb.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
 import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, EFEITOS_NO_MOTOR, ROTAS } from './motor/ponte.js';
 
@@ -173,10 +167,16 @@ class EfeitoNoMotor {
     this.ponte.c.efeitoZerar(this.numero);
   }
 
-  // Ajustes → mesa do C++ (liga/desliga = 1/0; tipo = número na lista, desconhecido = o 1º),
-  // depois processa o som que está em ponte.somE/somD. Um valor inválido (NaN, infinito,
-  // texto) é ignorado: fica o último valor bom.
-  processar(tamanhoBloco) {
+  // Parado no silêncio (nem é processado): o LFO do Phaser/Flanger/Chorus continua andando
+  // (os ajustes vão antes, para ele andar com o Rate de agora)
+  pular(tamanhoBloco) {
+    this.escreverAjustes();
+    this.ponte.c.efeitoPular(this.numero, tamanhoBloco);
+  }
+
+  // Ajustes → mesa do C++ (liga/desliga = 1/0; tipo = número na lista, desconhecido = o 1º).
+  // Um valor inválido (NaN, infinito, texto) é ignorado: fica o último valor bom.
+  escreverAjustes() {
     const f64 = this.ponte.f64;
     const a = this.ajustes;
     for (let k = 0; k < this.campos.length; k++) {
@@ -186,6 +186,11 @@ class EfeitoNoMotor {
       else if (typeof v === 'boolean') f64[this.iAjustes + k] = v ? 1 : 0;
       else if (Number.isFinite(v)) f64[this.iAjustes + k] = v;
     }
+  }
+
+  // Processa o som que está em ponte.somE/somD
+  processar(tamanhoBloco) {
+    this.escreverAjustes();
     this.ponte.c.efeitoProcessar(this.numero, tamanhoBloco);
   }
 }
@@ -409,7 +414,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     ];
     // Efeitos (depois das notas somadas):
     // Saturação → Distorção → Filtro Track → EQ → Compressor → Phaser → Flanger → Chorus → Delay → Reverb
-    // Os 5 primeiros são calculados no C++ (valores iniciais = os dos antigos em JavaScript)
+    // Todos calculados no C++ (valores iniciais = os dos antigos em JavaScript)
     const ponte = this.ponte;
     this.saturacao = new EfeitoNoMotor(ponte, 'saturacao', { ligado: false, tipo: 'fita', drive: 0.3, tom: 1, mix: 1 });
     this.distorcao = new EfeitoNoMotor(ponte, 'distorcao', { ligado: false, tipo: 'suave', drive: 0.4, mix: 1, tom: 1, lowcut: 20 });
@@ -418,11 +423,21 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     this.compressor = new EfeitoNoMotor(ponte, 'compressor', {
       ligado: false, threshold: -18, ratio: 4, attack: 0.01, release: 0.15, ganho: 0, mix: 1,
     });
-    this.phaser = new Phaser(sampleRate);
-    this.flanger = new Flanger(sampleRate);
-    this.chorus = new Chorus(sampleRate);
-    this.delay = new Delay(sampleRate);
-    this.reverb = new Reverb(sampleRate);
+    this.phaser = new EfeitoNoMotor(ponte, 'phaser', {
+      ligado: false, rate: 0.5, depth: 0.7, freq: 800, feedback: 0.5, stereo: 0.5, mix: 0.5,
+    });
+    this.flanger = new EfeitoNoMotor(ponte, 'flanger', {
+      ligado: false, rate: 0.3, depth: 0.7, atraso: 0.002, feedback: 0.5, stereo: 0.5, mix: 0.5,
+    });
+    this.chorus = new EfeitoNoMotor(ponte, 'chorus', {
+      ligado: false, rate: 0.8, depth: 0.5, mix: 0.5, atraso: 0.012, feedback: 0, width: 1,
+    });
+    this.delay = new EfeitoNoMotor(ponte, 'delay', {
+      ligado: false, tempo: 0.3, feedback: 0.4, mix: 0.3, pingpong: false, lowcut: 20, highcut: 6000, width: 1,
+    });
+    this.reverb = new EfeitoNoMotor(ponte, 'reverb', {
+      ligado: false, tamanho: 0.5, brilho: 0.6, mix: 0.3, predelay: 0, lowcut: 120, width: 1,
+    });
     this.efeitos = {
       saturacao: this.saturacao,
       distorcao: this.distorcao,

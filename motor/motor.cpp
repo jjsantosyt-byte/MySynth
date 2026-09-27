@@ -13,6 +13,7 @@
 // F2b: o resto da VOZ (ruído, Filtros 1 e 2, rotas, glide) e o efeito Filtro Track. A voz
 // inteira é calculada aqui (vozProcessar); o JavaScript só decide quem toca qual nota.
 // F3a: os efeitos de "cor": Saturação, Distorção, EQ e Compressor (+ o Filtro Track da F2b).
+// F3b: os efeitos de "espaço": Phaser, Flanger, Chorus, Delay e Reverb.
 //
 // Como o JavaScript conversa com o C++ ("mesa de troca"):
 //   - wavetables: o JS pede espaço (criarTabela) e copia as ondas para dentro, uma vez só;
@@ -1498,7 +1499,10 @@ constexpr double NOTA_MINIMA_TRACK = 24, NOTA_MAXIMA_TRACK = 132;
 
 // Efeitos no C++, na ordem do caminho do som (mesmos números em motor/ponte.js: EFEITOS_NO_MOTOR).
 // Cada um tem uma linha de ajustes na mesa (o JS escreve antes de processar).
-enum { EF_SATURACAO, EF_DISTORCAO, EF_FILTRO_TRACK, EF_EQ, EF_COMPRESSOR, N_EFEITOS };
+enum {
+  EF_SATURACAO, EF_DISTORCAO, EF_FILTRO_TRACK, EF_EQ, EF_COMPRESSOR,
+  EF_PHASER, EF_FLANGER, EF_CHORUS, EF_DELAY, EF_REVERB, N_EFEITOS
+};
 constexpr int MAX_CAMPOS_EFEITO = 16;
 double ajustesEfeitos[N_EFEITOS][MAX_CAMPOS_EFEITO];
 double* const ajustesFt = ajustesEfeitos[EF_FILTRO_TRACK];
@@ -2165,15 +2169,684 @@ struct Compressor {
 };
 Compressor compressor;
 
+// ================= Efeitos de "espaço" (F3b) =================
+// Phaser, Flanger, Chorus, Delay e Reverb: cópia exata das contas dos antigos
+// dsp/efeitos/phaser.js, flanger.js, chorus.js, delay.js e reverb.js. As memórias (linhas de
+// atraso) guardam "float", como as Float32Array de lá: o som fica igual amostra a amostra.
+
+// Memória de atraso em float (tamanho depende da taxa: criada em iniciar)
+struct Memoria {
+  float* d = nullptr;
+  int n = 0;
+  bool alocar(int tamanho) {
+    std::free(d);
+    d = static_cast<float*>(std::calloc(tamanho, sizeof(float)));
+    n = d ? tamanho : 0;
+    return d != nullptr;
+  }
+  void limpar() {
+    for (int i = 0; i < n; i++) d[i] = 0;
+  }
+};
+
+// Mistura "em cruz" (Phaser/Flanger): 0 = só original, 0,5 = metade/metade, 1 = só efeito
+inline Mix ganhosCruzados(double mix) {
+  const double m = limitar01(mix);
+  return { 1 - m, m };
+}
+
+// Width (0 = mono, no meio; 1 = estéreo como veio): diminui só os "lados"
+inline void aplicarWidth(double& e, double& d, double width) {
+  const double meio = (e + d) * 0.5;
+  const double lados = (e - d) * 0.5 * width;
+  e = meio + lados;
+  d = meio - lados;
+}
+
+// Um passo do Width suavizado (~10 ms): chegou perto, encosta no alvo
+inline double andarWidth(double atual, double alvo, double s) {
+  if (atual == alvo) return atual;
+  const double novo = atual + (alvo - atual) * s;
+  return std::fabs(novo - alvo) < 1e-5 ? alvo : novo;
+}
+
+// Leitura com interpolação em linha reta, "atraso" amostras antes de "escrita"
+inline double lerLinear(const Memoria& m, int escrita, double atraso) {
+  double posicao = escrita - atraso;
+  if (posicao < 0) posicao += m.n;
+  const int i0 = static_cast<int>(posicao);
+  const int i1 = i0 + 1 == m.n ? 0 : i0 + 1;
+  const double y0 = m.d[i0], y1 = m.d[i1];
+  return y0 + (posicao - i0) * (y1 - y0);
+}
+
+// ---------- Phaser: 6 passa-tudo em série, LFO seno ----------
+enum { PH_LIGADO, PH_RATE, PH_DEPTH, PH_FREQ, PH_FEEDBACK, PH_STEREO, PH_MIX, N_CAMPOS_PH };
+constexpr int ETAPAS_PHASER = 6;
+constexpr int PASSO_COEF_PHASER = 16; // recalcula a cada 16 amostras (linha reta entre eles)
+
+struct Phaser {
+  double memE[ETAPAS_PHASER], memD[ETAPAS_PHASER];
+  double voltaE, voltaD, fase, coefE, coefD, passoE, passoD, seco, molhado, feedback;
+  int contador;
+  bool acordou, dormindo;
+
+  void zerar() {
+    for (int k = 0; k < ETAPAS_PHASER; k++) memE[k] = memD[k] = 0;
+    voltaE = voltaD = fase = coefE = coefD = passoE = passoD = 0;
+    contador = 0;
+    acordou = true;
+    seco = 1;
+    molhado = 0;
+    feedback = 0.5;
+    dormindo = true;
+  }
+
+  // Coeficiente de um lado na fase "f" do LFO
+  static double coefNaFase(const double* a, double f) {
+    const double oitavas = 2 * limitar01(a[PH_DEPTH]) * std::sin(2 * PI * f);
+    const double fc = std::fmin(0.45 * taxa, std::fmax(20.0, a[PH_FREQ] * std::pow(2.0, oitavas)));
+    const double t = std::tan((PI * fc) / taxa);
+    return (t - 1) / (t + 1);
+  }
+
+  void proximosCoeficientes(const double* a) {
+    const double deslocamento = 0.5 * limitar01(a[PH_STEREO]); // 100% = meio ciclo
+    const double faseAlvo = fase + (a[PH_RATE] / taxa) * PASSO_COEF_PHASER;
+    passoE = (coefNaFase(a, faseAlvo) - coefE) / PASSO_COEF_PHASER;
+    passoD = (coefNaFase(a, faseAlvo + deslocamento) - coefD) / PASSO_COEF_PHASER;
+  }
+
+  // Parado no silêncio: o LFO continua andando
+  void pular(int tamanho) {
+    fase = std::fmod(fase + (ajustesEfeitos[EF_PHASER][PH_RATE] / taxa) * tamanho, 1.0);
+    acordou = true;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_PHASER];
+    const bool ligado = a[PH_LIGADO] != 0;
+    const Mix mix = ganhosCruzados(a[PH_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = ligado ? mix.molhado : 0;
+    const double alvoFeedback = std::fmin(0.9, std::fmax(0.0, a[PH_FEEDBACK]));
+    const double s = suavizar10ms;
+    const double passoFase = a[PH_RATE] / taxa;
+
+    if (acordou) {
+      // Primeira vez acordado: começa já com os coeficientes certos
+      acordou = false;
+      contador = 0;
+      coefE = coefNaFase(a, fase);
+      coefD = coefNaFase(a, fase + 0.5 * limitar01(a[PH_STEREO]));
+    }
+    for (int i = 0; i < tamanho; i++) {
+      if (contador == 0) proximosCoeficientes(a);
+      contador = contador + 1 == PASSO_COEF_PHASER ? 0 : contador + 1;
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      feedback += (alvoFeedback - feedback) * s;
+      coefE += passoE;
+      coefD += passoD;
+      const double fb = feedback;
+      double e = efeitoE[i] + fb * voltaE;
+      double d = efeitoD[i] + fb * voltaD;
+      const double cE = coefE, cD = coefD;
+      for (int k = 0; k < ETAPAS_PHASER; k++) {
+        const double yE = cE * e + memE[k];
+        memE[k] = e - cE * yE;
+        e = yE;
+        const double yD = cD * d + memD[k];
+        memD[k] = d - cD * yD;
+        d = yD;
+      }
+      voltaE = e;
+      voltaD = d;
+      // Com Feedback o efeito ganha volume nos picos: compensa pela energia média
+      const double compensa = std::sqrt(1 - fb * fb);
+      efeitoE[i] = efeitoE[i] * seco + e * compensa * molhado;
+      efeitoD[i] = efeitoD[i] * seco + d * compensa * molhado;
+      fase += passoFase;
+      if (fase >= 1) fase -= 1;
+    }
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      for (int k = 0; k < ETAPAS_PHASER; k++) memE[k] = memD[k] = 0;
+      voltaE = voltaD = 0;
+      seco = 1;
+      molhado = 0;
+      acordou = true;
+    }
+  }
+};
+Phaser phaser;
+
+// ---------- Flanger: atraso curto balançando (leitura cúbica) ----------
+enum { FL_LIGADO, FL_RATE, FL_DEPTH, FL_ATRASO, FL_FEEDBACK, FL_STEREO, FL_MIX, N_CAMPOS_FL };
+constexpr double ATRASO_MAXIMO_FLANGER = 0.01; // segundos
+
+struct Flanger {
+  Memoria memE, memD;
+  int escrita;
+  double fase, entrada, seco, molhado, feedback, base, profundidade, deslocamento;
+  bool dormindo;
+
+  bool alocar() {
+    const int n = static_cast<int>(std::ceil((ATRASO_MAXIMO_FLANGER * 4 + 0.002) * taxa)) + 4;
+    return memE.alocar(n) && memD.alocar(n);
+  }
+
+  void zerar() {
+    memE.limpar();
+    memD.limpar();
+    escrita = 0;
+    fase = entrada = 0;
+    seco = 1;
+    molhado = 0;
+    feedback = 0.5;
+    base = 0.002 * taxa;
+    profundidade = 0.7;
+    deslocamento = 0.25;
+    dormindo = true;
+  }
+
+  // Lê "atraso" amostras atrás com interpolação cúbica (Hermite: não abafa os agudos)
+  double ler(const Memoria& m, double atraso) const {
+    double posicao = escrita - atraso;
+    if (posicao < 0) posicao += m.n;
+    const int n = m.n;
+    const int i1 = static_cast<int>(posicao);
+    const double t = posicao - i1;
+    const int i0 = i1 == 0 ? n - 1 : i1 - 1;
+    const int i2 = i1 + 1 == n ? 0 : i1 + 1;
+    const int i3 = i2 + 1 == n ? 0 : i2 + 1;
+    const double y0 = m.d[i0], y1 = m.d[i1], y2 = m.d[i2], y3 = m.d[i3];
+    const double c1 = 0.5 * (y2 - y0);
+    const double c2 = y0 - 2.5 * y1 + 2 * y2 - 0.5 * y3;
+    const double c3 = 0.5 * (y3 - y0) + 1.5 * (y1 - y2);
+    return ((c3 * t + c2) * t + c1) * t + y1;
+  }
+
+  void pular(int tamanho) {
+    fase = std::fmod(fase + (ajustesEfeitos[EF_FLANGER][FL_RATE] / taxa) * tamanho, 1.0);
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_FLANGER];
+    const bool ligado = a[FL_LIGADO] != 0;
+    const Mix mix = ganhosCruzados(a[FL_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = ligado ? mix.molhado : 0;
+    const double alvoFeedback = std::fmin(0.95, std::fmax(-0.95, a[FL_FEEDBACK]));
+    const double alvoBase = std::fmin(ATRASO_MAXIMO_FLANGER, std::fmax(0.0005, a[FL_ATRASO])) * taxa;
+    const double alvoProfundidade = limitar01(a[FL_DEPTH]);
+    const double alvoDeslocamento = 0.5 * limitar01(a[FL_STEREO]);
+    const double alvoEntrada = ligado ? 1 : 0;
+    const double s = suavizar10ms;
+    const double passoFase = a[FL_RATE] / taxa;
+    const double doisPi = 2 * PI;
+
+    for (int i = 0; i < tamanho; i++) {
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      feedback += (alvoFeedback - feedback) * s;
+      base += (alvoBase - base) * s;
+      profundidade += (alvoProfundidade - profundidade) * s;
+      deslocamento += (alvoDeslocamento - deslocamento) * s;
+      const double fb = feedback;
+      // Atraso de cada lado: centro × 2^(±oitavas) balançando num seno (mínimo 3 amostras)
+      const double oitavas = 2 * profundidade;
+      const double atrasoE = std::fmax(3.0, base * std::pow(2.0, oitavas * std::sin(doisPi * fase)));
+      const double atrasoD = std::fmax(3.0, base * std::pow(2.0, oitavas * std::sin(doisPi * (fase + deslocamento))));
+      const double copiaE = ler(memE, atrasoE);
+      const double copiaD = ler(memD, atrasoD);
+      // O som entra na memória aos poucos ao ligar (sem "tique")
+      entrada += (alvoEntrada - entrada) * s;
+      memE.d[escrita] = static_cast<float>(efeitoE[i] * entrada + fb * copiaE);
+      memD.d[escrita] = static_cast<float>(efeitoD[i] * entrada + fb * copiaD);
+      escrita = escrita + 1 == memE.n ? 0 : escrita + 1;
+      const double compensa = std::sqrt(1 - fb * fb);
+      efeitoE[i] = efeitoE[i] * seco + copiaE * compensa * molhado;
+      efeitoD[i] = efeitoD[i] * seco + copiaD * compensa * molhado;
+      fase += passoFase;
+      if (fase >= 1) fase -= 1;
+    }
+    if (!ligado && molhado < 1e-4 && std::fabs(seco - 1) < 1e-4) {
+      dormindo = true;
+      memE.limpar();
+      memD.limpar();
+      entrada = 0;
+      seco = 1;
+      molhado = 0;
+    }
+  }
+};
+Flanger flanger;
+
+// ---------- Chorus: 2 cópias por lado com o atraso balançando ----------
+enum { CH_LIGADO, CH_RATE, CH_DEPTH, CH_MIX, CH_ATRASO, CH_FEEDBACK, CH_WIDTH, N_CAMPOS_CH };
+constexpr double PROFUNDIDADE_MAXIMA_CHORUS = 0.006; // segundos (±6 ms com Depth 100%)
+constexpr double ATRASO_MAXIMO_CHORUS = 0.03;
+constexpr double TAMANHO_MEMORIA_CHORUS = ATRASO_MAXIMO_CHORUS + PROFUNDIDADE_MAXIMA_CHORUS + 0.004;
+
+struct Chorus {
+  Memoria memE, memD;
+  int escrita;
+  double fase, entrada, seco, molhado, profundidade, base, voltaE, voltaD, width, silencio;
+  bool dormindo;
+
+  bool alocar() {
+    const int n = static_cast<int>(std::ceil(TAMANHO_MEMORIA_CHORUS * taxa));
+    return memE.alocar(n) && memD.alocar(n);
+  }
+
+  void zerar() {
+    memE.limpar();
+    memD.limpar();
+    escrita = 0;
+    fase = entrada = 0;
+    seco = 1;
+    molhado = 0;
+    profundidade = 0.5;
+    base = 0.012 * taxa;
+    voltaE = voltaD = 0;
+    width = 1;
+    silencio = 0;
+    dormindo = true;
+  }
+
+  void pular(int tamanho) {
+    fase = std::fmod(fase + (ajustesEfeitos[EF_CHORUS][CH_RATE] / taxa) * tamanho, 1.0);
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_CHORUS];
+    const bool ligado = a[CH_LIGADO] != 0;
+    const double alvoEntrada = ligado ? 1 : 0;
+    const Mix mix = ganhosMix(a[CH_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = mix.molhado;
+    const double s = suavizar10ms;
+    const double passo = a[CH_RATE] / taxa;
+    const double alvoBase = std::fmin(ATRASO_MAXIMO_CHORUS, std::fmax(0.005, a[CH_ATRASO])) * taxa;
+    const double amplitude = PROFUNDIDADE_MAXIMA_CHORUS * taxa;
+    const double fbAjuste = std::fmin(0.9, std::fmax(0.0, a[CH_FEEDBACK]));
+    const double alvoWidth = limitar01(a[CH_WIDTH]);
+    double energia = 0;
+
+    for (int i = 0; i < tamanho; i++) {
+      entrada += (alvoEntrada - entrada) * s;
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      profundidade += (a[CH_DEPTH] - profundidade) * s;
+      if (base != alvoBase) {
+        base += (alvoBase - base) * s;
+        if (std::fabs(base - alvoBase) < 1e-3) base = alvoBase;
+      }
+      if (fbAjuste > 0) {
+        memE.d[escrita] = static_cast<float>(efeitoE[i] * entrada + voltaE * fbAjuste);
+        memD.d[escrita] = static_cast<float>(efeitoD[i] * entrada + voltaD * fbAjuste);
+      } else {
+        memE.d[escrita] = static_cast<float>(efeitoE[i] * entrada);
+        memD.d[escrita] = static_cast<float>(efeitoD[i] * entrada);
+      }
+      // As 4 cópias estão a 1/4 de ciclo umas das outras: esquerda = base ± seno,
+      // direita = base ± cosseno
+      const double desvio = amplitude * profundidade;
+      const double angulo = 2 * PI * fase;
+      const double balancoSeno = desvio * std::sin(angulo);
+      const double balancoCosseno = desvio * std::cos(angulo);
+      double copiasE = (lerLinear(memE, escrita, base + balancoSeno) + lerLinear(memE, escrita, base - balancoSeno)) * 0.5;
+      double copiasD = (lerLinear(memD, escrita, base + balancoCosseno) + lerLinear(memD, escrita, base - balancoCosseno)) * 0.5;
+      voltaE = copiasE;
+      voltaD = copiasD;
+      fase += passo;
+      if (fase >= 1) fase -= 1;
+      escrita = escrita + 1 == memE.n ? 0 : escrita + 1;
+      width = andarWidth(width, alvoWidth, s);
+      if (width < 1) aplicarWidth(copiasE, copiasD, width);
+      efeitoE[i] = efeitoE[i] * seco + copiasE * molhado;
+      efeitoD[i] = efeitoD[i] * seco + copiasD * molhado;
+      energia += copiasE * copiasE + copiasD * copiasD;
+    }
+    // Desligado e sem cópias audíveis por um tempo: dorme e limpa a memória
+    silencio = energia / tamanho < 1e-10 ? silencio + tamanho : 0;
+    if (!ligado && entrada < 1e-4 && silencio > TAMANHO_MEMORIA_CHORUS * taxa) {
+      dormindo = true;
+      memE.limpar();
+      memD.limpar();
+      voltaE = voltaD = 0;
+      seco = 1;
+    }
+  }
+};
+Chorus chorus;
+
+// ---------- Delay (eco) estéreo, Ping-pong, High/Low Cut nas repetições ----------
+enum { DL_LIGADO, DL_TEMPO, DL_FEEDBACK, DL_MIX, DL_PINGPONG, DL_LOWCUT, DL_HIGHCUT, DL_WIDTH, N_CAMPOS_DL };
+constexpr double TEMPO_MAXIMO_DELAY = 2; // segundos
+
+struct Delay {
+  Memoria linhaE, linhaD;
+  int escrita;
+  double tempoAtual, tempoNovo; // tempoNovo < 0 = nenhuma troca em andamento
+  double rampa, passoRampa, entrada, seco, molhado, feedback;
+  double coefAgudo, highcutCalculado, baixasE, baixasD, gravesE, gravesD, width, silencio;
+  bool dormindo;
+
+  bool alocar() {
+    const int n = static_cast<int>(std::ceil(TEMPO_MAXIMO_DELAY * taxa)) + 4;
+    return linhaE.alocar(n) && linhaD.alocar(n);
+  }
+
+  void zerar() {
+    linhaE.limpar();
+    linhaD.limpar();
+    escrita = 0;
+    tempoAtual = 0.3 * taxa;
+    tempoNovo = -1;
+    rampa = 0;
+    passoRampa = 1 / (0.05 * taxa);
+    entrada = 0;
+    seco = 1;
+    molhado = 0;
+    feedback = 0;
+    coefAgudo = coefPolo(6000);
+    highcutCalculado = 6000;
+    baixasE = baixasD = gravesE = gravesD = 0;
+    width = 1;
+    silencio = 0;
+    dormindo = true;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_DELAY];
+    const bool ligado = a[DL_LIGADO] != 0;
+    const bool pingpong = a[DL_PINGPONG] != 0;
+    const double alvoEntrada = ligado ? 1 : 0;
+    const Mix mix = ganhosMix(a[DL_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1; // desligado: original cheio, ecos terminando
+    const double alvoMolhado = mix.molhado;
+    const double alvoTempo = std::fmin(TEMPO_MAXIMO_DELAY, std::fmax(0.001, a[DL_TEMPO])) * taxa;
+    const double alvoFeedback = std::fmin(0.95, std::fmax(0.0, a[DL_FEEDBACK]));
+    const double s = suavizar10ms;
+    if (a[DL_HIGHCUT] != highcutCalculado) {
+      coefAgudo = coefPolo(a[DL_HIGHCUT]);
+      highcutCalculado = a[DL_HIGHCUT];
+    }
+    const double c = coefAgudo;
+    const bool comLowCut = a[DL_LOWCUT] > 20.5;
+    const double cGrave = comLowCut ? coefPolo(a[DL_LOWCUT]) : 0;
+    const double alvoWidth = limitar01(a[DL_WIDTH]);
+    if (!comLowCut) gravesE = gravesD = 0;
+    double energia = 0;
+
+    for (int i = 0; i < tamanho; i++) {
+      entrada += (alvoEntrada - entrada) * s;
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      feedback += (alvoFeedback - feedback) * s;
+      // Tempo mudou? Passa do eco antigo para o novo numa rampa de ~50 ms
+      if (tempoNovo < 0 && std::fabs(alvoTempo - tempoAtual) > 0.5) {
+        tempoNovo = alvoTempo;
+        rampa = 0;
+      }
+      double ecoE = lerLinear(linhaE, escrita, tempoAtual);
+      double ecoD = lerLinear(linhaD, escrita, tempoAtual);
+      if (tempoNovo >= 0) {
+        rampa = std::fmin(1.0, rampa + passoRampa);
+        ecoE += (lerLinear(linhaE, escrita, tempoNovo) - ecoE) * rampa;
+        ecoD += (lerLinear(linhaD, escrita, tempoNovo) - ecoD) * rampa;
+        if (rampa >= 1) {
+          tempoAtual = tempoNovo;
+          tempoNovo = -1;
+        }
+      }
+      // As repetições perdem agudo (e grave, com o Low Cut)
+      baixasE += (ecoE - baixasE) * c;
+      baixasD += (ecoD - baixasD) * c;
+      double voltaE = baixasE, voltaD = baixasD;
+      if (comLowCut) {
+        gravesE += (voltaE - gravesE) * cGrave;
+        gravesD += (voltaD - gravesD) * cGrave;
+        voltaE -= gravesE;
+        voltaD -= gravesD;
+      }
+      const double entradaE = efeitoE[i] * entrada;
+      const double entradaD = efeitoD[i] * entrada;
+      double novoE, novoD;
+      if (pingpong) {
+        // O som entra só na esquerda; cada repetição troca de lado
+        novoE = (entradaE + entradaD) * 0.5 + voltaD * feedback;
+        novoD = voltaE * feedback;
+      } else {
+        novoE = entradaE + voltaE * feedback;
+        novoD = entradaD + voltaD * feedback;
+      }
+      // Segurança: nunca deixa acumular além de um limite
+      linhaE.d[escrita] = static_cast<float>(novoE > 4 ? 4 : novoE < -4 ? -4 : novoE);
+      linhaD.d[escrita] = static_cast<float>(novoD > 4 ? 4 : novoD < -4 ? -4 : novoD);
+      if (++escrita == linhaE.n) escrita = 0;
+      width = andarWidth(width, alvoWidth, s);
+      if (width < 1) aplicarWidth(ecoE, ecoD, width);
+      efeitoE[i] = efeitoE[i] * seco + ecoE * molhado;
+      efeitoD[i] = efeitoD[i] * seco + ecoD * molhado;
+      energia += ecoE * ecoE + ecoD * ecoD;
+    }
+    // Desligado e sem ecos audíveis por mais tempo que o próprio eco: dorme
+    silencio = energia / tamanho < 1e-10 ? silencio + tamanho : 0;
+    if (!ligado && entrada < 1e-4 && silencio > tempoAtual + tamanho) {
+      dormindo = true;
+      linhaE.limpar();
+      linhaD.limpar();
+      baixasE = baixasD = gravesE = gravesD = 0;
+      seco = 1;
+    }
+  }
+};
+Delay delay;
+
+// ---------- Reverb: 4 difusores + 8 linhas misturadas (FDN) ----------
+enum { RV_LIGADO, RV_TAMANHO, RV_BRILHO, RV_MIX, RV_PREDELAY, RV_LOWCUT, RV_WIDTH, N_CAMPOS_RV };
+constexpr double TEMPOS_LINHAS_MS[8] = { 29.7, 37.1, 41.1, 43.7, 47.3, 53.1, 59.3, 67.1 };
+constexpr double TEMPOS_DIFUSORES_MS[4] = { 4.77, 3.59, 12.73, 9.31 };
+constexpr double GANHO_DIFUSOR = 0.6;
+constexpr double PRE_DELAY_MAXIMO = 0.2;
+constexpr double ESCALA_SAIDA_REVERB = 0.35;
+
+struct Reverb {
+  Memoria linhas[8], difusores[4], pre;
+  int posLinhas[8], posDifusores[4], posPre;
+  double ganhos[8], baixas[8];
+  double coefGrave, lowcutCalculado, graveEntrada, coefBrilho, tamanhoCalculado, brilhoCalculado;
+  double preAtual, preNovo; // preNovo < 0 = nenhuma troca em andamento
+  double rampaPre, passoRampaPre, width, entrada, seco, molhado, silencio;
+  bool acordou, dormindo;
+
+  static int amostras(double ms) { return static_cast<int>(std::fmax(1.0, arredondar((ms / 1000) * taxa))); }
+
+  bool alocar() {
+    bool ok = true;
+    for (int k = 0; k < 8; k++) ok = linhas[k].alocar(amostras(TEMPOS_LINHAS_MS[k])) && ok;
+    for (int k = 0; k < 4; k++) ok = difusores[k].alocar(amostras(TEMPOS_DIFUSORES_MS[k])) && ok;
+    return pre.alocar(static_cast<int>(std::ceil(PRE_DELAY_MAXIMO * taxa)) + 2) && ok;
+  }
+
+  void limparMemorias() {
+    for (auto& l : linhas) l.limpar();
+    for (auto& d : difusores) d.limpar();
+    pre.limpar();
+  }
+
+  void zerar() {
+    limparMemorias();
+    for (int k = 0; k < 8; k++) posLinhas[k] = 0, ganhos[k] = 0, baixas[k] = 0;
+    for (int k = 0; k < 4; k++) posDifusores[k] = 0;
+    posPre = 0;
+    coefGrave = coefPolo(120);
+    lowcutCalculado = 120;
+    graveEntrada = 0;
+    coefBrilho = 0;
+    tamanhoCalculado = brilhoCalculado = -1;
+    preAtual = 0;
+    preNovo = -1;
+    rampaPre = 0;
+    passoRampaPre = 1 / (0.02 * taxa);
+    acordou = true;
+    width = 1;
+    entrada = 0;
+    seco = 1;
+    molhado = 0;
+    silencio = 0;
+    dormindo = true;
+  }
+
+  // Recalcula perdas e abafamento só quando Tamanho/Brilho/Low Cut mudam
+  void atualizarCoeficientes(const double* a) {
+    if (a[RV_TAMANHO] != tamanhoCalculado) {
+      const double rt = 0.3 * std::pow(8 / 0.3, a[RV_TAMANHO]); // tempo até -60 dB
+      for (int k = 0; k < 8; k++) ganhos[k] = std::pow(10.0, (-3 * linhas[k].n) / (rt * taxa));
+      tamanhoCalculado = a[RV_TAMANHO];
+    }
+    if (a[RV_BRILHO] != brilhoCalculado) {
+      const double fc = 1500 * std::pow(16000.0 / 1500, a[RV_BRILHO]);
+      coefBrilho = coefPolo(fc);
+      brilhoCalculado = a[RV_BRILHO];
+    }
+    if (a[RV_LOWCUT] != lowcutCalculado) {
+      coefGrave = coefPolo(a[RV_LOWCUT]);
+      lowcutCalculado = a[RV_LOWCUT];
+    }
+  }
+
+  double lerPre(int atraso) const {
+    int leitura = posPre - atraso;
+    if (leitura < 0) leitura += pre.n;
+    return pre.d[leitura];
+  }
+
+  // Mistura rápida das 8 linhas (matriz de Hadamard)
+  static void misturar8(double* v) {
+    for (int h = 1; h < 8; h *= 2) {
+      for (int i = 0; i < 8; i += h * 2) {
+        for (int j = i; j < i + h; j++) {
+          const double x = v[j], y = v[j + h];
+          v[j] = x + y;
+          v[j + h] = x - y;
+        }
+      }
+    }
+    const double escala = 1 / std::sqrt(8.0);
+    for (int j = 0; j < 8; j++) v[j] *= escala;
+  }
+
+  void processar(int tamanho) {
+    if (dormindo) return;
+    const double* a = ajustesEfeitos[EF_REVERB];
+    atualizarCoeficientes(a);
+    const bool ligado = a[RV_LIGADO] != 0;
+    const double alvoEntrada = ligado ? 1 : 0;
+    const Mix mix = ganhosMix(a[RV_MIX]);
+    const double alvoSeco = ligado ? mix.seco : 1;
+    const double alvoMolhado = mix.molhado;
+    const double s = suavizar10ms;
+    const double cb = coefBrilho;
+    const int atrasoPre = static_cast<int>(arredondar(std::fmin(PRE_DELAY_MAXIMO, std::fmax(0.0, a[RV_PREDELAY])) * taxa));
+    const double alvoWidth = limitar01(a[RV_WIDTH]);
+    double v[8];
+    double energia = 0;
+
+    for (int i = 0; i < tamanho; i++) {
+      entrada += (alvoEntrada - entrada) * s;
+      seco += (alvoSeco - seco) * s;
+      molhado += (alvoMolhado - molhado) * s;
+      // Entrada: soma dos dois lados, sem os graves muito baixos
+      double x = (efeitoE[i] + efeitoD[i]) * 0.5 * entrada;
+      graveEntrada += (x - graveEntrada) * coefGrave;
+      x -= graveEntrada;
+      // Pre-delay (memória gravada sempre; troca de tempo numa rampa de ~20 ms)
+      pre.d[posPre] = static_cast<float>(x);
+      if (acordou) {
+        preAtual = atrasoPre;
+        preNovo = -1;
+        acordou = false;
+      }
+      if (preNovo < 0 && atrasoPre != preAtual) {
+        preNovo = atrasoPre;
+        rampaPre = 0;
+      }
+      if (preAtual > 0) x = lerPre(static_cast<int>(preAtual));
+      if (preNovo >= 0) {
+        rampaPre = std::fmin(1.0, rampaPre + passoRampaPre);
+        x += (lerPre(static_cast<int>(preNovo)) - x) * rampaPre;
+        if (rampaPre >= 1) {
+          preAtual = preNovo;
+          preNovo = -1;
+        }
+      }
+      posPre = posPre + 1 == pre.n ? 0 : posPre + 1;
+      // Difusores em série
+      for (int d = 0; d < 4; d++) {
+        Memoria& buffer = difusores[d];
+        const int p = posDifusores[d];
+        const double atrasado = buffer.d[p];
+        const double y = -GANHO_DIFUSOR * x + atrasado;
+        buffer.d[p] = static_cast<float>(x + GANHO_DIFUSOR * y);
+        posDifusores[d] = p + 1 == buffer.n ? 0 : p + 1;
+        x = y;
+      }
+      // Lê as 8 linhas, perde força e agudo
+      for (int k = 0; k < 8; k++) {
+        const double saidaLinha = linhas[k].d[posLinhas[k]] * ganhos[k];
+        baixas[k] += (saidaLinha - baixas[k]) * cb;
+        v[k] = baixas[k];
+      }
+      // Saída estéreo: linhas pares à esquerda, ímpares à direita
+      double molhadoE = (v[0] - v[2] + v[4] - v[6]) * ESCALA_SAIDA_REVERB;
+      double molhadoD = (v[1] - v[3] + v[5] - v[7]) * ESCALA_SAIDA_REVERB;
+      width = andarWidth(width, alvoWidth, s);
+      if (width < 1) aplicarWidth(molhadoE, molhadoD, width);
+      misturar8(v);
+      for (int k = 0; k < 8; k++) {
+        Memoria& linha = linhas[k];
+        const int p = posLinhas[k];
+        linha.d[p] = static_cast<float>(v[k] + (k & 1 ? x : -x));
+        posLinhas[k] = p + 1 == linha.n ? 0 : p + 1;
+      }
+      efeitoE[i] = efeitoE[i] * seco + molhadoE * molhado;
+      efeitoD[i] = efeitoD[i] * seco + molhadoD * molhado;
+      energia += molhadoE * molhadoE + molhadoD * molhadoD;
+    }
+    // Desligado e cauda inaudível por um tempo: dorme e limpa a memória
+    silencio = energia / tamanho < 1e-10 ? silencio + tamanho : 0;
+    if (!ligado && entrada < 1e-4 && silencio > 0.1 * taxa) {
+      dormindo = true;
+      limparMemorias();
+      for (double& b : baixas) b = 0;
+      acordou = true;
+      graveEntrada = 0;
+      seco = 1;
+    }
+  }
+};
+Reverb reverb;
+
 // Quantos ajustes cada efeito tem (o JS confere se combina com a lista dele)
-constexpr int CAMPOS_EFEITO[N_EFEITOS] = { N_CAMPOS_SAT, N_CAMPOS_DIS, N_CAMPOS_FT, N_CAMPOS_EQ, N_CAMPOS_CO };
+constexpr int CAMPOS_EFEITO[N_EFEITOS] = {
+  N_CAMPOS_SAT, N_CAMPOS_DIS, N_CAMPOS_FT, N_CAMPOS_EQ, N_CAMPOS_CO,
+  N_CAMPOS_PH, N_CAMPOS_FL, N_CAMPOS_CH, N_CAMPOS_DL, N_CAMPOS_RV,
+};
 
 }  // namespace
 
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 5; }
+EXPORTAR int versao() { return 6; }
 
 EXPORTAR void efeitoZerar(int ef); // (mais abaixo)
 
@@ -2203,6 +2876,8 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   for (auto& voz : osciladores)
     for (auto& osc : voz) osc.zerar();
   for (auto& v : vozes) v.zerar();
+  // Memórias dos efeitos de espaço (o tamanho depende da taxa)
+  if (!flanger.alocar() || !chorus.alocar() || !delay.alocar() || !reverb.alocar()) return 0;
   for (int ef = 0; ef < N_EFEITOS; ef++) efeitoZerar(ef);
   return 1;
 }
@@ -2417,7 +3092,7 @@ EXPORTAR void vozProcessar(int v, int tamanho, double sorteioRuido, int dona) {
   vozes[v].processar(v, tamanho, sorteioRuido, dona != 0);
 }
 
-// ---------- Efeitos (Saturação, Distorção, Filtro Track, EQ, Compressor) ----------
+// ---------- Efeitos (todos os 10, na ordem do caminho do som) ----------
 // "ef" = número do efeito (EF_SATURACAO...). O som está em "somEfeito" (o JS copia para cá
 // antes do 1º efeito do C++ e de volta depois do último); os ajustes, na linha do efeito.
 EXPORTAR void efeitoProcessar(int ef, int tamanho) {
@@ -2427,6 +3102,11 @@ EXPORTAR void efeitoProcessar(int ef, int tamanho) {
     case EF_FILTRO_TRACK: filtroTrack.processar(tamanho); break;
     case EF_EQ: eq.processar(tamanho); break;
     case EF_COMPRESSOR: compressor.processar(tamanho); break;
+    case EF_PHASER: phaser.processar(tamanho); break;
+    case EF_FLANGER: flanger.processar(tamanho); break;
+    case EF_CHORUS: chorus.processar(tamanho); break;
+    case EF_DELAY: delay.processar(tamanho); break;
+    case EF_REVERB: reverb.processar(tamanho); break;
   }
 }
 // Memória limpa (como novo); volta dormindo
@@ -2437,6 +3117,11 @@ EXPORTAR void efeitoZerar(int ef) {
     case EF_FILTRO_TRACK: filtroTrack.zerar(); break;
     case EF_EQ: eq.zerar(); break;
     case EF_COMPRESSOR: compressor.zerar(); break;
+    case EF_PHASER: phaser.zerar(); break;
+    case EF_FLANGER: flanger.zerar(); break;
+    case EF_CHORUS: chorus.zerar(); break;
+    case EF_DELAY: delay.zerar(); break;
+    case EF_REVERB: reverb.zerar(); break;
   }
 }
 static bool* dormindoDe(int ef) {
@@ -2446,12 +3131,25 @@ static bool* dormindoDe(int ef) {
     case EF_FILTRO_TRACK: return &filtroTrack.dormindo;
     case EF_EQ: return &eq.dormindo;
     case EF_COMPRESSOR: return &compressor.dormindo;
+    case EF_PHASER: return &phaser.dormindo;
+    case EF_FLANGER: return &flanger.dormindo;
+    case EF_CHORUS: return &chorus.dormindo;
+    case EF_DELAY: return &delay.dormindo;
+    case EF_REVERB: return &reverb.dormindo;
   }
   return nullptr;
 }
 EXPORTAR int efeitoDormindo(int ef) {
   const bool* d = dormindoDe(ef);
   return d && *d ? 1 : 0;
+}
+// Efeito parado no silêncio (nem é processado): o LFO do Phaser/Flanger/Chorus continua andando
+EXPORTAR void efeitoPular(int ef, int tamanho) {
+  switch (ef) {
+    case EF_PHASER: phaser.pular(tamanho); break;
+    case EF_FLANGER: flanger.pular(tamanho); break;
+    case EF_CHORUS: chorus.pular(tamanho); break;
+  }
 }
 // Ligado: acorda (mesmo jeito dos efeitos em JavaScript: cada "definir" com ligado acorda)
 EXPORTAR void efeitoAcordar(int ef) {

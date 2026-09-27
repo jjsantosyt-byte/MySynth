@@ -40,7 +40,7 @@ export const CAMPOS_VOZ = {
   qtdCortes1: 12, qtdResos1: 13, qtdCortes2: 14, qtdResos2: 15,
 };
 // Efeitos calculados no C++: número de cada um (enum EF_... em motor.cpp) e os seus ajustes,
-// na mesma ordem dos enums SAT_/DIS_/CampoFt/EQ_/CO_ de lá. "tipos" = a lista que vira número.
+// na mesma ordem dos enums SAT_/DIS_/CampoFt/EQ_/CO_/PH_/FL_/CH_/DL_/RV_ de lá. "tipos" = a lista que vira número.
 // (O Filtro Track troca de tipo por ftTipo, com transição suave; "referencia" = nota tocada.)
 export const EFEITOS_NO_MOTOR = {
   saturacao: { numero: 0, campos: ['ligado', 'tipo', 'drive', 'tom', 'mix'], tipos: TIPOS_SATURACAO },
@@ -48,6 +48,11 @@ export const EFEITOS_NO_MOTOR = {
   filtroTrack: { numero: 2, campos: ['ligado', 'nota', 'track', 'reso', 'mix', 'referencia'] },
   eq: { numero: 3, campos: ['ligado', 'grave', 'medio', 'agudo', 'freq', 'q', 'saida', 'mix'] },
   compressor: { numero: 4, campos: ['ligado', 'threshold', 'ratio', 'attack', 'release', 'ganho', 'mix'] },
+  phaser: { numero: 5, campos: ['ligado', 'rate', 'depth', 'freq', 'feedback', 'stereo', 'mix'] },
+  flanger: { numero: 6, campos: ['ligado', 'rate', 'depth', 'atraso', 'feedback', 'stereo', 'mix'] },
+  chorus: { numero: 7, campos: ['ligado', 'rate', 'depth', 'mix', 'atraso', 'feedback', 'width'] },
+  delay: { numero: 8, campos: ['ligado', 'tempo', 'feedback', 'mix', 'pingpong', 'lowcut', 'highcut', 'width'] },
+  reverb: { numero: 9, campos: ['ligado', 'tamanho', 'brilho', 'mix', 'predelay', 'lowcut', 'width'] },
 };
 // Rotas de filtro → número no C++
 export const ROTAS = { f1: 0, f2: 1, f12: 2, f21: 3 };

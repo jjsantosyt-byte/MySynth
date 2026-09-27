@@ -11,6 +11,12 @@
 export const TIPOS_SATURACAO = ['fita', 'valvula', 'transistor'];
 export const TIPOS_DISTORCAO = ['suave', 'dura', 'valvula'];
 
+// Reverb: tempo que a cauda leva para sumir (-60 dB) para o Tamanho de 0 a 1 (a tela mostra;
+// a mesma conta está no Reverb do motor.cpp)
+export function tempoDoTamanho(tamanho) {
+  return 0.3 * Math.pow(8 / 0.3, tamanho);
+}
+
 // Filtro Track: faixa do Cutoff em notas (C1 a C10; o efeito está no C++, motor.cpp)
 export const NOTA_MINIMA_TRACK = 24; // C1 (~33 Hz)
 export const NOTA_MAXIMA_TRACK = 132; // C10 (~16,7 kHz)
