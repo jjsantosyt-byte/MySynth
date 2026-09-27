@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <!-- Imagem de destaque do Google Play (1024 × 500). Gerada em PNG por captura de tela.
+         ?en = versão em inglês. -->
+    <style>
+      html, body { margin: 0; width: 1024px; height: 500px; overflow: hidden; background: #0b0c0f; }
+      body { font-family: 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif; color: #e8e9ee; }
+      svg { display: block; }
+    </style>
+  </head>
+  <body>
+    <svg width="1024" height="500" viewBox="0 0 1024 500">
+      <defs>
+        <linearGradient id="fundo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#10131b" />
+          <stop offset="1" stop-color="#07080b" />
+        </linearGradient>
+        <linearGradient id="preenche" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#46f06e" stop-opacity="0.35" />
+          <stop offset="1" stop-color="#46f06e" stop-opacity="0" />
+        </linearGradient>
+        <filter id="brilho" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="b" />
+          <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <pattern id="grade" width="24" height="24" patternUnits="userSpaceOnUse">
+          <path d="M24 0H0V24" fill="none" stroke="#141925" stroke-width="1" />
+        </pattern>
+      </defs>
+      <rect width="1024" height="500" fill="url(#fundo)" />
+      <rect width="1024" height="500" fill="url(#grade)" opacity="0.8" />
+
+      <!-- Lado direito: "painel" do synth com frames da wavetable empilhados -->
+      <g transform="translate(560 70)">
+        <polygon points="16,0 400,0 416,16 416,344 400,360 16,360 0,344 0,16" fill="#181b23" stroke="#2b303e" stroke-width="1.5" />
+        <polygon points="30,24 386,24 392,30 392,196 386,202 30,202 24,196 24,30" fill="#10131a" />
+        <!-- frames empilhados (perspectiva) -->
+        <g fill="none" stroke-width="2" stroke-linejoin="round">
+          <path d="M120 70 C150 40 170 40 190 70 S230 100 250 70 290 40 310 70 340 95 360 70" stroke="#1d5a2d" />
+          <path d="M100 90 C132 56 154 56 176 90 S220 124 242 90 286 56 306 90 338 118 356 90" stroke="#26803d" />
+          <path d="M80 110 C114 72 138 72 162 110 S210 148 234 110 282 72 304 110 336 142 352 110" stroke="#33a652" />
+          <path d="M44 150 C84 96 112 96 140 150 S196 204 224 150 280 96 308 150 348 196 372 150" stroke="#46f06e" stroke-width="3" filter="url(#brilho)" />
+          <path d="M44 150 C84 96 112 96 140 150 S196 204 224 150 280 96 308 150 348 196 372 150 V196 H44 Z" fill="url(#preenche)" stroke="none" />
+        </g>
+        <!-- knobs -->
+        <g transform="translate(60 262)">
+          <g><circle r="26" fill="#262a35" stroke="#2b303e" /><path d="M-19 19 A27 27 0 1 1 19 19" fill="none" stroke="#2b303e" stroke-width="3" /><path d="M-19 19 A27 27 0 0 1 10 -25" fill="none" stroke="#3fb8ff" stroke-width="3" /><line x1="0" y1="0" x2="8" y2="-19" stroke="#3fb8ff" stroke-width="3" stroke-linecap="round" /></g>
+          <g transform="translate(96 0)"><circle r="26" fill="#262a35" stroke="#2b303e" /><path d="M-19 19 A27 27 0 1 1 19 19" fill="none" stroke="#2b303e" stroke-width="3" /><path d="M-19 19 A27 27 0 1 1 25 8" fill="none" stroke="#3fb8ff" stroke-width="3" /><line x1="0" y1="0" x2="19" y2="-8" stroke="#3fb8ff" stroke-width="3" stroke-linecap="round" /></g>
+          <g transform="translate(192 0)"><circle r="26" fill="#262a35" stroke="#2b303e" /><path d="M-19 19 A27 27 0 1 1 19 19" fill="none" stroke="#2b303e" stroke-width="3" /><path d="M-19 19 A27 27 0 0 1 -26 -2" fill="none" stroke="#3fb8ff" stroke-width="3" /><line x1="0" y1="0" x2="-18" y2="-6" stroke="#3fb8ff" stroke-width="3" stroke-linecap="round" /><path d="M-24 24 A34 34 0 0 1 -30 -14" fill="none" stroke="#5de08a" stroke-width="3" /></g>
+          <g transform="translate(288 0)"><circle r="26" fill="#262a35" stroke="#2b303e" /><path d="M-19 19 A27 27 0 1 1 19 19" fill="none" stroke="#2b303e" stroke-width="3" /><path d="M-19 19 A27 27 0 0 1 0 -27" fill="none" stroke="#3fb8ff" stroke-width="3" /><line x1="0" y1="0" x2="0" y2="-20" stroke="#3fb8ff" stroke-width="3" stroke-linecap="round" /></g>
+        </g>
+        <!-- fichas de modulação -->
+        <g transform="translate(24 316)" font-size="15" font-weight="700" text-anchor="middle">
+          <polygon points="6,0 82,0 88,6 88,22 82,28 6,28 0,22 0,6" fill="#5de08a" /><text x="44" y="19" fill="#0b0c0f">LFO 1</text>
+          <polygon points="98,0 174,0 180,6 180,22 174,28 98,28 92,22 92,6" fill="#b48cff" /><text x="136" y="19" fill="#0b0c0f">LFO 2</text>
+          <polygon points="190,0 266,0 272,6 272,22 266,28 190,28 184,22 184,6" fill="#ffa94d" /><text x="228" y="19" fill="#0b0c0f">ENV 2</text>
+          <polygon points="282,0 362,0 368,6 368,22 362,28 282,28 276,22 276,6" fill="#4fd1c5" /><text x="322" y="19" fill="#0b0c0f">M1</text>
+        </g>
+      </g>
+
+      <!-- Lado esquerdo: logo, nome e frase -->
+      <g transform="translate(64 150)">
+        <path d="M0 40 Q14 6 28 40 T56 40 L63 16 L63 64 L70 40 L90 40" fill="none" stroke="#46f06e" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" filter="url(#brilho)" />
+        <text x="0" y="140" font-size="78" font-weight="700" fill="#e8e9ee" letter-spacing="-1">MySynth</text>
+        <text id="frase1" x="2" y="192" font-size="28" fill="#9ab0c8">Sintetizador wavetable</text>
+        <text id="frase2" x="2" y="228" font-size="28" fill="#9ab0c8">feito para o seu celular</text>
+      </g>
+    </svg>
+    <script>
+      if (location.search.includes('en')) {
+        document.getElementById('frase1').textContent = 'Wavetable synthesizer';
+        document.getElementById('frase2').textContent = 'made for your phone';
+      }
+    </script>
+  </body>
+</html>

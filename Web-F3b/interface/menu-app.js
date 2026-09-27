@@ -1,7 +1,7 @@
 // interface/menu-app.js
 // Logo do app (canto superior esquerdo): tocar abre um PAINEL LATERAL (sai da esquerda, altura
 // toda da tela, o resto escurece) com
-//   - Configurações (janela: idioma, tema e medidor de desempenho; as outras opções vêm depois)
+//   - Configurações (janela: idioma e tema; as outras opções vêm depois)
 //   - Sobre o MySynth
 //   - Política de privacidade (link para privacidade.html)
 // Fecha tocando fora, tocando na logo de novo ou com Esc.
@@ -9,7 +9,6 @@
 import { criar, criarJanela } from './janela.js';
 import { IDIOMA, mudarIdioma } from './idioma.js';
 import { TEMA, TEMAS, NOMES_TEMAS, mudarTema } from './tema.js';
-import { medidor } from './medidor.js';
 
 export function criarMenuApp() {
   const botao = document.getElementById('botao-logo');
@@ -97,44 +96,16 @@ export function criarMenuApp() {
     for (const b of botoesTema) b.classList.toggle('escolhido', b.dataset.tema === TEMA);
   };
 
-  // Medidor de desempenho: chave On/Off (caixinha no canto da tela; ver medidor.js)
-  const secaoMedidor = criar('section', 'config-secao');
-  const topoMedidor = criar('div', 'config-linha');
-  topoMedidor.appendChild(criar('h3', 'config-titulo', 'Medidor de desempenho'));
-  const chaveMedidor = criar('button', 'chave');
-  const marcarMedidor = () => {
-    chaveMedidor.setAttribute('aria-pressed', medidor.ligado);
-    chaveMedidor.textContent = medidor.ligado ? 'On' : 'Off';
-    chaveMedidor.setAttribute(
-      'aria-label',
-      `${medidor.ligado ? 'Ligado' : 'Desligado'}: toque para ${medidor.ligado ? 'desligar' : 'ligar'}`
-    );
-  };
-  chaveMedidor.addEventListener('click', () => {
-    medidor.ligar(!medidor.ligado);
-    marcarMedidor();
-  });
-  topoMedidor.appendChild(chaveMedidor);
-  secaoMedidor.append(
-    topoMedidor,
-    criar(
-      'p',
-      'config-texto',
-      'Mostra no canto da tela quanto o motor de som está ocupado (100% = no limite), os atrasos do som (engasgos) e as travadas da tela. Ligar de novo zera os números.'
-    )
-  );
-
   const secaoBreve = criar('section', 'config-secao');
   secaoBreve.appendChild(criar('h3', 'config-titulo', 'Em breve'));
   secaoBreve.appendChild(
     criar('p', 'config-texto', 'Tamanho do teclado e oitavas, letras do teclado do computador, qualidade do som, vibração e restaurar tudo.')
   );
-  janelaConfig.corpo.append(secaoIdioma, secaoTema, secaoMedidor, secaoBreve);
+  janelaConfig.corpo.append(secaoIdioma, secaoTema, secaoBreve);
 
   function abrirConfiguracoes() {
     marcarIdioma();
     marcarTema();
-    marcarMedidor();
     janelaConfig.abrir();
   }
 

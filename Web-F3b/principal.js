@@ -52,11 +52,9 @@ const NOMES_WARP = {
 import { carregarPresetsDoProjeto } from './interface/presets-projeto.js';
 import { avancarCarregamento, terminarCarregamento } from './interface/abertura.js';
 import { criarMenuApp } from './interface/menu-app.js';
-import { medidor, iniciarMedidor } from './interface/medidor.js';
 
 avancarCarregamento('Montando a tela…', 0.2);
 criarMenuApp(); // logo no canto superior esquerdo: Configurações e Arquivo
-iniciarMedidor(); // medidor de desempenho (só aparece se ligado nas Configurações)
 
 const botaoLigar = document.getElementById('botao-ligar');
 const aviso = document.getElementById('aviso');
@@ -370,10 +368,6 @@ async function ligarSom() {
         avisarClipper(evento.data.pico);
         return;
       }
-      if (evento.data.tipo === 'medidor') {
-        medidor.receber(evento.data);
-        return;
-      }
       if (evento.data.tipo === 'wasm') {
         console.info(`MySynth: motor C++ carregado (versão ${evento.data.versao})`);
         return;
@@ -386,7 +380,6 @@ async function ligarSom() {
     };
 
     estado.synth = synth;
-    medidor.conectar(synth, contexto);
 
     // Envia as opções atuais (tipo de filtro, legato...), as fontes e as ligações.
     for (const nome of Object.keys(estado.opcoes)) enviarOpcao(nome);

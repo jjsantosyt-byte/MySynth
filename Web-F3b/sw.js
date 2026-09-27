@@ -9,7 +9,7 @@
 //
 // Não faz parte do motor de som: é só para o navegador guardar os arquivos.
 
-const GAVETA = 'mysynth-arquivos-v1';
+const GAVETA = 'mysynth-f3b-v1'; // nome próprio: não mistura com o app principal
 
 // Arquivos do app (o que não estiver aqui também é guardado na primeira vez que for usado)
 const ARQUIVOS = [
@@ -44,7 +44,6 @@ const ARQUIVOS = [
   'interface/tema.js',
   'interface/historico.js',
   'interface/menu-app.js',
-  'interface/medidor.js',
   'interface/janela.js',
   'interface/knob.js',
   'interface/modulacao.js',
@@ -87,7 +86,7 @@ self.addEventListener('activate', (evento) => {
   evento.waitUntil(
     caches
       .keys()
-      .then((nomes) => Promise.all(nomes.filter((n) => n.startsWith('mysynth-arquivos-') && n !== GAVETA).map((n) => caches.delete(n))))
+      .then((nomes) => Promise.all(nomes.filter((n) => n.startsWith('mysynth-f3b-') && n !== GAVETA).map((n) => caches.delete(n))))
       .then(() => self.clients.claim())
   );
 });

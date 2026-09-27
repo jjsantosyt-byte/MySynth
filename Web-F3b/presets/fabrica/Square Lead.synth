@@ -1,0 +1,20 @@
+{
+  "app": "MySynth",
+  "versao": 2,
+  "presets": [
+    {
+      "nome": "Square Lead",
+      "categoria": "Lead",
+      "som": {
+        "parametros": { "wtPos": 1, "detune": 0.12, "width": 0.6, "cutoff": 3000, "resonancia": 0.2, "soltura": 0.2 },
+        "opcoes": { "filtroLigado": true, "filtroTipo": "lp12", "modo": "mono", "legato": true, "unison": 2, "glide": 0.08 },
+        "fontes": { "env2": { "ataque": 0.005, "decaimento": 0.4, "sustentacao": 0, "soltura": 0.2 } },
+        "ligacoes": [{ "fonte": "env2", "destino": "cutoff", "quantidade": 0.2 }],
+        "efeitos": {
+          "delay": { "ligado": true, "tempo": 0.35, "feedback": 0.35, "mix": 0.25 },
+          "reverb": { "ligado": true, "mix": 0.2 }
+        }
+      }
+    }
+  ]
+}

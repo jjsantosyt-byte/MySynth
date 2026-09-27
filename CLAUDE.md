@@ -438,6 +438,24 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   73,3 → 27,8% (2,6× mais leve). Tela (Soft Pad, nota tocando, painel escondido = sem contar os
   desenhos): 7,0 → 3,8%. Achado: custo fixo por bloco alto (1 nota já 2,6%; 8 notas U1 5,4%) →
   candidato na F4 (o JS ainda faz o gerente de vozes, parâmetros, clipper).
+- Cópia "Web-F3b" (27/09/2026, pedido do dono, antes do medidor de desempenho e do novo teste com
+  o Capacitor): pasta `Web-F3b/` (commit db1bd1b, motor C++ até a F3b) + branch `backup-f3b`.
+  `Web-F3b/Iniciar.bat` abre na porta 8082; online em
+  https://jjsantosyt-byte.github.io/MySynth/Web-F3b/. Só metadados mudados: título/manifest
+  "MySynth F3b" e gaveta do sw.js `mysynth-f3b-v1`. NÃO mexer nessa cópia.
+- MEDIDOR DE DESEMPENHO (27/09/2026, em teste; etapa 1 do plano "Capacitor de novo, medindo"):
+  Configurações → "Medidor de desempenho" (chave On/Off, gaveta `mysynth.medidor.v1`; ligar zera).
+  Caixinha no canto de cima à direita (`interface/medidor.js`, `.medidor` no fim do estilo.css;
+  não pega o toque; muda 1×/s só ligada): Motor média/pico (% do tempo calculando, pico = pior
+  trecho de 250 ms), Atrasos/maior (vezes que o relógio do som ficou > 8 ms atrás do normal),
+  Tela/maior (tarefas > 50 ms na tela, PerformanceObserver 'longtask'), Vozes, Hz, buffer
+  (baseLatency + outputLatency). Faixa à esquerda: azul / laranja (pico > 70%) / vermelho
+  (> 95% ou algum atraso). Motor: classe `Medidor` no processador (só Date.now(), que anda de
+  1 em 1 ms: a média fica certa somando muitos blocos; recado `{ tipo: 'medidor' }` 1×/s).
+  Conferido numa simulação (`sim.js` no rascunho): 30%/90%/120% certos; sobrecarga e travada de
+  40 ms contadas; travada de 5 ms não (o buffer esconde). No Chromium do PC: 3 notas ~5%, 0 atrasos.
+  Próximo: app do Capacitor "limpo" (sem Internet, arquivos dentro, APK feito pelo GitHub
+  Actions) e comparar no Infinix Hot 50i do dono (Helio G81) × app instalado pelo Chrome.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
@@ -654,6 +672,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - `interface/modulacao.js` — fichas, arrastar/tocar para ligar, listas de ligações
 - `interface/presets.js` — barra de presets, lista, salvar, apagar, exportar/importar
 - `interface/janela.js` — janela por cima da tela (usada por presets e wavetables)
+- `interface/medidor.js` — medidor de desempenho (caixinha no canto; liga nas Configurações)
 - `interface/wavetables.js` — lista de wavetables e botão Importar .wav
 - `interface/armazem-wavetables.js` — guarda as wavetables importadas no aparelho (IndexedDB)
 - `importar-wav.js` — lê arquivos .wav e divide em ciclos (frames)
