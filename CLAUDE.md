@@ -478,6 +478,14 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   Tela do app confirmada pelo dono no Infinix (27/09). App SEMPRE DEITADO (pedido do dono):
   `android:screenOrientation="sensorLandscape"` posto pelo preparar.sh (só no app Android; o
   site/app do Chrome continua girando).
+  Identificador do app CONFIRMADO pelo dono: `io.github.jjsantosytbyte.mysynth` (não muda mais).
+  CHAVE DE ENVIO (27/09/2026): criada pelo Claude (PKCS12, RSA 4096, alias `mysynth`, válida até
+  2054; SHA-256 do certificado 48:D6:62:B3:...:18:E1:2B:1D) e entregue ao dono (jks + senha +
+  base64 + LEIA-ME). NUNCA no Git. Vai nos segredos do repositório KEYSTORE_BASE64 e KEYSTORE_SENHA.
+  O workflow (`apk-teste.yml`): com os segredos → APK e `MySynth-loja.aab` assinados com ela
+  (apksigner / jarsigner); sem eles → APK com chave de teste e sem .aab. versionCode =
+  `github.run_number`, versionName 0.9.<n> (`VERSAO_NUMERO` no preparar.sh). Na Play Console:
+  aceitar o Play App Signing.
   Ordem das categorias (27/09/2026, pedido do dono: mais audíveis no celular primeiro; o baixo
   quase não se ouve no alto-falante do celular): Início → Lead → Pluck → Keys → Pad → FX →
   Outros → Baixo (`presets/lista.json` e a reserva em `interface/presets-projeto.js`). Vale para a

@@ -11,7 +11,9 @@
 #      - sempre DEITADO (vira para os dois lados deitados, nunca em pé);
 #      - tela cheia de verdade (sem a barra de status e sem a de navegação) e texto sempre em
 #        100% (sem o "tamanho da fonte" do Android): MainActivity.java desta pasta;
-#      - ícone do MySynth.
+#      - ícone do MySynth;
+#      - número da versão: VERSAO_NUMERO (o GitHub passa o número da execução; a Play Store exige
+#        um número maior a cada envio). Nome da versão: 0.9.<número> (beta).
 set -euo pipefail
 cd "$(dirname "$0")"
 RAIZ=..
@@ -65,5 +67,9 @@ for pasta in "$RES"/mipmap-*dpi; do
   cp "$RAIZ/icones/icone-192.png" "$pasta/ic_launcher_round.png"
   rm -f "$pasta/ic_launcher_foreground.png"
 done
+
+# Número da versão
+VERSAO_NUMERO="${VERSAO_NUMERO:-1}"
+sed -i "s/versionCode [0-9]*/versionCode $VERSAO_NUMERO/; s/versionName \"[^\"]*\"/versionName \"0.9.$VERSAO_NUMERO\"/" android/app/build.gradle
 
 echo "== Pronto. Para gerar o APK: cd android && ./gradlew assembleRelease"
