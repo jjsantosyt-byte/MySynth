@@ -21,7 +21,7 @@ import { codigoWarp, W_NENHUM } from './dsp/warp.js';
 import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { DESTINOS_MOD, D_PRIMEIRO_EFEITO, ligacoesEmNumeros } from './dsp/modulacao.js';
-import { MOD_EFEITOS, posicaoDoValor, valorDaPosicao } from './dsp/efeitos/modulaveis.js';
+import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
 import { FORMAS_LFO } from './dsp/lfo.js';
 import { Clipper, LIMIAR_CLIPPER } from './dsp/clipper.js';
 import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, EFEITOS_NO_MOTOR, ROTAS } from './motor/ponte.js';
@@ -137,10 +137,10 @@ class Voz {
   }
 }
 
-// Efeito calculado no C++ (Saturação, Distorção, Filtro Track, EQ, Compressor): esta peça só
-// guarda os ajustes (a tela manda; a modulação dos knobs mexe) e os escreve na mesa do C++
-// antes de cada bloco. O som já está lá dentro (ponte.somE/somD: ver process).
-// Mesmo jeito dos efeitos em JavaScript (ajustes, definir, dormindo), mais "noMotor".
+// Efeito calculado no C++ (os 10: Saturação, Distorção, Filtro Track, EQ, Compressor, Phaser,
+// Flanger, Chorus, Delay, Reverb). Esta peça só guarda o valor dos knobs (a tela manda) e os
+// escreve na mesa do C++ quando mudam. A modulação dos knobs e o som são calculados lá
+// (efeitosProcessar: ver process).
 class EfeitoNoMotor {
   constructor(ponte, id, ajustes) {
     const { numero, campos, tipos } = EFEITOS_NO_MOTOR[id];
@@ -149,50 +149,32 @@ class EfeitoNoMotor {
     this.campos = campos;
     this.tipos = tipos ?? null;
     this.ajustes = ajustes;
-    this.noMotor = true;
-    this.iAjustes = ponte.c.enderecoAjustesEfeito(numero) / 8;
-  }
-
-  get dormindo() {
-    return this.ponte.c.efeitoDormindo(this.numero) === 1;
+    this.iBases = ponte.c.enderecoBasesEfeito(numero) / 8;
+    this.escreverAjustes();
   }
 
   definir(ajustes) {
     Object.assign(this.ajustes, ajustes);
+    this.escreverAjustes();
     if (this.ajustes.ligado) this.ponte.c.efeitoAcordar(this.numero);
   }
 
-  // Memória limpa (depois de um conserto): como novo
-  zerar() {
-    this.ponte.c.efeitoZerar(this.numero);
-  }
-
-  // Parado no silêncio (nem é processado): o LFO do Phaser/Flanger/Chorus continua andando
-  // (os ajustes vão antes, para ele andar com o Rate de agora)
-  pular(tamanhoBloco) {
-    this.escreverAjustes();
-    this.ponte.c.efeitoPular(this.numero, tamanhoBloco);
-  }
-
-  // Ajustes → mesa do C++ (liga/desliga = 1/0; tipo = número na lista, desconhecido = o 1º).
-  // Um valor inválido (NaN, infinito, texto) é ignorado: fica o último valor bom.
+  // Valor dos knobs → mesa do C++ (liga/desliga = 1/0; tipo = número na lista, desconhecido =
+  // o 1º). Um valor inválido (NaN, infinito, texto) é ignorado: fica o último valor bom.
   escreverAjustes() {
     const f64 = this.ponte.f64;
     const a = this.ajustes;
     for (let k = 0; k < this.campos.length; k++) {
       const nome = this.campos[k];
       const v = a[nome];
-      if (nome === 'tipo') f64[this.iAjustes + k] = Math.max(0, this.tipos.indexOf(v));
-      else if (typeof v === 'boolean') f64[this.iAjustes + k] = v ? 1 : 0;
-      else if (Number.isFinite(v)) f64[this.iAjustes + k] = v;
+      if (nome === 'tipo') f64[this.iBases + k] = Math.max(0, this.tipos.indexOf(v));
+      else if (typeof v === 'boolean') f64[this.iBases + k] = v ? 1 : 0;
+      else if (Number.isFinite(v)) f64[this.iBases + k] = v;
     }
   }
 
-  // Processa o som que está em ponte.somE/somD
-  processar(tamanhoBloco) {
-    this.escreverAjustes();
-    this.ponte.c.efeitoProcessar(this.numero, tamanhoBloco);
-  }
+  // O C++ limpou a memória deste efeito (conserto de valores inválidos)
+  depoisDoConserto() {}
 }
 
 // Filtro Track: a troca de tipo passa pela transição suave do filtro (ftTipo) e o Cutoff
@@ -200,9 +182,9 @@ class EfeitoNoMotor {
 class FiltroTrack extends EfeitoNoMotor {
   constructor(ponte) {
     super(ponte, 'filtroTrack', { ligado: false, tipo: 'lp24', nota: 72, track: 1, reso: 0.2, mix: 1 });
-    this.notaReferencia = 60; // o motor atualiza a cada bloco (última nota tocada)
     this.tipoAtual = 'lp24';
-    this.iReferencia = this.iAjustes + this.campos.indexOf('referencia');
+    this.iReferencia = this.iBases + this.campos.indexOf('referencia');
+    this.definirReferencia(60);
   }
 
   definir(ajustes) {
@@ -211,18 +193,18 @@ class FiltroTrack extends EfeitoNoMotor {
       this.ponte.c.ftTipo(TIPOS_FILTRO.indexOf(this.ajustes.tipo));
       this.tipoAtual = this.ajustes.tipo;
     }
-    if (this.ajustes.ligado) this.ponte.c.efeitoAcordar(this.numero);
+    super.definir({});
   }
 
-  // Volta com o tipo padrão (LP 24)
-  zerar() {
-    super.zerar();
+  // Nota de referência (altura em semitons da última nota tocada)
+  definirReferencia(altura) {
+    this.ponte.f64[this.iReferencia] = altura;
+  }
+
+  // O conserto no C++ volta o filtro para LP 24: manda de novo o tipo escolhido
+  depoisDoConserto() {
     this.tipoAtual = 'lp24';
-  }
-
-  processar(tamanhoBloco) {
-    this.ponte.f64[this.iReferencia] = this.notaReferencia;
-    super.processar(tamanhoBloco);
+    this.definir({});
   }
 }
 
@@ -230,23 +212,8 @@ class FiltroTrack extends EfeitoNoMotor {
 // pico é o maior desde a última leitura, então nada escapa).
 const BLOCOS_ENTRE_ENVIOS = Math.round(sampleRate / 128 / 6);
 
-// Efeitos parados no silêncio: abaixo deste nível (-120 dB) é silêncio. A espera é maior que o
-// maior "buraco" possível dentro de um efeito (Delay de 2 s + folga), para não parar um eco
-// que ainda vai voltar.
+// Abaixo deste nível (-120 dB) é silêncio (o soft clipper descansa)
 const LIMIAR_SILENCIO = 1e-6;
-const ESPERA_SILENCIO = 2.5; // segundos
-
-// Maior valor (sem sinal) do bloco, nos dois lados
-function picoDoBloco(e, d, n) {
-  let pico = 0;
-  for (let i = 0; i < n; i++) {
-    const a = e[i] < 0 ? -e[i] : e[i];
-    const b = d[i] < 0 ? -d[i] : d[i];
-    if (a > pico) pico = a;
-    if (b > pico) pico = b;
-  }
-  return pico;
-}
 
 // Algum valor inválido no bloco (NaN ou infinito)? "v - v" só é 0 para números normais.
 function temInvalido(e, d, n) {
@@ -263,6 +230,11 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   consertar(origem, saidaE, saidaD, tamanhoBloco) {
     saidaE.fill(0, 0, tamanhoBloco);
     saidaD.fill(0, 0, tamanhoBloco);
+    this.avisarConserto(origem);
+  }
+
+  // (Os efeitos são consertados dentro do C++: aqui só o aviso)
+  avisarConserto(origem) {
     if ((this.ultimoConserto[origem] ?? -1) > currentTime - 1) return;
     this.ultimoConserto[origem] = currentTime;
     this.port.postMessage({ tipo: 'consertado', origem });
@@ -450,19 +422,19 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       delay: this.delay,
       reverb: this.reverb,
     };
-    // A ordem do caminho do som (cada efeito com o seu contador de silêncio)
-    this.cadeiaEfeitos = ['saturacao', 'distorcao', 'filtroTrack', 'eq', 'compressor', 'phaser', 'flanger', 'chorus', 'delay', 'reverb'].map(
-      (id) => ({ id, efeito: this.efeitos[id], silencio: 0, parado: false })
-    );
-    this.esperaSilencio = ESPERA_SILENCIO * sampleRate;
+    // Nome de cada efeito pelo número dele no C++ (para o aviso de conserto)
+    this.nomesEfeitos = [];
+    for (const [id, { numero }] of Object.entries(EFEITOS_NO_MOTOR)) this.nomesEfeitos[numero] = id;
 
-    // Modulação dos knobs dos efeitos (ver modularEfeitos): o valor escolhido na tela de cada
-    // knob ("base") fica guardado aqui; o efeito recebe base + modulação.
-    this.basesEfeitos = {};
-    for (const [id, efeito] of Object.entries(this.efeitos)) this.basesEfeitos[id] = { ...efeito.ajustes };
-    this.modEfeitos = new Float64Array(MOD_EFEITOS.length); // suavizada (~5 ms)
-    this.modulandoEfeito = new Uint8Array(MOD_EFEITOS.length); // 1 = o knob está sendo modulado
-    this.suavizarModEfeitos = 1 - Math.exp(-128 / (0.005 * sampleRate));
+    // Modulação dos knobs dos efeitos: a tabela dos knobs moduláveis (faixa e escala de cada
+    // um, a mesma da tela) vai para o C++ uma vez; lá, a cada bloco, efeito = knob + modulação.
+    this.ponte.definirModsEfeitos(
+      MOD_EFEITOS.map((m) => {
+        const { numero, campos } = EFEITOS_NO_MOTOR[m.efeito];
+        return [numero, campos.indexOf(m.nome), m.min, m.max, m.exp ? 1 : 0];
+      }),
+      D_PRIMEIRO_EFEITO
+    );
 
     // Saída: volume geral → soft clipper, SEMPRE ligado (proteção fixa: nunca passa de 0 dB).
     // O motor avisa a tela do maior pico (antes de arredondar) para ela mostrar um recado
@@ -531,7 +503,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
         break;
       case 'efeito':
         this.efeitos[msg.id]?.definir(msg.ajustes);
-        if (this.basesEfeitos[msg.id]) Object.assign(this.basesEfeitos[msg.id], msg.ajustes);
         break;
     }
   }
@@ -802,66 +773,28 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       this.consertar('vozes', saidaE, saidaD, tamanhoBloco);
       this.recriarVozes();
     }
-    this.modularEfeitos();
-
-    // Efeitos, sempre depois das notas somadas. Rodam mesmo sem notas, para a
-    // cauda do reverb e os ecos do delay terminarem (quando tudo silencia, dormem).
-    // Economia (bateria): um efeito que está recebendo silêncio e soltando silêncio há mais
-    // de ESPERA_SILENCIO fica "parado" (nem é chamado) até chegar som de novo. Mesmo LIGADO.
+    // Efeitos, sempre depois das notas somadas (todos no C++: efeitosProcessar). Rodam mesmo
+    // sem notas, para a cauda do reverb e os ecos do delay terminarem (quando tudo silencia,
+    // dormem); um efeito que só recebe e solta silêncio há mais de 2,5 s fica "parado" (nem é
+    // calculado). Lá também: os knobs modulados (fontes da nota tocada por último) e o
+    // conserto de valores inválidos (aqui só o aviso).
     // Filtro Track: a nota de referência é a da voz da nota tocada por último ("ruidoDona" é
     // essa voz, nos dois modos), já com o Glide (altura em semitons)
-    if (this.ruidoDona) this.filtroTrack.notaReferencia = this.ruidoDona.altura;
-    // Efeitos do C++: o som é copiado para dentro dele antes do primeiro e fica lá enquanto
-    // os seguintes também forem do C++ (sem cópias de ida e volta entre eles); volta para a
-    // saída antes de um efeito em JavaScript (ou no fim).
+    if (this.ruidoDona) this.filtroTrack.definirReferencia(this.ruidoDona.altura);
     const ponte = this.ponte;
-    let somE = saidaE; // onde o som está agora: na saída ou dentro do C++ (ponte.somE/somD)
-    let somD = saidaD;
-    let pico = picoDoBloco(somE, somD, tamanhoBloco);
-    for (const item of this.cadeiaEfeitos) {
-      const entradaSilenciosa = pico < LIMIAR_SILENCIO;
-      if (item.parado) {
-        if (entradaSilenciosa) {
-          // silêncio entra, silêncio sai: nada a fazer (só o LFO dos efeitos que têm um anda)
-          if (!item.efeito.dormindo) item.efeito.pular?.(tamanhoBloco);
-          continue;
-        }
-        item.parado = false; // chegou som: acorda
-        item.silencio = 0;
+    ponte.somE.set(saidaE);
+    ponte.somD.set(saidaD);
+    const consertos = ponte.c.efeitosProcessar(this.indiceUltima(), tamanhoBloco);
+    saidaE.set(ponte.somE.subarray(0, tamanhoBloco));
+    saidaD.set(ponte.somD.subarray(0, tamanhoBloco));
+    if (consertos) {
+      for (let ef = 0; ef < this.nomesEfeitos.length; ef++) {
+        if (!(consertos & (1 << ef))) continue;
+        this.efeitos[this.nomesEfeitos[ef]].depoisDoConserto();
+        this.avisarConserto(this.nomesEfeitos[ef]);
       }
-      if (item.efeito.noMotor) {
-        if (somE === saidaE) {
-          ponte.somE.set(saidaE);
-          ponte.somD.set(saidaD);
-          somE = ponte.somE;
-          somD = ponte.somD;
-        }
-        item.efeito.processar(tamanhoBloco);
-      } else {
-        if (somE !== saidaE) {
-          saidaE.set(somE.subarray(0, tamanhoBloco));
-          saidaD.set(somD.subarray(0, tamanhoBloco));
-          somE = saidaE;
-          somD = saidaD;
-        }
-        item.efeito.processar(saidaE, saidaD, tamanhoBloco);
-      }
-      if (temInvalido(somE, somD, tamanhoBloco)) {
-        // Conta inválida neste efeito: limpa a memória dele (fica como novo, com os mesmos ajustes)
-        this.consertar(item.id, somE, somD, tamanhoBloco);
-        const ajustes = { ...item.efeito.ajustes };
-        if (item.efeito.zerar) item.efeito.zerar(); // (efeitos no C++)
-        else Object.assign(item.efeito, new item.efeito.constructor(sampleRate));
-        item.efeito.definir(ajustes);
-      }
-      pico = picoDoBloco(somE, somD, tamanhoBloco);
-      item.silencio = entradaSilenciosa && pico < LIMIAR_SILENCIO ? item.silencio + tamanhoBloco : 0;
-      if (item.silencio > this.esperaSilencio) item.parado = true;
     }
-    if (somE !== saidaE) {
-      saidaE.set(somE.subarray(0, tamanhoBloco));
-      saidaD.set(somD.subarray(0, tamanhoBloco));
-    }
+    const pico = ponte.c.efeitosPico();
 
     // Volume geral (suave: a barra usa rampas) e soft clipper
     const volume = parametros.volume;
@@ -898,46 +831,6 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       if (!emUso) this.ponte.c.apagarTabela(t);
       return emUso;
     });
-  }
-
-  // Knobs dos efeitos ligados a LFO/ENV. Os efeitos tratam todas as notas juntas, então usam
-  // as fontes da nota tocada por último (enquanto ela soa); um LFO Livre vale sempre, mesmo
-  // sem nota. Sem nenhuma ligação nos efeitos, não faz nada.
-  modularEfeitos() {
-    const ponte = this.ponte;
-    const total = MOD_EFEITOS.length;
-    let algum = false;
-    for (let j = 0; j < total; j++) {
-      if (this.modulandoEfeito[j] || ponte.usa(D_PRIMEIRO_EFEITO + j)) {
-        algum = true;
-        break;
-      }
-    }
-    if (!algum) return;
-
-    // Soma no C++: fontes da nota tocada por último + Macros e LFOs Livres (valem sempre)
-    ponte.c.somarEfeitos(this.indiceUltima());
-    const f64 = ponte.f64;
-    const iAlvo = ponte.iModEfeitos + D_PRIMEIRO_EFEITO;
-
-    const k = this.suavizarModEfeitos;
-    for (let j = 0; j < total; j++) {
-      const usa = ponte.usa(D_PRIMEIRO_EFEITO + j);
-      if (!usa && !this.modulandoEfeito[j]) continue;
-      const m = MOD_EFEITOS[j];
-      const base = this.basesEfeitos[m.efeito][m.nome];
-      const ajustes = this.efeitos[m.efeito].ajustes;
-      if (!usa) {
-        // A ligação saiu (já sumiu suavemente): volta ao valor exato do knob
-        ajustes[m.nome] = base;
-        this.modEfeitos[j] = 0;
-        this.modulandoEfeito[j] = 0;
-        continue;
-      }
-      this.modEfeitos[j] += (f64[iAlvo + j] - this.modEfeitos[j]) * k;
-      ajustes[m.nome] = valorDaPosicao(m, posicaoDoValor(m, base) + this.modEfeitos[j]);
-      this.modulandoEfeito[j] = 1;
-    }
   }
 
   // Índice da voz da nota tocada por último, se ainda soa (-1 = nenhuma). "ruidoDona" é

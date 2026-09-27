@@ -1504,6 +1504,9 @@ enum {
   EF_PHASER, EF_FLANGER, EF_CHORUS, EF_DELAY, EF_REVERB, N_EFEITOS
 };
 constexpr int MAX_CAMPOS_EFEITO = 16;
+// "basesEfeitos" = valor dos knobs (o JS escreve quando mudam); "ajustesEfeitos" = valores em
+// uso neste bloco (os knobs + a modulação: ver efeitosProcessar). Os efeitos leem os em uso.
+double basesEfeitos[N_EFEITOS][MAX_CAMPOS_EFEITO];
 double ajustesEfeitos[N_EFEITOS][MAX_CAMPOS_EFEITO];
 double* const ajustesFt = ajustesEfeitos[EF_FILTRO_TRACK];
 // Som passando pelos efeitos (o JS copia para cá antes do 1º efeito do C++ e de volta
@@ -2841,6 +2844,63 @@ constexpr int CAMPOS_EFEITO[N_EFEITOS] = {
   N_CAMPOS_PH, N_CAMPOS_FL, N_CAMPOS_CH, N_CAMPOS_DL, N_CAMPOS_RV,
 };
 
+// ---------- Modulação dos knobs dos efeitos (igual à antiga modularEfeitos do JS) ----------
+// Tabela dos knobs moduláveis (MOD_EFEITOS em dsp/efeitos/modulaveis.js), recebida ao ligar:
+// efeito, ajuste, faixa do knob e escala (exponencial ou linear). O destino de modulação do
+// knob j é "primeiroDestinoEfeito + j".
+struct ModEfeito {
+  int ef, campo;
+  double min, max;
+  bool exp;
+  // Posição do knob (0 a 1) ↔ valor, na escala dele
+  double posicao(double valor) const {
+    const double p = exp ? std::log(valor / min) / std::log(max / min) : (valor - min) / (max - min);
+    return p < 0 ? 0 : p > 1 ? 1 : p;
+  }
+  double valor(double posicao) const {
+    const double p = posicao < 0 ? 0 : posicao > 1 ? 1 : posicao;
+    return exp ? min * std::pow(max / min, p) : min + p * (max - min);
+  }
+};
+constexpr int MAX_MOD_EFEITOS = 96;
+ModEfeito modsEfeitos[MAX_MOD_EFEITOS];
+double entradaModsEfeitos[MAX_MOD_EFEITOS * 5]; // mesa: efeito, ajuste, min, max, exp (o JS escreve)
+int qtdModsEfeitos = 0;
+int primeiroDestinoEfeito = 0;
+double modSuave[MAX_MOD_EFEITOS]; // modulação de cada knob, suavizada (~5 ms)
+bool modulando[MAX_MOD_EFEITOS];  // o knob está sendo modulado?
+double suavizarModEfeitos = 0;
+
+// ---------- Caminho do som pelos 10 efeitos ----------
+// Economia: um efeito que recebe silêncio e solta silêncio há mais de 2,5 s (mais que o maior
+// "buraco" possível dentro de um efeito: Delay de 2 s + folga) fica "parado" (nem é chamado)
+// até chegar som de novo. Mesmo LIGADO.
+constexpr double LIMIAR_SILENCIO = 1e-6; // -120 dB
+double esperaSilencio = 0;
+double silencioEfeito[N_EFEITOS];
+bool paradoEfeito[N_EFEITOS];
+double picoEfeitos = 0; // maior valor do som na saída do último efeito (o JS usa no clipper)
+
+// Maior valor (sem sinal) do bloco, nos dois lados
+double picoDoBloco(int tamanho) {
+  double pico = 0;
+  for (int i = 0; i < tamanho; i++) {
+    const double a = std::fabs(efeitoE[i]);
+    const double b = std::fabs(efeitoD[i]);
+    if (a > pico) pico = a;
+    if (b > pico) pico = b;
+  }
+  return pico;
+}
+
+// Algum valor inválido no bloco (NaN ou infinito)?
+bool temInvalido(int tamanho) {
+  for (int i = 0; i < tamanho; i++) {
+    if (!std::isfinite(efeitoE[i]) || !std::isfinite(efeitoD[i])) return true;
+  }
+  return false;
+}
+
 }  // namespace
 
 // ================= Funções que o JavaScript chama =================
@@ -2848,7 +2908,7 @@ constexpr int CAMPOS_EFEITO[N_EFEITOS] = {
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
 EXPORTAR int versao() { return 6; }
 
-EXPORTAR void efeitoZerar(int ef); // (mais abaixo)
+static void efeitoZerar(int ef); // (mais abaixo)
 
 // Liga o motor na taxa de amostragem do aparelho (chamada uma vez, ao nascer).
 // "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length no JS).
@@ -2862,6 +2922,9 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   suavizarMacros = 1 - std::exp(-BLOCO / (0.01 * taxa));
   freqMaximaFiltro = std::fmin(20000.0, 0.45 * taxa);
   suavizar10ms = 1 - std::exp(-1 / (0.01 * taxa));
+  suavizarModEfeitos = 1 - std::exp(-BLOCO / (0.005 * taxa));
+  esperaSilencio = 2.5 * taxa;
+  for (int ef = 0; ef < N_EFEITOS; ef++) silencioEfeito[ef] = 0, paradoEfeito[ef] = false;
   tanhDesvioSat = std::tanh(0.25);
   tanhDesvioDist = std::tanh(0.3);
   prepararMeiaBanda();
@@ -2892,14 +2955,13 @@ EXPORTAR double* enderecoMacros() { return macrosAlvo; }
 EXPORTAR double* enderecoLigacoes() { return entradaLigacoes; }
 EXPORTAR double* enderecoAjustesVoz() { return ajustesVoz; }
 EXPORTAR double* enderecoCortesResos() { return &cortesResos[0][0]; } // Cutoff 1, Reso 1, Cutoff 2, Reso 2
-EXPORTAR double* enderecoAjustesEfeito(int ef) { return ajustesEfeitos[ef]; }
+EXPORTAR double* enderecoBasesEfeito(int ef) { return basesEfeitos[ef]; } // valor dos knobs
+EXPORTAR double* enderecoModsEfeitos() { return entradaModsEfeitos; }
 EXPORTAR int camposEfeito(int ef) { return CAMPOS_EFEITO[ef]; }
 EXPORTAR double* enderecoEfeito() { return efeitoE; } // esquerda; a direita vem logo depois (+ BLOCO)
 EXPORTAR int camposVoz() { return N_CAMPOS_VOZ; }
 // Som da voz v no bloco: esquerda; a direita vem logo depois (+ BLOCO números)
 EXPORTAR double* enderecoVozSaida(int v) { return vozes[v].saidaE; }
-EXPORTAR uint8_t* enderecoUsos() { return usos; }
-EXPORTAR double* enderecoModEfeitos() { return modEfeitos; }
 EXPORTAR double* enderecoMod(int v) { return vozes[v].mod; } // modulação da voz v (o JS lê)
 EXPORTAR int camposOsc() { return N_CAMPOS; }
 
@@ -3005,7 +3067,7 @@ EXPORTAR void definirLigacoes(int n) {
 
 // Modulação dos knobs dos EFEITOS (soma em modEfeitos): fontes da nota tocada por último
 // ("ultima", -1 = nenhuma soando) + Macros e LFOs Livres, que valem sempre.
-EXPORTAR void somarEfeitos(int ultima) {
+static void somarEfeitos(int ultima) {
   double fontes[N_FONTES];
   for (int f = 0; f < N_FONTES; f++) fontes[f] = ultima >= 0 ? vozes[ultima].fontes[f] : 0;
   for (int m = 0; m < 4; m++) fontes[INDICES_MACRO[m]] = macros[m];
@@ -3093,9 +3155,9 @@ EXPORTAR void vozProcessar(int v, int tamanho, double sorteioRuido, int dona) {
 }
 
 // ---------- Efeitos (todos os 10, na ordem do caminho do som) ----------
-// "ef" = número do efeito (EF_SATURACAO...). O som está em "somEfeito" (o JS copia para cá
-// antes do 1º efeito do C++ e de volta depois do último); os ajustes, na linha do efeito.
-EXPORTAR void efeitoProcessar(int ef, int tamanho) {
+// "ef" = número do efeito (EF_SATURACAO...). O som está em "somEfeito"; os ajustes em uso,
+// na linha do efeito em ajustesEfeitos.
+static void efeitoProcessar(int ef, int tamanho) {
   switch (ef) {
     case EF_SATURACAO: saturacao.processar(tamanho); break;
     case EF_DISTORCAO: distorcao.processar(tamanho); break;
@@ -3110,7 +3172,7 @@ EXPORTAR void efeitoProcessar(int ef, int tamanho) {
   }
 }
 // Memória limpa (como novo); volta dormindo
-EXPORTAR void efeitoZerar(int ef) {
+static void efeitoZerar(int ef) {
   switch (ef) {
     case EF_SATURACAO: saturacao.zerar(); break;
     case EF_DISTORCAO: distorcao.zerar(); break;
@@ -3139,12 +3201,8 @@ static bool* dormindoDe(int ef) {
   }
   return nullptr;
 }
-EXPORTAR int efeitoDormindo(int ef) {
-  const bool* d = dormindoDe(ef);
-  return d && *d ? 1 : 0;
-}
 // Efeito parado no silêncio (nem é processado): o LFO do Phaser/Flanger/Chorus continua andando
-EXPORTAR void efeitoPular(int ef, int tamanho) {
+static void efeitoPular(int ef, int tamanho) {
   switch (ef) {
     case EF_PHASER: phaser.pular(tamanho); break;
     case EF_FLANGER: flanger.pular(tamanho); break;
@@ -3155,6 +3213,89 @@ EXPORTAR void efeitoPular(int ef, int tamanho) {
 EXPORTAR void efeitoAcordar(int ef) {
   if (bool* d = dormindoDe(ef)) *d = false;
 }
+
+// Tabela dos knobs moduláveis: o JS escreveu "n" linhas (efeito, ajuste, min, max, exp) na mesa
+// (enderecoModsEfeitos). "primeiro" = destino de modulação do 1º knob. Devolve 0 se não cabe.
+EXPORTAR int definirModsEfeitos(int n, int primeiro) {
+  if (n > MAX_MOD_EFEITOS || primeiro + n > MAX_DESTINOS) return 0;
+  for (int j = 0; j < n; j++) {
+    const double* e = entradaModsEfeitos + 5 * j;
+    ModEfeito& m = modsEfeitos[j];
+    m.ef = static_cast<int>(e[0]);
+    m.campo = static_cast<int>(e[1]);
+    if (m.ef < 0 || m.ef >= N_EFEITOS || m.campo < 0 || m.campo >= MAX_CAMPOS_EFEITO) return 0;
+    m.min = e[2];
+    m.max = e[3];
+    m.exp = e[4] != 0;
+    modSuave[j] = 0;
+    modulando[j] = false;
+  }
+  qtdModsEfeitos = n;
+  primeiroDestinoEfeito = primeiro;
+  return 1;
+}
+
+// Knobs dos efeitos ligados a LFO/ENV/Macro: os efeitos tratam todas as notas juntas, então
+// usam as fontes da nota tocada por último ("ultima", enquanto soa; -1 = nenhuma); um LFO
+// Livre e os Macros valem sempre. Em uso = knob + modulação (na escala do knob), suavizada
+// ~5 ms. Tirou a ligação: volta ao valor exato do knob.
+static void modularEfeitos(int ultima) {
+  bool algum = false;
+  for (int j = 0; j < qtdModsEfeitos && !algum; j++) algum = modulando[j] || usos[primeiroDestinoEfeito + j];
+  if (!algum) return;
+  somarEfeitos(ultima);
+  for (int j = 0; j < qtdModsEfeitos; j++) {
+    const bool usa = usos[primeiroDestinoEfeito + j];
+    if (!usa && !modulando[j]) continue;
+    const ModEfeito& m = modsEfeitos[j];
+    if (!usa) {
+      modSuave[j] = 0; // (o valor em uso já é o do knob)
+      modulando[j] = false;
+      continue;
+    }
+    modSuave[j] += (modEfeitos[primeiroDestinoEfeito + j] - modSuave[j]) * suavizarModEfeitos;
+    ajustesEfeitos[m.ef][m.campo] = m.valor(m.posicao(basesEfeitos[m.ef][m.campo]) + modSuave[j]);
+    modulando[j] = true;
+  }
+}
+
+// O bloco inteiro pelos 10 efeitos: o som já está em "somEfeito" (o JS copiou) e volta lá.
+// Efeitos parados no silêncio nem são chamados (só o LFO deles anda). Um efeito que soltar
+// valores inválidos (NaN, infinito) tem o bloco trocado por silêncio e a memória limpa (fica
+// como novo, com os mesmos ajustes). Devolve os bits dos efeitos consertados (o JS avisa).
+EXPORTAR int efeitosProcessar(int ultima, int tamanho) {
+  for (int ef = 0; ef < N_EFEITOS; ef++) {
+    for (int k = 0; k < CAMPOS_EFEITO[ef]; k++) ajustesEfeitos[ef][k] = basesEfeitos[ef][k];
+  }
+  modularEfeitos(ultima);
+  int consertos = 0;
+  double pico = picoDoBloco(tamanho);
+  for (int ef = 0; ef < N_EFEITOS; ef++) {
+    const bool entradaSilenciosa = pico < LIMIAR_SILENCIO;
+    if (paradoEfeito[ef]) {
+      if (entradaSilenciosa) {
+        // silêncio entra, silêncio sai: nada a fazer (só o LFO dos efeitos que têm um anda)
+        if (!*dormindoDe(ef)) efeitoPular(ef, tamanho);
+        continue;
+      }
+      paradoEfeito[ef] = false; // chegou som: acorda
+      silencioEfeito[ef] = 0;
+    }
+    efeitoProcessar(ef, tamanho);
+    if (temInvalido(tamanho)) {
+      for (int i = 0; i < tamanho; i++) efeitoE[i] = efeitoD[i] = 0;
+      efeitoZerar(ef);
+      if (ajustesEfeitos[ef][0] != 0) *dormindoDe(ef) = false; // (o 1º ajuste é sempre o "ligado")
+      consertos |= 1 << ef;
+    }
+    pico = picoDoBloco(tamanho);
+    silencioEfeito[ef] = entradaSilenciosa && pico < LIMIAR_SILENCIO ? silencioEfeito[ef] + tamanho : 0;
+    if (silencioEfeito[ef] > esperaSilencio) paradoEfeito[ef] = true;
+  }
+  picoEfeitos = pico;
+  return consertos;
+}
+EXPORTAR double efeitosPico() { return picoEfeitos; }
 // Filtro Track: troca de tipo (LP 12, LP 24, HP, BP), com a transição suave do filtro
 EXPORTAR void ftTipo(int tipo) {
   filtroTrack.esquerdo.definirTipo(tipo);

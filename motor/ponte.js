@@ -85,8 +85,6 @@ export class Ponte {
     }
     this.iEfeito = this.c.enderecoEfeito() / 8; // som passando pelos efeitos: esquerda; direita BLOCO depois
     this.renovar(true); // (as vistas somE/somD precisam de iEfeito)
-    this.iModEfeitos = this.c.enderecoModEfeitos() / 8;
-    this.iUsos = this.c.enderecoUsos(); // (em bytes: lido com u8)
   }
 
   renovar(forcar = false) {
@@ -114,11 +112,6 @@ export class Ponte {
     return this.c.enderecoVozSaida(v) / 8;
   }
 
-  // O destino d está sendo modulado por alguma ligação?
-  usa(d) {
-    return this.u8[this.iUsos + d] === 1;
-  }
-
   // Lista nova de ligações: [{ fonte, destino, quantidade }] com os índices já convertidos
   definirLigacoes(lista) {
     const n = Math.min(lista.length, 256);
@@ -128,6 +121,14 @@ export class Ponte {
       this.f64[this.iLigacoes + 3 * j + 2] = lista[j].quantidade;
     }
     this.c.definirLigacoes(n);
+  }
+
+  // Tabela dos knobs moduláveis dos efeitos: [[efeito, ajuste, min, max, exp], ...]
+  // ("primeiro" = destino de modulação do 1º knob)
+  definirModsEfeitos(linhas, primeiro) {
+    const i = this.c.enderecoModsEfeitos() / 8;
+    linhas.forEach((linha, j) => this.f64.set(linha, i + 5 * j));
+    if (!this.c.definirModsEfeitos(linhas.length, primeiro)) throw new Error('motor.wasm: knobs moduláveis demais');
   }
 
   // Guarda uma wavetable (vinda da tela) dentro do C++. Devolve o endereço dela (0 = falhou).

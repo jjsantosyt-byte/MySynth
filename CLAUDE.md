@@ -405,6 +405,31 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   Conserto testado (Grave 1e308 → NaN no EQ): 2 blocos de silêncio, aviso "eq", som volta.
   App: "motor C++ carregado (versão 5)", toca, medidor do Compressor -9,3 dB tocando → 0 dB.
   Cópia da F2b para comparar: `_antigo/f2b` + `_antigo/motor-f2b.wasm`.
+- F3b (27/09/2026, FEITA, em teste; versão 6, em 2 partes). Parte 1: Phaser, Flanger, Chorus,
+  Delay e Reverb no C++ (bloco "Efeitos de espaço"; memórias em float como as Float32Array de
+  antes: `Memoria` com `alocar` em iniciar, `lerLinear`, Hermite no Flanger, FDN no Reverb).
+  Parte 2: modulação dos knobs dos efeitos e o caminho do som inteiro pelos 10 efeitos no C++:
+  `efeitosProcessar(ultima, tamanho)` = em uso (`ajustesEfeitos`) ← valor dos knobs
+  (`basesEfeitos`, o JS escreve só quando mudam) + `modularEfeitos` (tabela `modsEfeitos` recebida
+  ao ligar por `definirModsEfeitos(n, D_PRIMEIRO_EFEITO)`; `ModEfeito.posicao/valor` = escala do
+  knob; suavização ~5 ms) → cadeia com silêncio/parado (2,5 s, `efeitoPular` anda o LFO do
+  Phaser/Flanger/Chorus) e conserto de NaN por efeito (zera, `efeitoZerar`, acorda se ligado;
+  devolve bits → o JS só avisa, e o Filtro Track manda o tipo de novo: `depoisDoConserto`).
+  `efeitosPico()` = pico na saída (clipper). JS: `EfeitoNoMotor` só com ajustes/definir/
+  escreverAjustes; o processo copia o som para `somEfeito`, chama `efeitosProcessar` e copia de
+  volta. Saíram do C++ para o JS: `efeitoDormindo`, `enderecoUsos`, `enderecoModEfeitos` (e
+  `somarEfeitos`/`efeitoProcessar`/`efeitoZerar`/`efeitoPular` viraram internos).
+  APAGADOS: dsp/efeitos/phaser.js, flanger.js, chorus.js, delay.js, reverb.js, comum.js.
+  `tempoDoTamanho` (tela do Reverb) agora em dsp/efeitos/modulaveis.js. Em dsp/efeitos/ só sobrou
+  modulaveis.js.
+  Medido (`_antigo/teste/teste-f3b.js`, 10 cenários: cada efeito mudando ajustes/liga-desliga/
+  cauda, os 10 juntos + LFO Livre em 5 knobs, knobs girando a cada bloco, silêncio longo
+  (parados, LFOs andando) + nota nova): -111 a -131 dB contra a régua (LFO Livre: -134 dB contra
+  a F3a); partes 1 e 2 idênticas entre si; ligação ENV 2/LFO saindo no meio: -136 dB contra a F3a;
+  os 35 cenários antigos iguais. PESO (8 notas U1): + 5 efeitos de espaço 13,2% → 8,4%; + os 10
+  efeitos 17,6% → 13,0% (régua em JS: 22,1%). Conserto (Grave 1e308 no EQ): 1 bloco de silêncio,
+  aviso "eq", som volta. App: versão 6, 10 efeitos ligados tocando, sem erros.
+  Cópia da F3a para comparar: `_antigo/f3a` + `_antigo/motor-f3a.wasm`.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
 - ATENÇÃO nos testes: o navegador guarda os módulos de `dsp/` já carregados; recarregar a página
   antes de rodar os testes em `_antigo/teste/` (senão compara o código antigo).
@@ -611,7 +636,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques, abas e controles
 - `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
-- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly): a voz inteira + Filtro Track, Saturação, Distorção, EQ, Compressor
+- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly): a voz inteira + os 10 efeitos (e a modulação dos knobs deles)
 - `dsp/warp.js` — contas do Warp (Sync, Bend, PWM)
 - `dsp/meia-banda.js` — filtro para trabalhar em taxa dobrada (hoje só o soft clipper; o resto no C++)
 - `dsp/filtro.js`, `dsp/ruido.js` — tipos de filtro/ruído e a fórmula da curva desenhada (as contas estão no motor.cpp)
@@ -628,8 +653,8 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
   `presets/fabrica/` (de fábrica), `presets/usuario/` (seus, trazidos para o projeto) e
   `presets/lista.json` (categorias + ordem dos arquivos; todo .synth novo precisa entrar aqui)
 - `interface/presets-projeto.js` — lê os .synth das pastas ao abrir o app
-- `dsp/efeitos/` — phaser.js, flanger.js, chorus.js, delay.js, reverb.js (+ comum.js,
-  modulaveis.js); Saturação, Distorção, EQ e Compressor estão no motor.cpp (F3a)
+- `dsp/efeitos/modulaveis.js` — tabela dos knobs moduláveis dos efeitos, tipos da Saturação/Distorção
+  e `tempoDoTamanho` do Reverb (os 10 efeitos estão no motor.cpp: F3a e F3b)
 - `wavetable.js` — monta as wavetables (frames × níveis anti-aliasing)
 - `visualizacao.js` — desenha a onda, o envelope e a curva do filtro
 - `sw.js` + `manifest.json` — app instalável que funciona sem internet (PWA)
