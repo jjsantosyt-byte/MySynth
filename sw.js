@@ -47,6 +47,7 @@ const ARQUIVOS = [
   'interface/janela.js',
   'interface/knob.js',
   'interface/modulacao.js',
+  'interface/lfo-desenho.js',
   'interface/presets-projeto.js',
   'interface/presets.js',
   'interface/seletor.js',

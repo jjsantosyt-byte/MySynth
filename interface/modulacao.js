@@ -137,9 +137,10 @@ const ehBipolar = (id) => id.startsWith('lfo');
 //   ligacoes: a lista de ligações (é alterada aqui dentro)
 //   aoMudar: chamado sempre que as ligações mudam
 //   formaDe: (id) → forma atual de um LFO ('seno'...), para o desenhinho da ficha
+//   desenhoDe: (id) → caminho SVG (caixa 22 × 12) do LFO desenhado (forma 'desenho')
 //   lugaresMacros: { macro1: elemento, ... } onde pôr a ficha de cada Macro (painel dos Macros)
 //   aoArmar(fonte): avisa quando uma ficha é armada (ou null ao desarmar)
-export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe, lugaresMacros = {}, aoArmar = () => {} }) {
+export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe, desenhoDe, lugaresMacros = {}, aoArmar = () => {} }) {
   let armada = null; // fonte escolhida no modo "tocar para ligar"
 
   // ---------- Fichas ----------
@@ -163,7 +164,8 @@ export function criarModulacao({ barra, dica, listas, ligacoes, aoMudar, formaDe
     for (const ficha of fichas) {
       const id = ficha.dataset.fonte;
       const forma = ehBipolar(id) ? formaDe?.(id) : id.startsWith('macro') ? 'macro' : 'env';
-      ficha.querySelector('.ficha-forma path').setAttribute('d', desenhoDaFicha(forma));
+      const caminho = forma === 'desenho' && desenhoDe ? desenhoDe(id) : desenhoDaFicha(forma); // LFO desenhado
+      ficha.querySelector('.ficha-forma path').setAttribute('d', caminho);
     }
   }
   atualizarFichas();

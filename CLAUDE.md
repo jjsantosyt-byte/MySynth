@@ -230,6 +230,30 @@ grade Off/4/8/16, modelos prontos (rampa, triângulo, degraus, sidechain).
   C++ × JS em 7 desenhos (curvas, degraus, NaN, fora de ordem, 1 e 20 pontos): diferença ≤ 3e-16;
   trocar desenhos com notas: sem NaN; peso 8 notas U4 + 3 LFOs: F4 7,98% | Tri 8,00% | Desenho
   16 pontos com curvas 7,92% (igual). App: versão 8, 36 presets sem erro.
+- L2 (29/09/2026, FEITA, em teste; maquete aprovada; SEM "Inverter" — decisão do dono: é o mesmo
+  que quantidade negativa na ligação; COM "Espelhar"). `interface/lfo-desenho.js`:
+  `criarEditorLfo({ lerPontos, aoMudar, nomeDe })` → janela `.janela-lfo` (quase a tela toda):
+  topo [LFO n · Desenho | "n / 16 pontos" | desfazer | Pronto], desenho grande (canvas, `touch-action:
+  none`) + dica (longa / curta ≤ 700 px), lateral 170 px (150 ≤ 700 px; em pé vai para baixo):
+  Grade Off/4/8/16 (padrão 8; gruda x na divisão e y em 1/4), 6 `MODELOS_LFO` (Rampa ↑/↓,
+  Triângulo, Degraus, Sidechain, Onda) e Espelhar (`espelharPontos`: x → 1 − x, ordem inversa,
+  curva troca de sinal). Toques: vazio = ponto novo já arrastando (máx. 16, recado); arrastar move
+  (x entre os vizinhos; 1º e último presos em x = 0/1, só sobem/descem, NÃO precisam ter a mesma
+  altura); toque duplo apaga (menos 1º/último); losango ◆ = curva (arrastar p/ cima empurra o
+  meio da linha p/ cima; 120 px = curva inteira; toque duplo = reta). Rótulo no canvas ("3/8 ·
+  +0,50", "Curva +0,40"). Desfazer próprio (máx. 50; Ctrl+Z com o editor aberto não chega ao
+  geral); cada mudança também passa pelo ↶ geral (modificou). O som muda na hora.
+  Desenho: `desenharEditorLfo` + `MARGEM_EDITOR_LFO` (visualizacao.js); `desenharLFO(canvas,
+  forma, pontos)`; ficha: `desenhoDe` em criarModulacao (`caminhoDoDesenho`, 2 voltas).
+  Cartão: 7º botão `.forma-desenho` (lápis + "Desenho"; 4 colunas, ele ocupa 2; deitado 7 colunas,
+  só o lápis); selo `.lfo-editar` ("Editar") no desenho quando a forma é Desenho; tocar no
+  desenho, no selo ou no botão já escolhido abre o editor. Ícones novos: `lapis`, `espelhar`.
+  Textos em idioma.js (Pronto/dica/"Curva" vêm prontos por idioma no código: "Pronto" já era
+  "Ready"). Testado: 800×360 e 640×360 (editor cabe sem rolar), em pé 393×760, inglês + tema
+  Claro, arrastar/criar/curvar/apagar/modelos/Espelhar, os dois desfazer, ficha acompanha.
+  ACHADO (não é do LFO): em 640×360 o app TODO fica quebrado (cartões empilhados e cortados, visor
+  embaixo do ↶, "Ligar som" cortado, fichas passam da tela); em 800×360 "Salvar" e "Ligar som"
+  ficam apertados. → revisão da tela nesses tamanhos (a combinar com o dono).
 
 **REGRA DE ESPAÇO (29/09/2026, pedido do dono):** a tela do app tem que ser USÁVEL e FÁCIL DE
 ENTENDER em celulares de tamanho médio e um pouco menores (não só no iPhone 15 Pro / Infinix).

@@ -166,6 +166,19 @@ const TEXTOS = new Map(
     Livre: 'Free',
     'Recomeça a cada nota': 'Restarts on every note',
     'Roda sem parar (as notas pegam ele andando)': 'Runs nonstop (notes catch it wherever it is)',
+    // LFO desenhado (interface/lfo-desenho.js)
+    Desenho: 'Draw',
+    '· Desenho': '· Draw',
+    Editar: 'Edit',
+    'Editar o desenho do LFO': 'Edit the LFO drawing',
+    Grade: 'Grid',
+    Modelos: 'Shapes',
+    'Rampa ↑': 'Ramp ↑',
+    'Rampa ↓': 'Ramp ↓',
+    Degraus: 'Steps',
+    Onda: 'Wave',
+    Espelhar: 'Mirror',
+    'Tocar o desenho de trás para frente': 'Play the drawing backwards',
 
     // Efeitos
     Cor: 'Color',
@@ -235,6 +248,11 @@ const TEXTOS = new Map(
 const parte = (texto) => traduzirTexto(texto);
 
 const MODELOS = [
+  // LFO desenhado
+  [/^(\d+) \/ (\d+) pontos$/, (m) => `${m[1]} / ${m[2]} points`],
+  [/^Máximo de (\d+) pontos\.$/, (m) => `Maximum of ${m[1]} points.`],
+  [/^Grade (Off|\d+)$/, (m) => `Grid ${m[1]}`],
+  [/^(LFO \d) · Desenho$/, (m) => `${m[1]} · Draw`],
   [/^Arraste a ficha (.+) até um controle \(ou toque nela e depois no controle\)\.$/, (m) => `Drag the ${m[1]} chip onto a control (or tap it, then tap the control).`],
   [/^Toque nos controles para ligar o (.+)\. Toque na ficha de novo para terminar\.$/, (m) => `Tap controls to connect ${m[1]}. Tap the chip again to finish.`],
   [/^Toque nos controles para ligar o (.+)\. Toque no M para terminar\.$/, (m) => `Tap controls to connect ${m[1]}. Tap M to finish.`],

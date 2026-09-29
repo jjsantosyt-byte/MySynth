@@ -2,6 +2,7 @@
 // Desenhos dos painéis: a forma de onda, o envelope (ADSR) e a curva do filtro.
 
 import { amortecimento, compensacaoResonancia } from './dsp/filtro.js';
+import { arrumarPontos, valorDesenho } from './dsp/lfo.js';
 
 // Cores dos desenhos: vêm do TEMA (variáveis --desenho-* no estilo.css), lidas na primeira vez
 // que algo é desenhado (trocar de tema recarrega o app). Cores em números "r, g, b" viram
@@ -158,7 +159,8 @@ function valorLFODesenho(forma, fase) {
 }
 
 // Desenha um ciclo da forma do LFO (parado: sem animação, para não pesar a tela).
-export function desenharLFO(canvas, forma) {
+// "pontos" = o desenho do LFO (usado quando a forma é 'desenho').
+export function desenharLFO(canvas, forma, pontos) {
   const tela = prepararCanvas(canvas);
   if (!tela) return;
   const { g, largura, altura } = tela;
@@ -167,14 +169,130 @@ export function desenharLFO(canvas, forma) {
   const amplitude = meio * 0.75;
   linhaGuia(g, 0, meio, largura, meio);
 
+  const desenho = forma === 'desenho' ? arrumarPontos(pontos) : null;
   const margem = 6;
   const qtd = Math.max(2, Math.floor(largura * 2));
-  const pontos = [];
+  const lista = [];
   for (let k = 0; k <= qtd; k++) {
     const fase = Math.min(k / qtd, 0.9999);
-    pontos.push([margem + (k / qtd) * (largura - 2 * margem), meio - valorLFODesenho(forma, fase) * amplitude]);
+    const v = desenho ? valorDesenho(desenho, fase) : valorLFODesenho(forma, fase);
+    lista.push([margem + (k / qtd) * (largura - 2 * margem), meio - v * amplitude]);
   }
-  linhaComBrilho(g, pontos, meio, altura);
+  linhaComBrilho(g, lista, meio, altura);
+}
+
+// ---------- Editor do LFO desenhado (interface/lfo-desenho.js) ----------
+
+// Margem dentro do desenho (os pontos das pontas não ficam cortados pela borda)
+export const MARGEM_EDITOR_LFO = 18;
+
+// pontos: [[x, y, curva], ...] já arrumados; grade: 0 (sem) ou 4/8/16 divisões;
+// ativo: { tipo: 'ponto' | 'curva', i } = o que está sendo arrastado; rotulo: texto em cima dele.
+// Devolve a geometria (para o editor saber onde estão os pontos e as alças de curva).
+export function desenharEditorLfo(canvas, pontos, { grade = 0, ativo = null, rotulo = '' } = {}) {
+  const tela = prepararCanvas(canvas);
+  if (!tela) return null;
+  const { g, largura, altura } = tela;
+  const m = MARGEM_EDITOR_LFO;
+  const X = (x) => m + x * (largura - 2 * m);
+  const Y = (y) => m + ((1 - y) / 2) * (altura - 2 * m);
+  const c = cores();
+
+  // Grade: linhas das divisões (cheias a cada 1/4) e níveis −1, −0,5, 0, +0,5, +1
+  const divisoes = grade || 4;
+  for (let k = 0; k <= divisoes; k++) {
+    g.save();
+    if (k % (divisoes / 4) !== 0 || !grade) g.setLineDash([2, 4]);
+    linhaGuia(g, X(k / divisoes), m, X(k / divisoes), altura - m);
+    g.restore();
+  }
+  for (const nivel of [1, 0.5, 0, -0.5, -1]) {
+    g.save();
+    if (nivel !== 0) g.setLineDash([2, 4]);
+    linhaGuia(g, m, Y(nivel), largura - m, Y(nivel));
+    g.restore();
+  }
+  g.fillStyle = c.apagado;
+  g.font = '10px system-ui, sans-serif';
+  g.fillText('+1', m + 3, m + 11);
+  g.fillText('−1', m + 3, altura - m - 4);
+
+  // A forma (uma linha; degraus viram linhas de pé)
+  const qtd = Math.max(2, Math.floor(largura * 1.5));
+  g.beginPath();
+  for (let k = 0; k <= qtd; k++) {
+    const fase = Math.min(k / qtd, 0.999999);
+    const x = X(fase), y = Y(valorDesenho(pontos, fase));
+    if (k === 0) g.moveTo(x, y);
+    else g.lineTo(x, y);
+  }
+  g.strokeStyle = rgbaDe(c.linha, 1);
+  g.lineWidth = 2.5;
+  g.lineJoin = 'round';
+  g.stroke();
+
+  // Alças de curva (losangos no meio dos trechos que sobem ou descem)
+  const alcas = [];
+  for (let i = 0; i + 1 < pontos.length; i++) {
+    const [xa, ya] = pontos[i];
+    const [xb, yb] = pontos[i + 1];
+    if (X(xb) - X(xa) < 22 || ya === yb) continue;
+    const xm = (xa + xb) / 2;
+    const px = X(xm), py = Y(valorDesenho(pontos, xm));
+    alcas.push({ i, x: px, y: py });
+    const aceso = ativo?.tipo === 'curva' && ativo.i === i;
+    const r = aceso ? 7 : 5;
+    g.beginPath();
+    g.moveTo(px, py - r);
+    g.lineTo(px + r, py);
+    g.lineTo(px, py + r);
+    g.lineTo(px - r, py);
+    g.closePath();
+    g.fillStyle = aceso ? rgbaDe(c.linha, 1) : c.alca;
+    g.fill();
+    g.lineWidth = 1.6;
+    g.strokeStyle = rgbaDe(c.linha, 1);
+    g.stroke();
+  }
+
+  // Pontos (o que está sendo arrastado fica maior, aceso e com um halo)
+  const lugares = pontos.map(([x, y]) => ({ x: X(x), y: Y(y) }));
+  lugares.forEach(({ x, y }, i) => {
+    const aceso = ativo?.tipo === 'ponto' && ativo.i === i;
+    if (aceso) {
+      g.beginPath();
+      g.arc(x, y, 16, 0, 2 * Math.PI);
+      g.fillStyle = rgbaDe(c.linha, 0.2);
+      g.fill();
+    }
+    g.beginPath();
+    g.arc(x, y, aceso ? 8 : 6.5, 0, 2 * Math.PI);
+    g.fillStyle = aceso ? rgbaDe(c.linha, 1) : c.alca;
+    g.fill();
+    g.lineWidth = 2;
+    g.strokeStyle = rgbaDe(c.ponto, 1);
+    g.stroke();
+  });
+
+  // Rótulo em cima do que está sendo arrastado (posição · valor)
+  const alvo = ativo?.tipo === 'ponto' ? lugares[ativo.i] : ativo?.tipo === 'curva' ? alcas.find((a) => a.i === ativo.i) : null;
+  if (alvo && rotulo) {
+    g.font = 'bold 11px system-ui, sans-serif';
+    const w = g.measureText(rotulo).width + 12;
+    const bx = Math.min(Math.max(alvo.x - w / 2, 2), largura - w - 2);
+    const by = alvo.y - 40 < 2 ? alvo.y + 20 : alvo.y - 40;
+    g.fillStyle = c.alca;
+    g.fillRect(bx, by, w, 20);
+    g.strokeStyle = rgbaDe(c.linha, 1);
+    g.lineWidth = 1;
+    g.strokeRect(bx + 0.5, by + 0.5, w - 1, 19);
+    g.fillStyle = rgbaDe(c.linha, 1);
+    g.textAlign = 'center';
+    g.fillText(rotulo, bx + w / 2, by + 14);
+    g.textAlign = 'start';
+  }
+
+  return { largura, altura, lugares, alcas };
 }
 
 // ---------- Envelope (ADSR) ----------

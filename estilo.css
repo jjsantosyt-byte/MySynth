@@ -3859,3 +3859,250 @@ html[data-tema='basico'] .medidor {
 .config-linha .config-titulo {
   margin-bottom: 0;
 }
+
+/* ==========================================================================================
+   LFO DESENHADO (29/09/2026): 7º botão "Desenho", selo "Editar" no cartão e a janela do editor
+   (interface/lfo-desenho.js). A janela ocupa quase a tela toda: o desenho à esquerda, grade,
+   modelos e Espelhar à direita. Alvos de toque com 40 px (regra de espaço: 800×360 e 640×360).
+   ========================================================================================== */
+
+/* Cartão do LFO: 4 por linha, "Desenho" ocupa 2 (Seno Tri S↑ S↓ / Quad S&H [Desenho]) */
+.grupo-botoes.formas-lfo {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.formas-lfo .forma-desenho {
+  grid-column: span 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  /* deitado: numa linha só (7 colunas); o Desenho mostra só o lápis */
+  .grupo-botoes.formas-lfo {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+  .formas-lfo .forma-desenho {
+    grid-column: auto;
+  }
+}
+
+/* Selo "Editar" em cima do desenho do cartão (só com a forma Desenho) */
+.lfo-editar {
+  --c: 4px;
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 8px;
+  border: 0;
+  background: rgba(var(--azul-rgb), 0.18);
+  color: var(--destaque);
+  font-size: 11px;
+  font-weight: 700;
+  clip-path: polygon(
+    var(--c) 0, calc(100% - var(--c)) 0, 100% var(--c), 100% calc(100% - var(--c)),
+    calc(100% - var(--c)) 100%, var(--c) 100%, 0 calc(100% - var(--c)), 0 var(--c)
+  );
+}
+.lfo-editar[hidden] {
+  display: none;
+}
+.lfo-editar .icone {
+  width: 12px;
+  height: 12px;
+}
+.lfo-tela-editavel {
+  cursor: pointer;
+}
+@media (orientation: landscape) and (max-height: 500px) {
+  .lfo-editar {
+    min-height: 20px;
+    padding: 0 6px;
+    font-size: 10px;
+  }
+}
+
+/* Janela do editor */
+.janela-fundo:has(.janela-lfo) {
+  padding: max(6px, env(safe-area-inset-top)) max(6px, env(safe-area-inset-right))
+    max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+}
+.janela.janela-lfo {
+  width: 100%;
+  height: 100%;
+  max-width: 1000px;
+  max-height: 640px;
+}
+.lfo-editor-topo {
+  gap: 8px;
+  padding: 4px 6px 4px 12px;
+}
+.lfo-editor-titulo {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 15px;
+  white-space: nowrap;
+}
+.lfo-editor-sub {
+  color: var(--texto-suave);
+  font-weight: 500;
+}
+.lfo-editor-contagem {
+  margin-left: auto;
+  color: var(--texto-suave);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.lfo-editor-topo .botao {
+  min-height: 40px;
+}
+.lfo-editor-topo .botao-icone {
+  width: 40px;
+  min-width: 40px;
+}
+.lfo-editor-pronto {
+  padding: 0 16px;
+  background: var(--destaque);
+  color: var(--texto-sobre-destaque);
+  font-weight: 700;
+}
+.lfo-editor-corpo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+}
+.lfo-editor-area {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.lfo-editor-tela {
+  flex: 1;
+  min-height: 0;
+  background: var(--tela-onda);
+}
+.lfo-editor-tela canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none; /* arrastar não rola a página nem vibra (Android) */
+}
+.lfo-editor-dica {
+  margin: 0;
+  font-size: 11px;
+  color: var(--texto-suave);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.lfo-editor-dica b {
+  color: var(--texto);
+  font-weight: 600;
+}
+.dica-curta {
+  display: none;
+}
+.lfo-editor-lado {
+  flex: 0 0 170px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+}
+.lfo-editor-rotulo {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+.lfo-editor-grade {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+.lfo-editor-grade .botao {
+  min-height: 40px;
+  padding: 0;
+}
+.lfo-editor-grade .botao.escolhido {
+  background: var(--botao-apertado);
+  box-shadow: inset 0 -3px 0 var(--destaque); /* igual aos outros botões escolhidos */
+}
+.lfo-editor-modelos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+}
+.lfo-editor-modelo {
+  min-height: 40px;
+  padding: 3px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 1px;
+  font-size: 10px;
+}
+.lfo-editor-modelo svg {
+  width: 100%;
+  height: 16px;
+  fill: none;
+  stroke: var(--destaque);
+  stroke-width: 1.6;
+  stroke-linejoin: round;
+}
+.lfo-editor-espelhar {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+/* Celular menor (até 700 px de largura): lateral mais estreita e dica curta */
+@media (max-width: 700px) {
+  .lfo-editor-lado {
+    flex-basis: 150px;
+  }
+  .dica-longa {
+    display: none;
+  }
+  .dica-curta {
+    display: inline;
+  }
+  .lfo-editor-contagem {
+    font-size: 11px;
+  }
+}
+/* Em pé: o desenho em cima, grade/modelos embaixo */
+@media (orientation: portrait) {
+  .lfo-editor-corpo {
+    flex-direction: column;
+  }
+  .lfo-editor-area {
+    flex: 1 1 55%;
+  }
+  .lfo-editor-lado {
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+  .lfo-editor-modelos {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+/* Tema Básico: cantos redondos no selo (o bloco do Básico desfaz o corte dos outros) */
+html[data-tema='basico'] .lfo-editar {
+  clip-path: none;
+  border-radius: 6px;
+}

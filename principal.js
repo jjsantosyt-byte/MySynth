@@ -24,6 +24,7 @@ import {
 } from './interface/knob.js';
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
+import { criarEditorLfo, caminhoDoDesenho } from './interface/lfo-desenho.js';
 import { envelopeArrastavel } from './interface/envelope-arrastar.js';
 import { icone, botaoComIcone } from './interface/icones.js';
 import { criarHistorico } from './interface/historico.js';
@@ -592,7 +593,7 @@ function pedirDesenho() {
     }
     telasLfo.forEach((tela) => {
       const id = tela.dataset.telaLfo;
-      desenharLFO(tela, estado.fontes[id].forma);
+      desenharLFO(tela, estado.fontes[id].forma, estado.fontes[id].pontos);
     });
     telasEnv.forEach((tela) => desenharEnvelope(tela, estado.fontes[tela.dataset.telaEnv]));
   });
@@ -1630,22 +1631,59 @@ const NOMES_FORMAS_LFO = {
   serraDesce: ['Serra ↓', 'S↓'],
   quadrada: ['Quad', 'Qd'],
   aleatorio: ['S&H', 'S&H'],
+  desenho: ['Desenho', ''], // (com o ícone de lápis; deitado, só o ícone)
 };
 
-// Formas: um botão para cada.
+// Editor do LFO desenhado (janela grande; interface/lfo-desenho.js)
+const editorLfo = criarEditorLfo({
+  lerPontos: (id) => estado.fontes[id].pontos,
+  aoMudar: (id, pontos) => {
+    estado.fontes[id].pontos = pontos;
+    modificou();
+    enviarFonte(id);
+    pedirDesenho();
+    telaModulacao.atualizarFichas(); // o desenhinho da ficha acompanha
+  },
+  nomeDe: (id) => 'LFO ' + id.slice(3),
+});
+
+// Formas: um botão para cada. Com "Desenho" escolhido, tocar de novo nele (ou no desenho do
+// cartão, que mostra o selo "Editar") abre o editor.
 document.querySelectorAll('[data-formas-lfo]').forEach((lugar) => {
   const id = lugar.dataset.formasLfo;
-  const marcar = () =>
-    lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.forma === estado.fontes[id].forma));
+  const tela = document.querySelector(`[data-tela-lfo="${id}"]`);
+  const editar = document.createElement('button');
+  editar.className = 'lfo-editar';
+  editar.innerHTML = `${icone('lapis')}<span>Editar</span>`;
+  editar.setAttribute('aria-label', 'Editar o desenho do LFO');
+  tela.parentElement.appendChild(editar);
+  const abrirEditor = () => estado.fontes[id].forma === 'desenho' && editorLfo.abrir(id);
+  editar.addEventListener('click', abrirEditor);
+  tela.addEventListener('click', abrirEditor);
+
+  const marcar = () => {
+    const forma = estado.fontes[id].forma;
+    lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.forma === forma));
+    editar.hidden = forma !== 'desenho';
+    tela.classList.toggle('lfo-tela-editavel', forma === 'desenho');
+  };
   FORMAS_LFO.forEach((forma) => {
-    if (forma === 'desenho') return; // (LFO desenhado: o botão entra junto com o editor, etapa L2)
     const botao = document.createElement('button');
     botao.className = 'botao';
     const [nomeLongo, nomeCurto] = NOMES_FORMAS_LFO[forma];
-    botao.innerHTML = `<span class="nome-longo">${nomeLongo}</span><span class="nome-curto">${nomeCurto}</span>`;
+    if (forma === 'desenho') {
+      botao.classList.add('forma-desenho');
+      botao.innerHTML = `${icone('lapis')}<span class="nome-longo">${nomeLongo}</span>`;
+    } else {
+      botao.innerHTML = `<span class="nome-longo">${nomeLongo}</span><span class="nome-curto">${nomeCurto}</span>`;
+    }
     botao.title = nomeLongo;
     botao.dataset.forma = forma;
     botao.addEventListener('click', () => {
+      if (forma === 'desenho' && estado.fontes[id].forma === 'desenho') {
+        editorLfo.abrir(id); // já escolhido: abre o editor
+        return;
+      }
       definirFonte(id, 'forma', forma);
       marcar();
     });
@@ -1747,6 +1785,7 @@ const telaModulacao = criarModulacao({
     enviarLigacoes();
   },
   formaDe: (id) => estado.fontes[id].forma,
+  desenhoDe: (id) => caminhoDoDesenho(estado.fontes[id].pontos, 22, 12, 2), // LFO desenhado: 2 voltas
   lugaresMacros,
   aoArmar: (fonte) => {
     if (fonte?.startsWith('macro')) mostrarPainelMacros(false);
