@@ -335,7 +335,7 @@ async function ligarSom() {
   );
   estado.contexto = contexto;
   botaoLigar.disabled = true;
-  botaoLigar.textContent = 'Ligando...';
+  textoLigar('Ligando...', 'Ligando...');
 
   try {
     // Motor em C++ (motor/motor.wasm): compilado aqui, junto com o carregamento do
@@ -358,7 +358,7 @@ async function ligarSom() {
     // avisa na tela em vez de deixar o app "tocando" sem som.
     synth.onprocessorerror = () => {
       mostrarAviso('O motor de som parou por um erro. Recarregue o app para voltar a tocar.');
-      botaoLigar.textContent = 'Som parado';
+      textoLigar('Som parado', 'Parado');
       botaoLigar.classList.remove('ligado');
     };
     // O volume geral e o soft clipper (nunca passa de 0 dB) ficam DENTRO do motor
@@ -407,7 +407,7 @@ async function ligarSom() {
     }
 
     await contexto.resume();
-    botaoLigar.textContent = 'Som ligado';
+    textoLigar('Som ligado', 'Ligado');
     botaoLigar.classList.add('ligado');
   } catch (erro) {
     console.error(erro);
@@ -416,8 +416,14 @@ async function ligarSom() {
     contexto.close().catch(() => {});
     estado.contexto = null;
     botaoLigar.disabled = false;
-    botaoLigar.textContent = 'Ligar som';
+    textoLigar('Ligar som', 'Ligar');
   }
+}
+
+// Texto do botão Ligar som: longo e curto (o curto aparece só no celular deitado estreito)
+function textoLigar(longo, curto) {
+  botaoLigar.querySelector('.texto-longo-barra').textContent = longo;
+  botaoLigar.querySelector('.texto-curto-barra').textContent = curto;
 }
 
 // Aparelho de toque (celular/tablet): menos força de processamento que um computador.
@@ -1076,6 +1082,7 @@ const seletorVozes = criarSeletor({
 if (APARELHO_DE_TOQUE) {
   lugarSeletorVozes.nextElementSibling.textContent = 'notas ao mesmo tempo (Poly · máx. 6 no celular)';
 }
+seletorVozes.classList.add('seletor-vozes'); // (setas maiores: estilo.css, R7)
 lugarSeletorVozes.replaceWith(seletorVozes);
 
 modoVoz.querySelectorAll('.botao').forEach((botao) => {
@@ -1209,14 +1216,22 @@ function botaoComCurva(botao, tipo, nome) {
 
 // Botões de tipo de um efeito (ex.: Distorção: Suave / Dura / Válvula).
 // "comCurva": botões de filtro mostram o desenho da curva no lugar do texto.
+// "nomes": { tipo: 'Nome' } ou { tipo: ['Nome', 'Curto'] } (o curto aparece só no celular
+// deitado estreito, onde os cartões da página Cor ficam bem finos)
 function botoesDeTipo(id, lugar, tipos, nomes, comCurva = false) {
   const marcar = () =>
     lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.tipo === estado.efeitos[id].tipo));
   tipos.forEach((tipo) => {
     const botao = document.createElement('button');
     botao.className = 'botao';
-    if (comCurva) botaoComCurva(botao, tipo, nomes[tipo]);
-    else botao.textContent = nomes[tipo];
+    const [longo, curto] = Array.isArray(nomes[tipo]) ? nomes[tipo] : [nomes[tipo]];
+    if (comCurva) botaoComCurva(botao, tipo, longo);
+    else if (curto) {
+      botao.innerHTML = '<span class="nome-tipo-longo"></span><span class="nome-tipo-curto"></span>';
+      botao.firstChild.textContent = longo;
+      botao.lastChild.textContent = curto;
+      botao.title = longo;
+    } else botao.textContent = longo;
     botao.dataset.tipo = tipo;
     botao.addEventListener('click', () => {
       definirEfeito(id, 'tipo', tipo);
@@ -1231,8 +1246,8 @@ function botoesDeTipo(id, lugar, tipos, nomes, comCurva = false) {
 // Saturação: tipo + Drive, Tom e Mix
 botoesDeTipo('saturacao', document.getElementById('tipos-saturacao'), TIPOS_SATURACAO, {
   fita: 'Fita',
-  valvula: 'Válvula',
-  transistor: 'Transist.',
+  valvula: ['Válvula', 'Válv.'],
+  transistor: ['Transist.', 'Trans.'],
 });
 document.querySelector('[data-knobs-efeito="saturacao"]').append(
   knobEfeito('saturacao', 'Drive', 'drive', escalaLinear(0, 1), formatarPorcentagem),
@@ -1244,7 +1259,7 @@ document.querySelector('[data-knobs-efeito="saturacao"]').append(
 botoesDeTipo('distorcao', document.getElementById('tipos-distorcao'), TIPOS_DISTORCAO, {
   suave: 'Suave',
   dura: 'Dura',
-  valvula: 'Válvula',
+  valvula: ['Válvula', 'Válv.'],
 });
 
 // Escalas usadas pelos knobs novos

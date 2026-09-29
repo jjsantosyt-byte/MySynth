@@ -48,6 +48,8 @@ const TEXTOS = new Map(
     'Ligando...': 'Starting...',
     'Som ligado': 'Sound on',
     'Som parado': 'Sound stopped',
+    Ligar: 'Start', // (versões curtas do botão, celular deitado estreito)
+    Parado: 'Stopped',
     Oitava: 'Octave',
     'Oitava abaixo': 'Octave down',
     'Oitava acima': 'Octave up',
@@ -181,6 +183,11 @@ const TEXTOS = new Map(
     'Tocar o desenho de trás para frente': 'Play the drawing backwards',
 
     // Efeitos
+    // (nomes curtos: celular deitado estreito, página Cor)
+    'Satur.': 'Sat.',
+    'Distorç.': 'Dist.',
+    'Válv.': 'Tube',
+    'Trans.': 'Trans.',
     Cor: 'Color',
     'Filtro Track': 'Track Filter',
     Espaço: 'Space',

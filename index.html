@@ -117,7 +117,7 @@
           <button id="oitava-mais" class="botao" aria-label="Oitava acima"><span class="texto-longo">Oitava </span>+</button>
         </div>
         <label class="grupo-volume">
-          Volume
+          <span class="texto-longo-barra">Volume</span>
           <!-- Volume padrão 59% (= 3 dB abaixo dos 70% de antes: o ganho é o valor ao quadrado) -->
           <!-- A barra funciona normal (arrastar, teclado); a "bolinha" é um capotraste desenhado
                por cima, que acompanha o valor e cresce ao segurar (principal.js) -->
@@ -144,7 +144,8 @@
             </svg>
           </span>
         </label>
-        <button id="botao-ligar" class="botao botao-destaque">Ligar som</button>
+        <!-- Texto longo e curto: o curto aparece só no celular deitado estreito (ver estilo.css) -->
+        <button id="botao-ligar" class="botao botao-destaque"><span class="texto-longo-barra">Ligar som</span><span class="texto-curto-barra">Ligar</span></button>
       </header>
 
       <p id="aviso" class="aviso" hidden></p>
@@ -450,7 +451,7 @@
         <div class="modulos modulos-4 modulos-fx" data-pagina-atual="1">
           <article class="cartao" data-pagina="1">
             <div class="cabecalho-cartao">
-              <h2 class="titulo-cartao">Saturação</h2>
+              <h2 class="titulo-cartao"><span class="titulo-longo">Saturação</span><span class="titulo-curto">Satur.</span></h2>
               <button class="chave" data-ligar-efeito="saturacao" aria-pressed="false">Off</button>
             </div>
             <!-- Tipo: Fita (arredonda), Válvula (cheia, assimétrica), Transistor (mais presença) -->
@@ -460,7 +461,7 @@
 
           <article class="cartao" data-pagina="1">
             <div class="cabecalho-cartao">
-              <h2 class="titulo-cartao">Distorção</h2>
+              <h2 class="titulo-cartao"><span class="titulo-longo">Distorção</span><span class="titulo-curto">Distorç.</span></h2>
               <button class="chave" data-ligar-efeito="distorcao" aria-pressed="false">Off</button>
             </div>
             <!-- Tipo: Suave (arredonda), Dura (corta), Válvula (assimétrica) -->
@@ -470,7 +471,7 @@
 
           <article class="cartao" data-pagina="1">
             <div class="cabecalho-cartao">
-              <h2 class="titulo-cartao">Filtro Track</h2>
+              <h2 class="titulo-cartao"><span class="titulo-longo">Filtro Track</span><span class="titulo-curto">Track</span></h2>
               <button class="chave" data-ligar-efeito="filtroTrack" aria-pressed="false">Off</button>
             </div>
             <!-- Filtro de efeito com o Cutoff em notas, que pode acompanhar a última nota tocada -->
@@ -489,7 +490,7 @@
 
           <article class="cartao" data-pagina="1">
             <div class="cabecalho-cartao">
-              <h2 class="titulo-cartao">Compressor</h2>
+              <h2 class="titulo-cartao"><span class="titulo-longo">Compressor</span><span class="titulo-curto">Comp.</span></h2>
               <button class="chave" data-ligar-efeito="compressor" aria-pressed="false">Off</button>
             </div>
             <div class="linha-knobs" data-knobs-efeito="compressor"></div>

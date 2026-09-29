@@ -251,9 +251,31 @@ grade Off/4/8/16, modelos prontos (rampa, triângulo, degraus, sidechain).
   Textos em idioma.js (Pronto/dica/"Curva" vêm prontos por idioma no código: "Pronto" já era
   "Ready"). Testado: 800×360 e 640×360 (editor cabe sem rolar), em pé 393×760, inglês + tema
   Claro, arrastar/criar/curvar/apagar/modelos/Espelhar, os dois desfazer, ficha acompanha.
-  ACHADO (não é do LFO): em 640×360 o app TODO fica quebrado (cartões empilhados e cortados, visor
-  embaixo do ↶, "Ligar som" cortado, fichas passam da tela); em 800×360 "Salvar" e "Ligar som"
-  ficam apertados. → revisão da tela nesses tamanhos (a combinar com o dono).
+  ACHADO (não é do LFO): em 640×360 o app TODO ficava quebrado → consertado na revisão abaixo.
+
+**REVISÃO DA TELA DEITADO 800×360 / 640×360 (29/09/2026, R1–R7 aprovados pelo dono, em teste).**
+Bloco "CELULAR DEITADO ESTREITO" no fim do estilo.css: "médio" = deitado até 840 px de largura;
+"menor" = deitado até 700 px. O iPhone (852) NÃO muda (só as setas das Vozes, maiores).
+- R1: `@media (max-width: 640px)` (layout de celular EM PÉ, cartões empilhados) agora exige
+  `(orientation: portrait)` — era a causa do 640 deitado quebrado.
+- R2 (≤ 840): barra de cima com textos curtos: Salvar = ícone `salvar` (disquete; presets.js),
+  "Ligar som" → "Ligar" (`textoLigar(longo, curto)` no principal.js, spans `.texto-longo-barra`/
+  `.texto-curto-barra`), a palavra Volume some. (≤ 700): espaços 6 px, visor 104 px, volume 64 px.
+- R3 (≤ 700): fichas sem o desenhinho, mais juntas; "M" com 34 px.
+- R4 (≤ 840): chave On/Off no cabeçalho dos EFEITOS = só o LED (tema Básico mantém o texto).
+- R5 (≤ 840): nomes dos knobs sem espaçamento extra; títulos dos cartões sem quebrar. (≤ 700):
+  títulos curtos na página Cor (`.titulo-curto`: Satur./Distorç./Track/Comp.) e botões de tipo
+  curtos (`botoesDeTipo` aceita ['Nome', 'Curto']: Válv., Trans.).
+- R6: Oct/Semi/Fine com o nome EM CIMA do número (≤ 840). (≤ 700): wavetable e tipo de ruído sem
+  as setas ‹ › (tocar no nome abre a lista), chave On/Off do oscilador = só LED, Loop/One Shot e
+  Track/1 ruído numa linha, nomes/números dos knobs do OSC menores.
+- R7: Unison só com o número (arrastar; toque duplo = 1) em ≤ 840; Vozes (aba Global) com setas
+  maiores (21 px, deitado em qualquer largura; `.seletor-vozes`); (≤ 700) formas do LFO em 2
+  linhas (4 colunas, Desenho ocupa 2) e tipos do Filtro Track em 2 × 2.
+- Medido com a "fita métrica" `_antigo/teste/medir-tela.js` (`todasAsAbas()`: o que passa da tela,
+  o que sai do cartão, texto cortado, alvos pequenos): nada fora/cortado em 640×360, 800×360,
+  852×340, 852×393, 393×760 e 1280×800, em português e inglês (640). Knobs ~27 × 50 px, chaves
+  22 px de altura: limite físico da altura de 360 px (ficaram como estavam).
 
 **REGRA DE ESPAÇO (29/09/2026, pedido do dono):** a tela do app tem que ser USÁVEL e FÁCIL DE
 ENTENDER em celulares de tamanho médio e um pouco menores (não só no iPhone 15 Pro / Infinix).

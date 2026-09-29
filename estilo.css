@@ -1155,8 +1155,9 @@ h1 {
 }
 
 /* ---------- Tela estreita (celular em pé) ---------- */
+/* (só EM PÉ: um celular menor deitado também tem 640 px de largura e deve usar o layout deitado) */
 
-@media (max-width: 640px) {
+@media (max-width: 640px) and (orientation: portrait) {
   /* Barra em 2 linhas: [presets, Ligar som] e [oitava, volume].
      A largura base dos presets (a linha toda menos o botão Ligar som) é o que força a
      quebra de linha; com base zero, tudo tentava caber numa linha só e o volume
@@ -1970,7 +1971,7 @@ h1 {
   display: none;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640px) and (orientation: portrait) {
   .modulos.modulos-fx {
     grid-auto-flow: row;
     grid-template-columns: 1fr;
@@ -4105,4 +4106,201 @@ html[data-tema='basico'] .medidor {
 html[data-tema='basico'] .lfo-editar {
   clip-path: none;
   border-radius: 6px;
+}
+
+/* ==========================================================================================
+   CELULAR DEITADO ESTREITO (revisão da tela, 29/09/2026). Regra de espaço: o app tem que
+   funcionar deitado em 800×360 (médio) e 640×360 (menor). O iPhone (852 px) não muda.
+   - "médio":  deitado e até 840 px de largura
+   - "menor":  deitado e até 700 px de largura
+   ========================================================================================== */
+
+/* R2) Barra de cima: textos longos × curtos (o curto só aparece nas telas estreitas) */
+.texto-curto-barra,
+.titulo-curto,
+.nome-tipo-curto {
+  display: none;
+}
+.presets-salvar .icone {
+  display: none;
+}
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 840px) {
+  /* Salvar vira o ícone do disquete; "Ligar som" vira "Ligar"; a palavra Volume some */
+  .presets-salvar {
+    width: 34px;
+    min-width: 34px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .presets-salvar .icone {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
+  .barra-topo .texto-longo-barra {
+    display: none;
+  }
+  .barra-topo .texto-curto-barra {
+    display: inline;
+  }
+
+  /* R4) Chave On/Off no cabeçalho dos efeitos: só o LED (aceso = ligado). O nome continua
+     no aria-label/title. (Tema Básico não tem LED: lá o texto fica.) */
+  html:not([data-tema='basico']) .modulos-fx .cabecalho-cartao .chave[data-ligar-efeito] {
+    font-size: 0;
+    padding: 0;
+    width: 30px;
+    min-width: 30px;
+    justify-content: center;
+    flex: 0 0 auto;
+  }
+  html:not([data-tema='basico']) .modulos-fx .cabecalho-cartao .chave[data-ligar-efeito]::before {
+    width: 8px;
+    height: 8px;
+    margin: 0;
+  }
+
+  /* R5) Nomes dos knobs: sem espaço extra entre as letras (ocupam menos largura) */
+  .knob-rotulo {
+    letter-spacing: 0;
+  }
+  .cabecalho-cartao .titulo-cartao {
+    white-space: nowrap;
+  }
+}
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 700px) {
+  /* Menor: menos espaço entre os grupos, visor e barra de volume mais estreitos */
+  .barra-topo {
+    gap: 6px;
+  }
+  .presets-nome {
+    min-width: 104px;
+    max-width: 104px;
+    padding: 0 6px;
+  }
+  .presets-seta {
+    min-width: 28px;
+  }
+  .grupo-volume {
+    min-width: 64px;
+  }
+  #botao-hold {
+    padding: 0 8px;
+  }
+  #botao-ligar {
+    padding: 0 8px;
+  }
+
+  /* R3) Fichas de modulação: sem o desenhinho e mais juntas (cabem as 6 + o "M") */
+  #barra-fontes {
+    gap: 4px;
+    min-width: 0;
+  }
+  #barra-fontes .ficha {
+    min-width: 0;
+  }
+  #barra-fontes .ficha-forma {
+    display: none;
+  }
+  #barra-fontes .ficha-macros {
+    flex: 0 0 34px;
+    min-width: 34px;
+  }
+
+  /* R5) Página Cor (5 cartões finos): títulos e botões de tipo com nome curto */
+  .titulo-longo,
+  .nome-tipo-longo {
+    display: none;
+  }
+  .titulo-curto,
+  .nome-tipo-curto {
+    display: inline;
+  }
+  #tipos-saturacao .botao,
+  #tipos-distorcao .botao {
+    padding: 0 1px;
+    font-size: 10px;
+    letter-spacing: -0.02em;
+  }
+
+  /* R6) Aba OSC (4 cartões de ~157 px) e Ruído:
+     - wavetable / tipo de ruído sem as setas ‹ › (tocar no nome abre a lista, que tem tudo)
+     - Unison só com o número (arrastar muda; toque duplo = 1), como Oct/Semi/Fine
+     - Oct/Semi/Fine com o nome em cima do número (não encostam)
+     - chave On/Off do oscilador só com o LED */
+  .cartao-osc .seletor-wt .seletor-botao,
+  .cartao-ruido .seletor-wt .seletor-botao {
+    display: none;
+  }
+  html:not([data-tema='basico']) .cabecalho-osc .chave {
+    font-size: 0;
+    padding: 0;
+    width: 28px;
+    min-width: 28px;
+    gap: 0;
+  }
+  .modo-ruido .botao,
+  .cartao-ruido .linha-ruido .chave {
+    white-space: nowrap;
+    font-size: 10px;
+    padding: 0 4px;
+  }
+  .cartao-osc .knob-rotulo {
+    font-size: 8px;
+  }
+  .cartao-osc .knob-numero {
+    font-size: 9px;
+  }
+
+  /* R7) Alvos de toque: formas do LFO em 2 linhas (4 colunas; "Desenho" ocupa 2) e tipos do
+     Filtro Track em 2 × 2 (eram 23 e 20 px de largura) */
+  .grupo-botoes.formas-lfo {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .formas-lfo .forma-desenho {
+    grid-column: span 2;
+  }
+  #tipos-filtro-track {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* R7) Alvos de toque (continuação) */
+@media (orientation: landscape) and (max-height: 500px) {
+  /* Vozes (aba Global): lá sobra espaço, as setas ▲▼ ficam bem maiores (eram 13 px de altura) */
+  .seletor-vozes .seletor-controle {
+    min-height: 46px;
+  }
+  .seletor-vozes .seletor-setas .seletor-botao {
+    width: 34px;
+  }
+  .seletor-vozes .seletor-numero {
+    font-size: 16px;
+  }
+}
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 840px) {
+  /* Unison: só o número (arrastar muda; toque duplo = 1), como Oct/Semi/Fine deitado;
+     as setas tinham 13 px de altura */
+  .cartao-osc .linha-knobs .seletor-setas {
+    display: none;
+  }
+  /* R6) Oct/Semi/Fine com o nome em cima do número (lado a lado passavam do cartão) */
+  .cartao-osc .linha-afinacao {
+    gap: 2px;
+  }
+  .cartao-osc .linha-afinacao .seletor-linha {
+    flex: 1 1 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    min-width: 0;
+  }
+  .cartao-osc .linha-afinacao .seletor-rotulo {
+    font-size: 8px;
+    line-height: 1;
+    text-align: center;
+  }
 }

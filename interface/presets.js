@@ -11,7 +11,7 @@
 //   para mandar para alguém. Importar também aceita os .json antigos.
 
 import { criar, criarJanela, confirmar } from './janela.js';
-import { botaoComIcone } from './icones.js';
+import { botaoComIcone, icone } from './icones.js';
 
 const CHAVE_GUARDADOS = 'mysynth.presets.v1';
 const TAMANHO_MAXIMO_NOME = 40;
@@ -95,7 +95,10 @@ export function criarPresets({ lugar, fabrica, categorias, obterSom, aplicarSom,
   botaoNome.append(topo, linhaNome);
   const setaProxima = botaoComIcone(criar('button', 'botao presets-seta'), 'direita');
   setaProxima.setAttribute('aria-label', 'Próximo preset');
-  const botaoSalvar = criar('button', 'botao presets-salvar', 'Salvar');
+  // Texto "Salvar"; no celular deitado estreito, só o ícone de disquete (ver estilo.css)
+  const botaoSalvar = criar('button', 'botao presets-salvar');
+  botaoSalvar.innerHTML = `${icone('salvar')}<span class="texto-longo-barra">Salvar</span>`;
+  botaoSalvar.setAttribute('aria-label', 'Salvar');
   barra.append(setaAnterior, botaoNome, setaProxima, botaoSalvar);
   lugar.replaceWith(barra);
 
