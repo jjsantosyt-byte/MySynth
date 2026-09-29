@@ -16,7 +16,7 @@ import { TIPOS_RUIDO } from './dsp/ruido.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
 import { DESTINOS_MOD, D_PRIMEIRO_EFEITO, ligacoesEmNumeros } from './dsp/modulacao.js';
 import { MOD_EFEITOS } from './dsp/efeitos/modulaveis.js';
-import { FORMAS_LFO } from './dsp/lfo.js';
+import { FORMAS_LFO, PONTOS_TRIANGULO } from './dsp/lfo.js';
 import { Ponte, BLOCO, CAMPOS_OSC, CAMPOS_LFO, CAMPOS_VOZ, EFEITOS_NO_MOTOR, ROTAS } from './motor/ponte.js';
 
 const MAX_VOZES = 16;
@@ -308,6 +308,9 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
       { forma: 'seno', rate: 1, modo: 'retrig' }, // LFO 3
     ];
+    // LFO desenhado: últimos pontos mandados ao C++ (texto), por LFO. O C++ já começa com o
+    // triângulo (PONTOS_TRIANGULO).
+    this.pontosEnviados = this.ajustesLfo.map(() => JSON.stringify(PONTOS_TRIANGULO));
     this.ajustesEnv = [
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
       { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
@@ -432,6 +435,14 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     const lfo = { lfo1: 0, lfo2: 1, lfo3: 2 }[id];
     if (lfo !== undefined) {
       Object.assign(this.ajustesLfo[lfo], ajustes);
+      // LFO desenhado: os pontos só vão ao C++ quando mudam de verdade
+      if (ajustes.pontos !== undefined) {
+        const texto = JSON.stringify(ajustes.pontos);
+        if (texto !== this.pontosEnviados[lfo]) {
+          this.pontosEnviados[lfo] = texto;
+          this.ponte.definirDesenhoLfo(lfo, ajustes.pontos);
+        }
+      }
       // Já na mesa: uma nota que chegar antes do próximo bloco usa o modo novo (Retrig/Livre)
       this.escreverLfos();
     }

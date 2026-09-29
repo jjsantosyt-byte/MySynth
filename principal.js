@@ -7,7 +7,10 @@ import './interface/idioma.js';
 import { listaWavetables, obterWavetable, existeWavetable, esquecerMontada } from './wavetable.js';
 import { desenharOnda, desenharEnvelope, desenharFiltro, desenharLFO } from './visualizacao.js';
 import { TIPOS_FILTRO } from './dsp/filtro.js';
-import { FORMAS_LFO, RATE_MIN, RATE_MAX } from './dsp/lfo.js';
+import { FORMAS_LFO, RATE_MIN, RATE_MAX, PONTOS_TRIANGULO } from './dsp/lfo.js';
+
+// Cópia dos pontos de um LFO desenhado (cada LFO tem a sua lista)
+const clonarPontos = (pontos) => pontos.map((p) => [...p]);
 import {
   criarKnob,
   escalaLinear,
@@ -192,9 +195,10 @@ const estado = {
   },
   // Fontes de modulação (mesmos valores iniciais do motor de som).
   fontes: {
-    lfo1: { forma: 'seno', rate: 2, modo: 'retrig' },
-    lfo2: { forma: 'triangulo', rate: 0.5, modo: 'retrig' },
-    lfo3: { forma: 'seno', rate: 1, modo: 'retrig' },
+    // pontos = forma "Desenho" (LFO desenhado; começa com um triângulo)
+    lfo1: { forma: 'seno', rate: 2, modo: 'retrig', pontos: clonarPontos(PONTOS_TRIANGULO) },
+    lfo2: { forma: 'triangulo', rate: 0.5, modo: 'retrig', pontos: clonarPontos(PONTOS_TRIANGULO) },
+    lfo3: { forma: 'seno', rate: 1, modo: 'retrig', pontos: clonarPontos(PONTOS_TRIANGULO) },
     env2: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     env3: { ataque: 0.005, decaimento: 0.3, sustentacao: 0, soltura: 0.2 },
     // Macros M1–M4: a posição do knob (0 a 1); vai no preset
@@ -1634,6 +1638,7 @@ document.querySelectorAll('[data-formas-lfo]').forEach((lugar) => {
   const marcar = () =>
     lugar.querySelectorAll('.botao').forEach((b) => b.classList.toggle('escolhido', b.dataset.forma === estado.fontes[id].forma));
   FORMAS_LFO.forEach((forma) => {
+    if (forma === 'desenho') return; // (LFO desenhado: o botão entra junto com o editor, etapa L2)
     const botao = document.createElement('button');
     botao.className = 'botao';
     const [nomeLongo, nomeCurto] = NOMES_FORMAS_LFO[forma];

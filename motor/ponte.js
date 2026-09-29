@@ -77,6 +77,8 @@ export class Ponte {
     this.iPedidos = this.c.enderecoPedidos() / 8; // [osc][wavetable, modo de Warp] escolhidos na tela
     this.iVolume = this.c.enderecoVolume() / 8; // volume geral (1 valor ou 1 por amostra)
     this.iAjustesLfo = this.c.enderecoAjustesLfo() / 8;
+    this.iPontosLfo = this.c.enderecoPontosLfo() / 8; // LFO desenhado: [x, y, curva] × máx. pontos, por LFO
+    this.maxPontosLfo = this.c.maxPontosLfo();
     this.iAjustesEnv = this.c.enderecoAjustesEnv() / 8;
     this.iMacros = this.c.enderecoMacros() / 8;
     this.iLigacoes = this.c.enderecoLigacoes() / 8;
@@ -113,6 +115,18 @@ export class Ponte {
       this.f64[this.iLigacoes + 3 * j + 2] = lista[j].quantidade;
     }
     this.c.definirLigacoes(n);
+  }
+
+  // LFO desenhado: pontos [[x, y, curva], ...] do LFO l → C++ (lá eles são conferidos)
+  definirDesenhoLfo(l, pontos) {
+    // (mais pontos do que cabem: 0 = o C++ usa o triângulo, igual ao arrumarPontos do dsp/lfo.js)
+    const n = Array.isArray(pontos) && pontos.length <= this.maxPontosLfo ? pontos.length : 0;
+    const i = this.iPontosLfo + l * this.maxPontosLfo * 3;
+    for (let j = 0; j < n; j++) {
+      const p = Array.isArray(pontos[j]) ? pontos[j] : [];
+      for (let k = 0; k < 3; k++) this.f64[i + 3 * j + k] = Number(p[k]) || 0;
+    }
+    this.c.definirDesenhoLfo(l, n); // (menos de 2 pontos: o C++ usa o triângulo)
   }
 
   // Tabela dos knobs moduláveis dos efeitos: [[efeito, ajuste, min, max, exp], ...]

@@ -845,8 +845,9 @@ struct Envelope {
 };
 
 // ---------- LFO (igual ao antigo dsp/lfo.js) ----------
-// Formas (mesma ordem de FORMAS_LFO): seno, triângulo, serra sobe, serra desce, quadrada, S&H
-enum { F_SENO, F_TRIANGULO, F_SERRA_SOBE, F_SERRA_DESCE, F_QUADRADA, F_ALEATORIO };
+// Formas (mesma ordem de FORMAS_LFO): seno, triângulo, serra sobe, serra desce, quadrada, S&H,
+// desenho (pontos escolhidos na tela)
+enum { F_SENO, F_TRIANGULO, F_SERRA_SOBE, F_SERRA_DESCE, F_QUADRADA, F_ALEATORIO, F_DESENHO };
 constexpr double RATE_MIN = 0.02;
 constexpr double RATE_MAX = 40;
 constexpr double LOG_FAIXA_RATE = 7.600902459542082; // log(40 / 0,02)
@@ -856,6 +857,80 @@ double rateModulado(double rate, double mod) {
   if (mod == 0) return rate;
   const double posicao = std::log(rate / RATE_MIN) / LOG_FAIXA_RATE + mod;
   return RATE_MIN * std::exp(limitar01(posicao) * LOG_FAIXA_RATE);
+}
+
+// ---------- LFO desenhado ----------
+// Até 16 pontos (x = lugar no ciclo, 0 a 1; y = valor, -1 a +1) ligados por linhas que podem
+// ser curvas. "curva" (-1 a +1) é do trecho que SAI do ponto: 0 = reta; > 0 = começa devagar
+// e acelera; < 0 = começa rápido e freia. Dois pontos no mesmo x = salto (degrau).
+// A tela escreve os pontos na mesa (pontosLfo) e chama definirDesenhoLfo(l); aqui eles são
+// conferidos (ordem, limites) e as contas da curva ficam prontas.
+constexpr int MAX_PONTOS_LFO = 16;
+constexpr double CURVA_MAXIMA = 8; // curva ±1 → expoente ±8 (bem acentuada)
+enum { P_X, P_Y, P_CURVA, N_CAMPOS_PONTO };
+double pontosLfo[N_LFO][MAX_PONTOS_LFO][N_CAMPOS_PONTO]; // mesa (o JS escreve)
+
+struct DesenhoLfo {
+  int qtd = 0;
+  double x[MAX_PONTOS_LFO], y[MAX_PONTOS_LFO];
+  double k[MAX_PONTOS_LFO];      // expoente da curva do trecho (0 = reta)
+  double escala[MAX_PONTOS_LFO]; // 1 / (e^k − 1)
+
+  // Triângulo (igual à forma "Tri"): 0 → +1 → −1 → 0
+  void triangulo() {
+    const double px[4] = { 0, 0.25, 0.75, 1 }, py[4] = { 0, 1, -1, 0 };
+    qtd = 4;
+    for (int i = 0; i < 4; i++) {
+      x[i] = px[i];
+      y[i] = py[i];
+      k[i] = 0;
+      escala[i] = 0;
+    }
+  }
+
+  // Valor no lugar "fase" (0 a 1) do ciclo
+  double valor(double fase) const {
+    if (qtd < 2) return 0;
+    int i = 0;
+    while (i + 2 < qtd && fase >= x[i + 1]) i++; // trecho: x[i] ≤ fase < x[i + 1]
+    const double largura = x[i + 1] - x[i];
+    if (largura <= 0) return y[i + 1];
+    double t = (fase - x[i]) / largura;
+    if (t > 1) t = 1;
+    if (k[i] != 0) t = (std::exp(k[i] * t) - 1) * escala[i];
+    return y[i] + (y[i + 1] - y[i]) * t;
+  }
+};
+DesenhoLfo desenhosLfo[N_LFO];
+
+// Lê os "qtd" pontos do LFO l na mesa. Pontos fora de ordem ou dos limites são corrigidos;
+// o primeiro fica em x = 0 e o último em x = 1 (o ciclo emenda). Menos de 2 pontos: triângulo.
+void lerDesenhoLfo(int l, int qtd) {
+  if (l < 0 || l >= N_LFO) return;
+  DesenhoLfo& d = desenhosLfo[l];
+  if (qtd < 2 || qtd > MAX_PONTOS_LFO) {
+    d.triangulo();
+    return;
+  }
+  double anterior = 0;
+  for (int i = 0; i < qtd; i++) {
+    const double* p = pontosLfo[l][i];
+    double x = i == 0 ? 0 : (i == qtd - 1 ? 1 : p[P_X]);
+    if (!(x >= anterior)) x = anterior; // (também pega NaN)
+    if (x > 1) x = 1;
+    double y = p[P_Y];
+    if (!(y >= -1)) y = -1;
+    if (y > 1) y = 1;
+    double c = p[P_CURVA];
+    if (!(c >= -1)) c = -1;
+    if (c > 1) c = 1;
+    d.x[i] = x;
+    d.y[i] = y;
+    d.k[i] = std::fabs(c) < 1e-6 ? 0 : c * CURVA_MAXIMA;
+    d.escala[i] = d.k[i] == 0 ? 0 : 1 / (std::exp(d.k[i]) - 1);
+    anterior = x;
+  }
+  d.qtd = qtd;
 }
 
 struct EstadoLfo {
@@ -868,7 +943,7 @@ struct EstadoLfo {
       aleatorio = sortear();
     }
   }
-  double valor(int forma) const {
+  double valor(int forma, const DesenhoLfo& desenho) const {
     switch (forma) {
       case F_SENO: return std::sin(2 * PI * fase);
       case F_TRIANGULO:
@@ -879,6 +954,7 @@ struct EstadoLfo {
       case F_SERRA_DESCE: return 1 - 2 * fase;
       case F_QUADRADA: return fase < 0.5 ? 1 : -1;
       case F_ALEATORIO: return aleatorio;
+      case F_DESENHO: return desenho.valor(fase);
       default: return 0;
     }
   }
@@ -1259,7 +1335,7 @@ struct Voz {
         // Rate modulado: usa a modulação do pedaço anterior (a deste ainda não existe)
         const double rate = rateModulado(ajustesLfo[l][L_RATE], mod[D_RATE_LFO[l]]);
         lfos[l].avancar((rate * qtd) / taxa);
-        fontes[i] = lfos[l].valor(forma);
+        fontes[i] = lfos[l].valor(forma, desenhosLfo[l]);
       }
     }
     for (int e = 0; e < 2; e++) {
@@ -2921,7 +2997,7 @@ bool temInvalido(int tamanho) {
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 7; }
+EXPORTAR int versao() { return 8; }
 
 static void efeitoZerar(int ef); // (mais abaixo)
 static void iniciarF4();         // (no fim)
@@ -2940,6 +3016,7 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   suavizar10ms = 1 - std::exp(-1 / (0.01 * taxa));
   suavizarModEfeitos = 1 - std::exp(-BLOCO / (0.005 * taxa));
   esperaSilencio = 2.5 * taxa;
+  for (auto& d : desenhosLfo) d.triangulo(); // LFO desenhado começa como triângulo
   for (int ef = 0; ef < N_EFEITOS; ef++) silencioEfeito[ef] = 0, paradoEfeito[ef] = false;
   tanhDesvioSat = std::tanh(0.25);
   tanhDesvioDist = std::tanh(0.3);
@@ -2967,6 +3044,12 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
 EXPORTAR double* enderecoAjustes() { return &ajustes[0][0]; }
 EXPORTAR double* enderecoPosicoes() { return &posicoes[0][0]; }
 EXPORTAR double* enderecoAjustesLfo() { return &ajustesLfo[0][0]; }
+// LFO desenhado: pontos [x, y, curva] do LFO l na mesa (MAX_PONTOS_LFO por LFO) → definirDesenhoLfo
+EXPORTAR double* enderecoPontosLfo() { return &pontosLfo[0][0][0]; }
+EXPORTAR int maxPontosLfo() { return MAX_PONTOS_LFO; }
+EXPORTAR void definirDesenhoLfo(int l, int qtd) { lerDesenhoLfo(l, qtd); }
+// (para os testes: valor do desenho do LFO l no lugar "fase" do ciclo)
+EXPORTAR double valorDesenhoLfo(int l, double fase) { return (l >= 0 && l < N_LFO) ? desenhosLfo[l].valor(fase) : 0; }
 EXPORTAR double* enderecoAjustesEnv() { return &ajustesEnv[0][0]; }
 EXPORTAR double* enderecoMacros() { return macrosAlvo; }
 EXPORTAR double* enderecoLigacoes() { return entradaLigacoes; }
@@ -3029,7 +3112,7 @@ static void comecarBloco(int ultima, int tamanho) {
     pedacos = 0;
     for (int inicio = 0; inicio < tamanho; inicio += PEDACO, pedacos++) {
       livres[l].avancar((rate * PEDACO) / taxa);
-      valoresLivres[l][pedacos] = livres[l].valor(forma);
+      valoresLivres[l][pedacos] = livres[l].valor(forma, desenhosLfo[l]);
     }
   }
   ultimoPedacoLivre = pedacos > 0 ? pedacos - 1 : 0;

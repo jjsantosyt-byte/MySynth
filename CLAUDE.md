@@ -211,6 +211,26 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    escrever a 1ª linha do DAW, combinar com o dono onde ele fica.
    Antes do DAW: LFO desenhado (escolhido pelo dono em 29/09/2026).
 
+**LFO DESENHADO (29/09/2026, plano aprovado: L1 motor → L2 editor → L3 acabamento).** Decidido:
+editor numa JANELA grande (tocar no desenho do LFO abre), máx. 16 pontos, começa com triângulo,
+tocar no vazio cria ponto / arrastar move / toque duplo apaga / arrastar o meio da linha curva,
+grade Off/4/8/16, modelos prontos (rampa, triângulo, degraus, sidechain).
+- L1 (29/09/2026, FEITA; motor versão 8): 7ª forma 'desenho' (fim de FORMAS_LFO; F_DESENHO no C++).
+  Pontos [x, y, curva] (x 0–1, y −1..+1, curva −1..+1 do trecho que SAI do ponto; 0 = reta;
+  curva = (e^(k·t) − 1)/(e^k − 1), k = curva × 8; dois pontos no mesmo x = degrau). Estado:
+  `fontes.lfoN.pontos` (vai no preset; padrão = `PONTOS_TRIANGULO`). C++: `DesenhoLfo`
+  (`desenhosLfo[3]`, conferido em `lerDesenhoLfo`: ordem, limites, 1º em x = 0, último em x = 1;
+  < 2 ou > 16 pontos = triângulo), mesa `pontosLfo` (`enderecoPontosLfo`, `maxPontosLfo`,
+  `definirDesenhoLfo(l, n)`, `valorDesenhoLfo` só p/ testes). Ponte: `definirDesenhoLfo(l, pontos)`;
+  o processador só manda quando os pontos mudam (`pontosEnviados`). JS: `arrumarPontos` e
+  `valorDesenho` em dsp/lfo.js (mesma conta do C++; a tela vai desenhar com ela).
+  O botão "Desenho" fica ESCONDIDO até a L2 (principal.js, formas dos LFOs).
+  Medido (`_antigo/teste/teste-lfo-desenho.js`, contra `_antigo/f4` + `_antigo/motor-f4.wasm`):
+  as 6 formas antigas IDÊNTICAS à F4; Desenho imitando Tri/Serra ↑/Serra ↓/Quad = IDÊNTICO;
+  C++ × JS em 7 desenhos (curvas, degraus, NaN, fora de ordem, 1 e 20 pontos): diferença ≤ 3e-16;
+  trocar desenhos com notas: sem NaN; peso 8 notas U4 + 3 LFOs: F4 7,98% | Tri 8,00% | Desenho
+  16 pontos com curvas 7,92% (igual). App: versão 8, 36 presets sem erro.
+
 **REGRA DE ESPAÇO (29/09/2026, pedido do dono):** a tela do app tem que ser USÁVEL e FÁCIL DE
 ENTENDER em celulares de tamanho médio e um pouco menores (não só no iPhone 15 Pro / Infinix).
 Tudo que for novo é testado deitado em 800×360 (médio, ex.: Infinix em tela cheia) e 640×360
