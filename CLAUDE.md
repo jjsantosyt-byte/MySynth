@@ -356,6 +356,9 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   o C++ ao ligar); F4 gerente de vozes, trocas sem estalo (wavetable/Warp), volume, soft clipper,
   proteção NaN e TODOS os sorteios no C++ (testes com Rand 0 / One Shot + semente fixa só p/ testes).
   Depois (opcional): F5 SIMD nas partes mais pesadas + medir no celular.
+  DECISÃO DO DONO (29/09/2026): F5 NÃO vai ser feita (ganho estimado pequeno: pior caso sem Warp
+  26% → ~21–23%; só sons com Warp/FM ganhariam 30–40%; o celular já toca sem atrasos). Não propor
+  de novo sem ele pedir.
 - F2b (26/09/2026, FEITA, em teste; versão 4): a VOZ INTEIRA no C++ (`struct Voz` em motor.cpp:
   envelopes/LFOs/modulação da F2a + `Filtro` (cópia exata do SVF), `CoefsBloco` (coeficientes por
   bloco, `interpolar` para o Cutoff/Reso modulado), 4 `Rota`s com caixas, ruído (trechos de 4 s
