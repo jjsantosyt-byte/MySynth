@@ -463,6 +463,13 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   (vozes) e volume NaN (clipper) = mesmo aviso e mesmo som da F3b. PESO (PC): 1 nota 5,4 → 1,9%;
   8 notas U1 8,3 → 4,5%; 8 notas U1 + 10 efeitos 15,7 → 11,6%; silêncio 0,66 → 0,36%.
   App: "motor C++ carregado (versão 7)", acorde com 3 vozes no medidor (motor 5%), sem erros.
+- Teste de desempenho Webaudio × F3b × atual (29/09/2026, depois da F4; PC; `_antigo/teste/
+  teste-webaudio-vs-atual.js`, agora com a coluna F3b): 1 nota 3,5 / 2,7 / 1,8%; 8 notas U1
+  6,6 / 5,6 / 4,5%; U8 13,5 / 7,7 / 6,6%; 3 osc U4 17,9 / 11,0 / 8,9%; U4 + F1→F2 21,3 / 9,2 /
+  7,7%; U4 + 4 ligações 17,7 / 7,9 / 6,3%; U4 + Warp Bend 29,9 / 18,8 / 16,9%; U1 + 10 efeitos
+  22,9 / 13,2 / 11,6%; silêncio com 10 efeitos 0,2 / 0,3 / 0,2%; 6 notas × 3 osc U8 + filtros +
+  modulação + 10 efeitos 59,0 / 23,4 / 21,6% (2,7×); o mesmo com 8 notas 72,4 / 28,2 / 26,0%
+  (2,8×). A F4 tirou ~1–2 pontos de custo fixo em todos os cenários.
 - Cópia "Web-F3b" (27/09/2026, pedido do dono, antes do medidor de desempenho e do novo teste com
   o Capacitor): pasta `Web-F3b/` (commit db1bd1b, motor C++ até a F3b) + branch `backup-f3b`.
   `Web-F3b/Iniciar.bat` abre na porta 8082; online em
