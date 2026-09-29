@@ -4,7 +4,8 @@
 # também roda num PC com Node 22 + Java 21 + Android SDK).
 #
 #   1. Copia o app (a pasta de cima) para www/ — só o que o app usa (sem as cópias Webaudio/ e
-#      Web-F3b/, sem o código C++, sem textos da loja).
+#      Web-F3b/, sem o código C++, sem textos da loja) — e tira os comentários dessa CÓPIA
+#      (limpar.mjs; o código original continua com as explicações).
 #   2. Cria o projeto Android (android/) com o Capacitor, se ainda não existir, e copia www/ para ele.
 #   3. Ajustes no Android:
 #      - TIRA a permissão de Internet (o app não consegue falar com nada fora do celular);
@@ -28,6 +29,9 @@ done
 mkdir -p www/motor
 cp "$RAIZ/motor/motor.wasm" "$RAIZ/motor/ponte.js" www/motor/
 # (sw.js fica de fora: dentro do app ele não é usado; ver interface/plataforma.js)
+
+echo "== 1b. Tirando os comentários da cópia (a versão da loja vai sem as explicações)"
+node limpar.mjs www
 
 echo "== 2. Projeto Android (Capacitor)"
 if [ ! -d android ]; then

@@ -609,6 +609,13 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   presets (6 por categoria). 27/09/2026: +16 de fábrica feitos pelo dono (4 Pad, 3 Keys, 3 Outros,
   2 Pluck, 2 Baixo, 2 FX; sem Lead novo) → 36 no total. Dentro da categoria: ordem alfabética.
   Conferido: os 36 carregam sem erro e tocam (pico máx. −3,3 dB no Kick).
+  VERSÃO DA LOJA SEM COMENTÁRIOS (29/09/2026, pedido do dono): `app-android/limpar.mjs`, chamado
+  pelo preparar.sh (passo 1b) logo depois de copiar o app para www/: tira os comentários só da
+  CÓPIA (JS: terser sem compress/mangle; HTML: html-minifier-terser, inclusive os <script> de
+  dentro; CSS: leitor simples que pula aspas). Nomes e contas iguais. devDependencies novas:
+  terser, html-minifier-terser (package.json/lock do app-android). Testado no PC (cópia em
+  `_antigo/limpo`): 33 arquivos, 431 → 288 KB, nenhum comentário sobrando; app abre, motor
+  versão 8, 36 presets, LFO desenhado, inglês ok.
   1ª vez (26/09) o Capacitor foi removido: o dono sentiu o app muito pesado (sem medir; o motor
   ainda era todo JS e a tela tinha animações ao vivo). Agora: comparar com o medidor.
 - Sempre explicar ao dono, em português simples, o que está sendo feito no código.
