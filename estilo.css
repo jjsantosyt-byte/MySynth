@@ -2532,7 +2532,8 @@ h1 {
 
 .tecla.preta.ativa {
   background: var(--destaque-escuro);
-  transform: translateY(2px);
+  /* mantém o translateX(-50%) que centraliza a preta; só desce 2 px (senão ela pula para o lado) */
+  transform: translateX(-50%) translateY(2px);
   box-shadow:
     inset 0 -4px 0 var(--destaque),
     inset 0 0 10px rgba(var(--azul-rgb), 0.8);
@@ -3407,7 +3408,7 @@ html[data-tema='basico'] .tecla.branca.ativa {
 }
 html[data-tema='basico'] .tecla.preta.ativa {
   background: var(--destaque-escuro);
-  transform: none;
+  transform: translateX(-50%);
   box-shadow: none;
 }
 

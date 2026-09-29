@@ -1997,8 +1997,9 @@ teclado.addEventListener('contextmenu', (evento) => evento.preventDefault());
 // VIBRAR (antes de tentar abrir menu/seleção). Cancelar o gesto de toque nativo nos controles
 // que são segurados/arrastados desliga isso. Eles funcionam por "pointer events", que continuam
 // chegando normalmente. (Botões comuns ficam de fora: eles precisam do toque nativo para o clique;
-// a barra de volume também, porque é uma barra do próprio navegador.)
-const SEGURADOS = '#teclado, .knob, .tela-onda, .seletor-numero, .ficha, .envelope-arrastavel';
+// a barra de volume também, porque é uma barra do próprio navegador. O botão "M" dos Macros tem
+// cara de ficha, mas é um botão comum: sem o toque nativo ele nunca abria o painel no celular.)
+const SEGURADOS = '#teclado, .knob, .tela-onda, .seletor-numero, .ficha:not(#botao-macros), .envelope-arrastavel';
 document.addEventListener(
   'touchstart',
   (evento) => {
