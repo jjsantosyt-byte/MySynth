@@ -211,6 +211,12 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    escrever a 1ª linha do DAW, combinar com o dono onde ele fica.
    Antes do DAW: LFO desenhado (escolhido pelo dono em 29/09/2026).
 
+**REGRA DE ESPAÇO (29/09/2026, pedido do dono):** a tela do app tem que ser USÁVEL e FÁCIL DE
+ENTENDER em celulares de tamanho médio e um pouco menores (não só no iPhone 15 Pro / Infinix).
+Tudo que for novo é testado deitado em 800×360 (médio, ex.: Infinix em tela cheia) e 640×360
+(menor), além de 852×340 / 852×393 e em pé: sem cortes, sem sobrepor, texto legível, alvos de
+toque com ~40 px ou mais. Quando não couber, abrir numa janela/painel grande em vez de apertar.
+
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
 (o dono decide o que entra). Ainda abertos (menores):
 detalhes da tela (sombras nos desenhos, JSON nos knobs); FM com troca da wavetable do
