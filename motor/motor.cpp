@@ -14,6 +14,10 @@
 // inteira é calculada aqui (vozProcessar); o JavaScript só decide quem toca qual nota.
 // F3a: os efeitos de "cor": Saturação, Distorção, EQ e Compressor (+ o Filtro Track da F2b).
 // F3b: os efeitos de "espaço": Phaser, Flanger, Chorus, Delay e Reverb.
+// F4: o GERENTE DE VOZES (quem toca qual nota: Poly/Mono, roubo de voz, Legato, Glide), as
+// trocas sem estalo (wavetable e modo de Warp), o volume geral, o soft clipper, a proteção
+// contra valores inválidos e TODOS os sorteios. O bloco inteiro é uma chamada só
+// (processarBloco); o JavaScript só repassa as mensagens da tela e os valores dos knobs.
 //
 // Como o JavaScript conversa com o C++ ("mesa de troca"):
 //   - wavetables: o JS pede espaço (criarTabela) e copia as ondas para dentro, uma vez só;
@@ -21,10 +25,11 @@
 //   - ajustes dos 3 osciladores (Unison, Detune, Warp...), dos LFOs, dos envelopes e dos
 //     Macros: o JS escreve na mesa uma vez por bloco;
 //   - ligações de modulação: o JS escreve a lista (fonte, destino, quantidade) quando muda;
-//   - o som de cada voz sai em "saidaE/saidaD" dela (o JS soma na saída) e a modulação de
-//     cada voz fica em "mod" (a tela mostra ao vivo);
-//   - efeitos: o JS escreve os ajustes de cada um na linha dele (ajustesEfeitos) e o som
-//     passa por "somEfeito" (copiado para cá antes do 1º efeito do C++ e de volta no fim).
+//   - notas e opções do gerente de vozes: funções (notaOn, notaOff, definirGerente...);
+//   - wavetable e modo de Warp escolhidos: o JS escreve o "pedido" (pedidosOsc) e o C++ troca
+//     sem estalo;
+//   - efeitos: o JS escreve o valor dos knobs de cada um na linha dele (basesEfeitos);
+//   - volume geral: o JS escreve por bloco (volumes); o som pronto sai em "saidaFinal".
 //
 // Para compilar: motor\compilar.bat (gera motor\motor.wasm).
 
@@ -699,7 +704,7 @@ constexpr int INDICES_MACRO[4] = { 5, 6, 7, 8 };
 constexpr int D_RATE_LFO[N_LFO] = { 35, 36, 37 };
 
 // Sorteio próprio (xorshift) para o S&H dos LFOs: um valor novo a cada ciclo.
-// (Os sorteios do início da nota vêm do JavaScript.)
+// (Os sorteios do início da nota usam outro sorteio: sortearNota, mais abaixo.)
 uint32_t estadoSorteio = 2463534242u;
 double sortear() {  // número entre -1 e 1
   uint32_t x = estadoSorteio;
@@ -708,6 +713,16 @@ double sortear() {  // número entre -1 e 1
   x ^= x << 5;
   estadoSorteio = x;
   return x / 2147483648.0 - 1;
+}
+
+// Sorteios do início de cada nota (pontos de início das cópias de unison, valor inicial do
+// S&H dos LFOs em Retrig, ponto de partida do ruído em Loop): número entre 0 e 1.
+// Receita "Lehmer" (a mesma dos testes em _antigo/teste/motor.js), com a semente que a tela
+// sorteia ao ligar (definirSemente). Com a mesma semente, a mesma sequência (só para testes).
+int64_t sementeNotas = 1;
+double sortearNota() {
+  sementeNotas = (sementeNotas * 16807) % 2147483647;
+  return static_cast<double>(sementeNotas) / 2147483647;
 }
 
 // ---------- Envelope ADSR (igual ao antigo dsp/envelope.js) ----------
@@ -2906,9 +2921,10 @@ bool temInvalido(int tamanho) {
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 6; }
+EXPORTAR int versao() { return 7; }
 
 static void efeitoZerar(int ef); // (mais abaixo)
+static void iniciarF4();         // (no fim)
 
 // Liga o motor na taxa de amostragem do aparelho (chamada uma vez, ao nascer).
 // "destinos" = quantos destinos de modulação existem (DESTINOS_MOD.length no JS).
@@ -2942,13 +2958,14 @@ EXPORTAR int iniciar(double taxaAmostragem, int destinos) {
   // Memórias dos efeitos de espaço (o tamanho depende da taxa)
   if (!flanger.alocar() || !chorus.alocar() || !delay.alocar() || !reverb.alocar()) return 0;
   for (int ef = 0; ef < N_EFEITOS; ef++) efeitoZerar(ef);
+  // F4: gerente de vozes, trocas sem estalo e saída
+  iniciarF4();
   return 1;
 }
 
 // Endereços da mesa de troca (o JS escreve/lê direto na memória)
 EXPORTAR double* enderecoAjustes() { return &ajustes[0][0]; }
 EXPORTAR double* enderecoPosicoes() { return &posicoes[0][0]; }
-EXPORTAR double* enderecoFases() { return fasesSorteadas; }
 EXPORTAR double* enderecoAjustesLfo() { return &ajustesLfo[0][0]; }
 EXPORTAR double* enderecoAjustesEnv() { return &ajustesEnv[0][0]; }
 EXPORTAR double* enderecoMacros() { return macrosAlvo; }
@@ -2960,9 +2977,6 @@ EXPORTAR double* enderecoModsEfeitos() { return entradaModsEfeitos; }
 EXPORTAR int camposEfeito(int ef) { return CAMPOS_EFEITO[ef]; }
 EXPORTAR double* enderecoEfeito() { return efeitoE; } // esquerda; a direita vem logo depois (+ BLOCO)
 EXPORTAR int camposVoz() { return N_CAMPOS_VOZ; }
-// Som da voz v no bloco: esquerda; a direita vem logo depois (+ BLOCO números)
-EXPORTAR double* enderecoVozSaida(int v) { return vozes[v].saidaE; }
-EXPORTAR double* enderecoMod(int v) { return vozes[v].mod; } // modulação da voz v (o JS lê)
 EXPORTAR int camposOsc() { return N_CAMPOS; }
 
 // Wavetables: pede espaço para uma tabela (o JS copia os harmônicos e as ondas para dentro)
@@ -2995,7 +3009,7 @@ EXPORTAR void apagarTabela(Tabela* t) {
 
 // Voz v: estado de nota nova (como criar a voz de novo): osciladores, envelopes, modulação,
 // filtros (com o tipo e o liga/desliga escolhidos) e ruído
-EXPORTAR void vozZerar(int v) {
+static void vozZerar(int v) {
   for (auto& osc : osciladores[v]) osc.zerar();
   vozes[v].zerar();
 }
@@ -3006,7 +3020,7 @@ EXPORTAR void vozZerar(int v) {
 // ligações andam até o alvo e os Macros andam até o valor escolhido.
 // "ultima" = voz da nota tocada por último, se ainda soa (-1 = nenhuma): um LFO Livre com
 // o Rate modulado segue a modulação dela.
-EXPORTAR void comecarBloco(int ultima, int tamanho) {
+static void comecarBloco(int ultima, int tamanho) {
   int pedacos = 0;
   for (int l = 0; l < N_LFO; l++) {
     const double rateBase = ajustesLfo[l][L_RATE];
@@ -3083,8 +3097,8 @@ static void somarEfeitos(int ultima) {
 // rampa e as cópias de unison começam nos pontos sorteados (lidos de "fasesSorteadas").
 // "recomecar" = dispara os envelopes (falso no legato); "retrig" = bits dos LFOs em modo
 // Retrig (recomeçam do início), com os valores sorteados s0–s2 para o S&H.
-EXPORTAR void vozIniciar(int v, double nota, double glideDe, double glideTempo, int doSilencio, int recomecar,
-                         int retrig, double s0, double s1, double s2) {
+static void iniciarNota(int v, double nota, double glideDe, double glideTempo, bool doSilencio, bool recomecar,
+                        int retrig, double s0, double s1, double s2) {
   Voz& voz = vozes[v];
   if (doSilencio) {
     for (Rota& rota : voz.rotas)
@@ -3115,17 +3129,6 @@ EXPORTAR void vozIniciar(int v, double nota, double glideDe, double glideTempo, 
   }
 }
 
-// Tecla solta: os 3 envelopes vão para a soltura
-EXPORTAR void vozSoltar(int v) {
-  for (auto& e : vozes[v].envs) e.soltar();
-}
-// Voz roubada: some em ~4 ms (só o ENV 1)
-EXPORTAR void vozSilenciar(int v) { vozes[v].envs[0].silenciarRapido(); }
-EXPORTAR int vozAtiva(int v) { return vozes[v].envs[0].ativo() ? 1 : 0; }
-EXPORTAR double vozNivel(int v) { return vozes[v].envs[0].nivel; }
-
-EXPORTAR double vozAltura(int v) { return vozes[v].altura; } // semitons (com o glide)
-
 // Tipo (campo 0: 0 = LP12, 1 = LP24, 2 = HP, 3 = BP) ou liga/desliga (campo 1) do Filtro 1
 // (numero 0) ou 2 (numero 1), em todas as vozes. Tipo desconhecido (-1): nada muda.
 EXPORTAR void definirFiltro(int numero, int campo, int valor) {
@@ -3141,17 +3144,11 @@ EXPORTAR void definirFiltro(int numero, int campo, int valor) {
 
 // Começo do bloco das vozes: coeficientes dos Filtros 1 e 2 (Cutoff/Reso dos knobs, em
 // "cortesResos"), iguais para todas as vozes
-EXPORTAR void vozesComecarBloco(int tamanho) {
+static void vozesComecarBloco(int tamanho) {
   for (int n = 0; n < 2; n++) {
     coefsGlobais[n].calcular(cortesResos[2 * n], static_cast<int>(ajustesVoz[V_QTD_CORTES1 + 2 * n]),
                              cortesResos[2 * n + 1], static_cast<int>(ajustesVoz[V_QTD_RESOS1 + 2 * n]), tamanho);
   }
-}
-
-// Calcula o som da voz v no bloco (em enderecoVozSaida). "sorteioRuido" (0 a 1, ou < 0 =
-// nenhum): nota nova, o ruído recomeça; "dona" = 1 se é a voz da nota mais recente.
-EXPORTAR void vozProcessar(int v, int tamanho, double sorteioRuido, int dona) {
-  vozes[v].processar(v, tamanho, sorteioRuido, dona != 0);
 }
 
 // ---------- Efeitos (todos os 10, na ordem do caminho do som) ----------
@@ -3263,7 +3260,7 @@ static void modularEfeitos(int ultima) {
 // Efeitos parados no silêncio nem são chamados (só o LFO deles anda). Um efeito que soltar
 // valores inválidos (NaN, infinito) tem o bloco trocado por silêncio e a memória limpa (fica
 // como novo, com os mesmos ajustes). Devolve os bits dos efeitos consertados (o JS avisa).
-EXPORTAR int efeitosProcessar(int ultima, int tamanho) {
+static int efeitosProcessar(int ultima, int tamanho) {
   for (int ef = 0; ef < N_EFEITOS; ef++) {
     for (int k = 0; k < CAMPOS_EFEITO[ef]; k++) ajustesEfeitos[ef][k] = basesEfeitos[ef][k];
   }
@@ -3295,12 +3292,555 @@ EXPORTAR int efeitosProcessar(int ultima, int tamanho) {
   picoEfeitos = pico;
   return consertos;
 }
-EXPORTAR double efeitosPico() { return picoEfeitos; }
 // Filtro Track: troca de tipo (LP 12, LP 24, HP, BP), com a transição suave do filtro
 EXPORTAR void ftTipo(int tipo) {
   filtroTrack.esquerdo.definirTipo(tipo);
   filtroTrack.direito.definirTipo(tipo);
 }
 
-// Nível atual do oscilador k da voz v (o motor usa para trocar a wavetable no silêncio)
-EXPORTAR double oscNivel(int v, int k) { return osciladores[v][k].nivel; }
+// ================= F4: gerente de vozes, trocas sem estalo, volume e soft clipper =================
+// Cópia exata do que o processador-synth.js fazia (mesma ordem de decisões e de sorteios).
+
+namespace {
+
+// ---------- Gerente de vozes ----------
+// Glide de uma nota: escorrega da altura "de" até a nota em "tempo" segundos
+struct Glide {
+  bool tem;
+  double de, tempo;
+};
+constexpr Glide SEM_GLIDE = { false, 0, 0 };
+
+// O que o gerente sabe de cada voz (o som dela fica em "vozes" e "osciladores")
+struct EstadoVoz {
+  bool temNota;     // já tocou alguma nota?
+  double nota;
+  bool segurada;    // tecla ainda apertada?
+  int idade;        // ordem em que a nota começou (para achar a mais antiga)
+  bool temPendente; // nota esperando esta voz terminar de sumir (voz roubada)
+  double pendenteNota;
+  int pendenteIdade;
+  Glide pendenteGlide;
+  bool ruidoNovo;   // nota nova com ataque: o ruído recomeça
+};
+EstadoVoz gerente[MAX_VOZES];
+
+// Opções (a tela manda ao ligar e quando mudam: definirGerente)
+enum { G_MODO, G_VOZES, G_LEGATO, G_GLIDE, G_GLIDE_SEMPRE };
+bool modoMono = false;
+int maxVozes = 8;
+bool legato = true;
+double glideTempo = 0;    // 0 = sem glide
+bool glideSempre = false; // mesmo sem emendar as notas
+bool temUltimaNota = false;
+double ultimaNota = 0;    // de onde a próxima nota escorrega (Poly)
+int contador = 0;         // numera as notas
+int dona = -1;            // voz da nota tocada por último (o "1 ruído" e o Filtro Track seguem ela)
+constexpr int MAX_PRESAS = 128;
+double notasPresas[MAX_PRESAS]; // (Mono) notas seguradas, na ordem em que foram tocadas
+int qtdPresas = 0;
+
+inline bool envelopeAtivo(int v) { return vozes[v].envs[0].ativo(); }
+// Está fazendo som (ou prestes a fazer)?
+inline bool vozAtiva(int v) { return envelopeAtivo(v) || gerente[v].temPendente; }
+
+// Voz da nota tocada por último, se ainda soa (-1 = nenhuma)
+inline int indiceUltima() { return dona >= 0 && envelopeAtivo(dona) ? dona : -1; }
+
+void tirarPresa(double nota) {
+  int n = 0;
+  for (int i = 0; i < qtdPresas; i++) {
+    if (notasPresas[i] != nota) notasPresas[n++] = notasPresas[i];
+  }
+  qtdPresas = n;
+}
+
+// ---------- Trocas sem estalo (wavetable e modo de Warp) ----------
+// A tela escreve aqui o que escolheu; a troca de verdade (em "ajustes") espera as notas
+// ficarem em silêncio naquele oscilador.
+enum { P_TABELA, P_WARP, N_PEDIDOS };
+double pedidosOsc[N_OSC][N_PEDIDOS];
+
+// ---------- Soft clipper da saída (igual ao antigo dsp/clipper.js) ----------
+// Garante que o som nunca passa de 0 dB, SEM abaixar o volume: só a pontinha dos picos é
+// arredondada. Abaixo de -1 dB (0,891) passa igual; de -1 dB a 0 dB, curva suave (tanh).
+// Contra chiado: a curva é aplicada em taxa DOBRADA com ADAA, e só a "correção" (o quanto a
+// curva tira do pico) passa por esse caminho; o som segue direto, atrasado 15 amostras.
+// No fim, uma trava de segurança em ±1.
+constexpr double LIMIAR_CLIPPER = 0.891;
+constexpr double K_CLIPPER = 1 - LIMIAR_CLIPPER;
+
+inline double curvaClipper(double x) {
+  const double a = std::fabs(x);
+  if (a <= LIMIAR_CLIPPER) return x;
+  const double y = LIMIAR_CLIPPER + K_CLIPPER * std::tanh((a - LIMIAR_CLIPPER) / K_CLIPPER);
+  return x < 0 ? -y : y;
+}
+// "Integral" da curva (para o ADAA)
+inline double integralClipper(double x) {
+  const double a = std::fabs(x);
+  if (a <= LIMIAR_CLIPPER) return 0.5 * a * a;
+  return LIMIAR_CLIPPER * a + K_CLIPPER * K_CLIPPER * logCosh((a - LIMIAR_CLIPPER) / K_CLIPPER) -
+         0.5 * LIMIAR_CLIPPER * LIMIAR_CLIPPER;
+}
+// Filtro meia-banda sobre o histórico circular "h" (posição "p" = amostra mais nova)
+inline double filtrarMeiaBanda(const double* h, int p) {
+  double soma = 0;
+  for (int u = 0; u < qtdUteis; u++) {
+    int j = p - deslocUteis[u];
+    if (j < 0) j += TAPS;
+    soma += coefsUteis[u] * h[j];
+  }
+  return soma;
+}
+
+struct CanalClipper {
+  Interpolador subir;
+  double altas[2];
+  double hCorrecao[TAPS]; // a correção, na taxa dobrada
+  int pCorrecao;
+  int naoZeros;           // quantas das últimas TAPS correções não são zero (0 = nem filtra)
+  double anterior, integralAnterior;
+  double seco[MEIO + 1];  // o som original, atrasado para alinhar
+  int pSeco;
+  double maior;           // maior valor na taxa dobrada desde a última leitura (recado da tela)
+
+  void zerar() {
+    subir.limpar();
+    subir.p = 0;
+    altas[0] = altas[1] = 0;
+    for (double& h : hCorrecao) h = 0;
+    pCorrecao = naoZeros = 0;
+    anterior = integralAnterior = 0;
+    for (double& s : seco) s = 0;
+    pSeco = 0;
+    maior = 0;
+  }
+
+  double processar(double x) {
+    subir.processar(x, altas);
+    double correcao = 0;
+    for (int fase = 0; fase < 2; fase++) {
+      const double u = altas[fase];
+      const double au = u < 0 ? -u : u;
+      if (au > maior) maior = au;
+      // Correção = (curva com ADAA) − (a mesma média sem curva): na parte reta, exatamente 0
+      const double Fu = integralClipper(u);
+      double e = 0;
+      const double ua = anterior;
+      if (au > LIMIAR_CLIPPER || std::fabs(ua) > LIMIAR_CLIPPER) {
+        const double dx = u - ua;
+        const double media = std::fabs(dx) < 1e-6 ? curvaClipper(0.5 * (u + ua)) : (Fu - integralAnterior) / dx;
+        e = media - 0.5 * (u + ua);
+      }
+      anterior = u;
+      integralAnterior = Fu;
+      pCorrecao = pCorrecao + 1 == TAPS ? 0 : pCorrecao + 1;
+      if (hCorrecao[pCorrecao] != 0) naoZeros--;
+      hCorrecao[pCorrecao] = e;
+      if (e != 0) naoZeros++;
+      if (fase == 1 && naoZeros > 0) correcao = filtrarMeiaBanda(hCorrecao, pCorrecao);
+    }
+    seco[pSeco] = x;
+    pSeco = pSeco + 1 == MEIO + 1 ? 0 : pSeco + 1;
+    const double y = seco[pSeco] + correcao;
+    return y > 1 ? 1 : y < -1 ? -1 : y;
+  }
+};
+CanalClipper clipperE, clipperD;
+int silencioSaida = 0; // amostras seguidas de silêncio na saída (o clipper descansa)
+
+// ---------- Saída ----------
+double volumes[BLOCO];       // volume geral (1 valor ou 1 por amostra; a tela escreve)
+float saidaFinal[2][BLOCO];  // o som pronto (esquerda, direita): o JS copia para o alto-falante
+
+// Bits dos consertos (valores inválidos) que o JS avisa: 0 a 9 = efeitos, e estes:
+constexpr int CONSERTO_VOZES = 1 << 10;
+constexpr int CONSERTO_CLIPPER = 1 << 11;
+
+bool temInvalidoSaida(int tamanho) {
+  for (int i = 0; i < tamanho; i++) {
+    if (!std::isfinite(saidaFinal[0][i]) || !std::isfinite(saidaFinal[1][i])) return true;
+  }
+  return false;
+}
+
+}  // namespace
+
+// ---------- Gerente de vozes: começar, soltar e roubar ----------
+
+// Começa uma nota na voz v. "recomecar" = dispara os envelopes (falso no legato).
+// Os sorteios, na mesma ordem de sempre: pontos de início das cópias de unison (vindo do
+// silêncio) e o valor inicial do S&H dos LFOs em modo Retrig.
+static void iniciarVoz(int v, double nota, int idade, bool recomecar, Glide glide) {
+  const bool doSilencio = !envelopeAtivo(v);
+  if (doSilencio) {
+    for (int c = 0; c < MAX_UNISON; c++) fasesSorteadas[c] = sortearNota();
+  }
+  EstadoVoz& g = gerente[v];
+  g.temNota = true;
+  g.nota = nota;
+  g.segurada = true;
+  g.idade = idade;
+  g.temPendente = false;
+  int retrig = 0;
+  double sorteios[N_LFO] = { 0, 0, 0 };
+  if (recomecar) {
+    g.ruidoNovo = true;
+    for (int l = 0; l < N_LFO; l++) {
+      if (ajustesLfo[l][L_LIVRE] != 0) continue; // Livre: não recomeça
+      retrig |= 1 << l;
+      sorteios[l] = sortearNota() * 2 - 1;
+    }
+  }
+  iniciarNota(v, nota, glide.tem ? glide.de : nota, glide.tem ? glide.tempo : 0, doSilencio, recomecar, retrig,
+              sorteios[0], sorteios[1], sorteios[2]);
+}
+
+// Tecla solta: os 3 envelopes vão para a soltura
+static void soltarVoz(int v) {
+  gerente[v].segurada = false;
+  for (auto& e : vozes[v].envs) e.soltar();
+}
+
+// Voz roubada: some em ~4 ms e depois toca a nota nova
+static void roubarVoz(int v, double nota, int idade, Glide glide) {
+  EstadoVoz& g = gerente[v];
+  g.segurada = false;
+  g.temPendente = true;
+  g.pendenteNota = nota;
+  g.pendenteIdade = idade;
+  g.pendenteGlide = glide;
+  vozes[v].envs[0].silenciarRapido();
+}
+
+static void soltarTudo() {
+  qtdPresas = 0;
+  for (int v = 0; v < MAX_VOZES; v++) {
+    gerente[v].temPendente = false;
+    soltarVoz(v);
+  }
+}
+
+// Decide se a nota nova escorrega, e de onde. "emendada" = alguma tecla ainda estava
+// segurada quando esta foi tocada; "temOrigem" = false quando ainda não há de onde escorregar.
+static Glide glidePara(bool emendada, bool temOrigem, double origem) {
+  if (glideTempo <= 0 || !temOrigem) return SEM_GLIDE;
+  if (!emendada && !glideSempre) return SEM_GLIDE;
+  return { true, origem, glideTempo };
+}
+
+// Poly: até "maxVozes" notas; faltando voz, rouba a melhor candidata
+static void notaOnPoly(double nota) {
+  const int idade = ++contador;
+  // A nota nova escorrega a partir da última nota tocada
+  bool emendada = false;
+  for (int v = 0; v < MAX_VOZES; v++) emendada = emendada || gerente[v].segurada;
+  const Glide glide = glidePara(emendada, temUltimaNota, ultimaNota);
+  temUltimaNota = true;
+  ultimaNota = nota;
+
+  // A mesma nota ainda está soando? Reaproveita a voz dela (e ela vira a "dona").
+  for (int v = 0; v < MAX_VOZES; v++) {
+    const EstadoVoz& g = gerente[v];
+    if (vozAtiva(v) && !g.temPendente && g.temNota && g.nota == nota) {
+      dona = v;
+      iniciarVoz(v, nota, idade, true, glide);
+      return;
+    }
+  }
+  // Uma voz livre (dentro do limite de vozes escolhido)?
+  for (int v = 0; v < maxVozes; v++) {
+    if (!vozAtiva(v)) {
+      dona = v;
+      iniciarVoz(v, nota, idade, true, glide);
+      return;
+    }
+  }
+  // Sem voz livre: rouba. Prefere uma já solta (sumindo) e mais baixa; se todas estão
+  // seguradas, rouba a mais antiga.
+  int escolhida = -1;
+  for (int v = 0; v < maxVozes; v++) {
+    const EstadoVoz& g = gerente[v];
+    if (g.temPendente) continue;
+    if (escolhida < 0) {
+      escolhida = v;
+      continue;
+    }
+    const EstadoVoz& e = gerente[escolhida];
+    if (!g.segurada && (e.segurada || vozes[v].envs[0].nivel < vozes[escolhida].envs[0].nivel)) escolhida = v;
+    else if (g.segurada && e.segurada && g.idade < e.idade) escolhida = v;
+  }
+  if (escolhida < 0) {
+    // Todas já estão trocando de nota: troca a nota que estava esperando
+    EstadoVoz& g = gerente[0];
+    g.temPendente = true;
+    g.pendenteNota = nota;
+    g.pendenteIdade = idade;
+    g.pendenteGlide = glide;
+    dona = 0;
+    return;
+  }
+  dona = escolhida;
+  // Já quase muda? Começa direto. Senão, some rápido e depois toca.
+  if (vozes[escolhida].envs[0].nivel < 0.001) iniciarVoz(escolhida, nota, idade, true, glide);
+  else roubarVoz(escolhida, nota, idade, glide);
+}
+
+static void notaOffPoly(double nota) {
+  for (int v = 0; v < MAX_VOZES; v++) {
+    EstadoVoz& g = gerente[v];
+    if (g.temPendente && g.pendenteNota == nota) g.temPendente = false;
+    else if (g.temNota && g.nota == nota && g.segurada) soltarVoz(v);
+  }
+}
+
+// Mono: uma nota por vez (sempre a voz 0), com Legato opcional
+static void notaOnMono(double nota) {
+  dona = 0;
+  const bool ninguemSegurando = qtdPresas == 0;
+  // Se a nota já estava na lista, tira e coloca no fim (vira a mais recente)
+  tirarPresa(nota);
+  if (qtdPresas == MAX_PRESAS) {
+    for (int i = 1; i < qtdPresas; i++) notasPresas[i - 1] = notasPresas[i]; // (lista cheia: sai a mais antiga)
+    qtdPresas--;
+  }
+  notasPresas[qtdPresas++] = nota;
+  // Escorrega a partir de onde o som está agora (mesmo no meio de outro escorregão)
+  const bool soando = envelopeAtivo(0);
+  const Glide glide = glidePara(!ninguemSegurando, soando || temUltimaNota, soando ? vozes[0].altura : ultimaNota);
+  temUltimaNota = true;
+  ultimaNota = nota;
+  // Com legato, só recomeça o envelope se nenhuma tecla estava segurada
+  iniciarVoz(0, nota, ++contador, ninguemSegurando || !legato, glide);
+}
+
+static void notaOffMono(double nota) {
+  tirarPresa(nota);
+  if (qtdPresas == 0) {
+    soltarVoz(0); // soltou tudo: entra a soltura (R)
+  } else if (gerente[0].temNota && nota == gerente[0].nota) {
+    // Soltou a nota que soava, mas ainda tem outra segurada: volta para ela (com glide, escorrega)
+    const double ultima = notasPresas[qtdPresas - 1];
+    const Glide glide = glidePara(true, true, vozes[0].altura);
+    temUltimaNota = true;
+    ultimaNota = ultima;
+    iniciarVoz(0, ultima, ++contador, !legato, glide);
+  }
+}
+
+// Vozes recriadas do zero (depois de um conserto): voltam com o tipo e o liga/desliga dos
+// filtros que estavam escolhidos
+static void recriarVozes() {
+  for (int v = 0; v < MAX_VOZES; v++) {
+    gerente[v] = { false, 0, false, 0, false, 0, 0, SEM_GLIDE, false };
+    vozZerar(v);
+  }
+  dona = -1;
+  qtdPresas = 0;
+}
+
+// Troca de wavetable ou de modo de Warp em cada oscilador: sem notas, troca direto; com notas,
+// abaixa só aquele oscilador (ganho 0: o nível desce suave em poucos ms), troca quando todas
+// as notas chegaram no silêncio e sobe de novo. A primeira wavetable entra direto.
+static void trocarSemEstalo(bool algumaAtiva) {
+  for (int k = 0; k < N_OSC; k++) {
+    double* a = ajustes[k];
+    const double tabela = pedidosOsc[k][P_TABELA];
+    const double warp = pedidosOsc[k][P_WARP];
+    if (a[C_TABELA] == 0) a[C_TABELA] = tabela;
+    const bool troca = (tabela != 0 && tabela != a[C_TABELA]) || warp != a[C_WARP_MODO];
+    if (!troca) {
+      a[C_GANHO] = 1;
+      continue;
+    }
+    bool silencio = true;
+    for (int v = 0; v < MAX_VOZES; v++) {
+      if (vozAtiva(v) && osciladores[v][k].nivel > 0.001) silencio = false;
+    }
+    if (!algumaAtiva || silencio) {
+      if (tabela != 0) a[C_TABELA] = tabela;
+      a[C_WARP_MODO] = warp;
+      a[C_GANHO] = 1;
+    } else {
+      a[C_GANHO] = 0;
+    }
+  }
+}
+
+// Uma voz no bloco: começa a nota que estava esperando (voz roubada que já sumiu), calcula o
+// som (no C++) e SOMA na saída. (A soma passa por "float", como nas listas do antigo JS.)
+static void processarVoz(int v, int tamanho) {
+  EstadoVoz& g = gerente[v];
+  if (g.temPendente && !envelopeAtivo(v)) {
+    iniciarVoz(v, g.pendenteNota, g.pendenteIdade, true, g.pendenteGlide);
+  }
+  if (!envelopeAtivo(v)) return;
+  // Nota nova (com ataque): o ruído recomeça. One Shot = do início do trecho (todo ataque
+  // igual); Loop = de um ponto sorteado (cada nota com um ruído diferente).
+  double sorteioRuido = -1;
+  if (g.ruidoNovo) {
+    sorteioRuido = ajustesVoz[V_RUIDO_ONESHOT] != 0 ? 0 : sortearNota();
+    g.ruidoNovo = false;
+  }
+  Voz& voz = vozes[v];
+  voz.processar(v, tamanho, sorteioRuido, dona == v);
+  float* e = saidaFinal[0];
+  float* d = saidaFinal[1];
+  for (int i = 0; i < tamanho; i++) {
+    e[i] = static_cast<float>(static_cast<double>(e[i]) + voz.saidaE[i]);
+    d[i] = static_cast<float>(static_cast<double>(d[i]) + voz.saidaD[i]);
+  }
+}
+
+// Estado inicial da F4 (chamado por iniciar)
+static void iniciarF4() {
+  recriarVozes();
+  contador = 0;
+  temUltimaNota = false;
+  modoMono = false;
+  maxVozes = 8;
+  legato = true;
+  glideTempo = 0;
+  glideSempre = false;
+  for (int k = 0; k < N_OSC; k++) {
+    pedidosOsc[k][P_TABELA] = pedidosOsc[k][P_WARP] = 0;
+    ajustes[k][C_TABELA] = 0;
+    ajustes[k][C_WARP_MODO] = W_NENHUM;
+    ajustes[k][C_GANHO] = 1;
+  }
+  clipperE.zerar();
+  clipperD.zerar();
+  silencioSaida = 0;
+  for (double& v : volumes) v = 1;
+}
+
+// ---------- Funções que o JavaScript chama (F4) ----------
+
+// Semente dos sorteios das notas (a tela sorteia uma ao ligar; os testes usam uma fixa)
+EXPORTAR void definirSemente(double s) {
+  int64_t n = static_cast<int64_t>(std::fabs(s)) % 2147483647;
+  sementeNotas = n == 0 ? 1 : n;
+}
+
+EXPORTAR void notaOn(double nota) {
+  if (modoMono) notaOnMono(nota);
+  else notaOnPoly(nota);
+}
+EXPORTAR void notaOff(double nota) {
+  if (modoMono) notaOffMono(nota);
+  else notaOffPoly(nota);
+}
+EXPORTAR void tudoOff() { soltarTudo(); }
+
+// Opções do gerente: modo (0 = Poly, 1 = Mono; trocar solta as notas), vozes (1 a 16),
+// Legato, Glide (segundos, 0 = sem) e Glide "Sempre"
+EXPORTAR void definirGerente(int campo, double valor) {
+  switch (campo) {
+    case G_MODO: {
+      const bool mono = valor != 0;
+      if (mono != modoMono) soltarTudo();
+      modoMono = mono;
+      break;
+    }
+    case G_VOZES: maxVozes = static_cast<int>(limitar(valor, 1, MAX_VOZES)); break;
+    case G_LEGATO: legato = valor != 0; break;
+    case G_GLIDE: glideTempo = valor > 0 ? valor : 0; break;
+    case G_GLIDE_SEMPRE: glideSempre = valor != 0; break;
+  }
+}
+
+// Mesa de troca da F4
+EXPORTAR double* enderecoPedidos() { return &pedidosOsc[0][0]; } // [osc][wavetable, modo de Warp]
+EXPORTAR double* enderecoVolume() { return volumes; }
+EXPORTAR float* enderecoSaida() { return &saidaFinal[0][0]; } // esquerda; direita BLOCO depois
+
+// Vozes tocando agora (medidor de desempenho)
+EXPORTAR int vozesTocando() {
+  int n = 0;
+  for (int v = 0; v < MAX_VOZES; v++) n += vozAtiva(v) ? 1 : 0;
+  return n;
+}
+
+// Maior pico que chegou no soft clipper (antes de arredondar) desde a última leitura, e zera
+EXPORTAR double clipperPico() {
+  const double pico = std::fmax(clipperE.maior, clipperD.maior);
+  clipperE.maior = clipperD.maior = 0;
+  return pico;
+}
+
+// O BLOCO INTEIRO: modulação → notas (gerente de vozes) → 10 efeitos → volume → soft clipper.
+// Os ajustes já estão na mesa (o JS escreveu antes); "qtdVolume" = quantos valores de volume
+// (1 = parado; tamanho = um por amostra). O som pronto fica em enderecoSaida.
+// Devolve os bits das peças que soltaram valores inválidos e foram consertadas (o bloco vira
+// silêncio e a peça fica como nova): 0 a 9 = efeitos, 10 = vozes, 11 = clipper.
+EXPORTAR int processarBloco(int tamanho, int qtdVolume) {
+  float* e = saidaFinal[0];
+  float* d = saidaFinal[1];
+  for (int i = 0; i < tamanho; i++) e[i] = d[i] = 0;
+
+  // Modulação: LFOs Livres andam (sempre, mesmo em silêncio), quantidades das ligações e Macros
+  comecarBloco(indiceUltima(), tamanho);
+
+  // Notas (só se alguma estiver soando)
+  bool algumaAtiva = false;
+  for (int v = 0; v < MAX_VOZES; v++) algumaAtiva = algumaAtiva || vozAtiva(v);
+  trocarSemEstalo(algumaAtiva);
+  int consertos = 0;
+  if (algumaAtiva) {
+    vozesComecarBloco(tamanho);
+    for (int v = 0; v < MAX_VOZES; v++) {
+      if (vozAtiva(v)) processarVoz(v, tamanho);
+    }
+    // Proteção: uma conta inválida numa voz se espalharia para sempre (tudo mudo)
+    if (temInvalidoSaida(tamanho)) {
+      for (int i = 0; i < tamanho; i++) e[i] = d[i] = 0;
+      recriarVozes();
+      consertos |= CONSERTO_VOZES;
+    }
+  }
+
+  // Efeitos (os 10, sempre depois das notas somadas). Filtro Track: a nota de referência é a
+  // da voz da nota tocada por último, já com o Glide.
+  if (dona >= 0) basesEfeitos[EF_FILTRO_TRACK][FT_REFERENCIA] = vozes[dona].altura;
+  for (int i = 0; i < tamanho; i++) {
+    efeitoE[i] = e[i];
+    efeitoD[i] = d[i];
+  }
+  consertos |= efeitosProcessar(indiceUltima(), tamanho);
+  for (int i = 0; i < tamanho; i++) {
+    e[i] = static_cast<float>(efeitoE[i]);
+    d[i] = static_cast<float>(efeitoD[i]);
+  }
+
+  // Volume geral (suave: a barra usa rampas)
+  if (qtdVolume > 1) {
+    for (int i = 0; i < tamanho; i++) {
+      e[i] = static_cast<float>(e[i] * volumes[i]);
+      d[i] = static_cast<float>(d[i] * volumes[i]);
+    }
+  } else if (volumes[0] != 1) {
+    const double g = volumes[0];
+    for (int i = 0; i < tamanho; i++) {
+      e[i] = static_cast<float>(e[i] * g);
+      d[i] = static_cast<float>(d[i] * g);
+    }
+  }
+
+  // Soft clipper, SEMPRE ligado. Silêncio há um tempo (mais que o atraso dele): nem passa.
+  silencioSaida = picoEfeitos * (volumes[0] != 0 ? volumes[0] : 1) < LIMIAR_SILENCIO ? silencioSaida + tamanho : 0;
+  if (silencioSaida < 4 * tamanho) {
+    for (int i = 0; i < tamanho; i++) {
+      e[i] = static_cast<float>(clipperE.processar(e[i]));
+      d[i] = static_cast<float>(clipperD.processar(d[i]));
+    }
+  }
+  // O clipper guarda um pouco de memória: um valor inválido o deixaria mudo para sempre
+  if (temInvalidoSaida(tamanho)) {
+    for (int i = 0; i < tamanho; i++) e[i] = d[i] = 0;
+    clipperE.zerar();
+    clipperD.zerar();
+    consertos |= CONSERTO_CLIPPER;
+  }
+  return consertos;
+}

@@ -9,7 +9,8 @@
 
 import { TIPOS_SATURACAO, TIPOS_DISTORCAO } from '../dsp/efeitos/modulaveis.js';
 
-// Campos dos ajustes de cada oscilador (mesma ordem do enum Campo em motor.cpp)
+// Campos dos ajustes de cada oscilador (mesma ordem do enum Campo em motor.cpp).
+// tabela, ganho e warpModo são do C++ (trocas sem estalo): a tela pede em enderecoPedidos.
 export const CAMPOS_OSC = {
   tabela: 0,
   unison: 1,
@@ -73,7 +74,8 @@ export class Ponte {
     this.nCampos = n;
     this.iAjustes = this.c.enderecoAjustes() / 8;
     this.iPosicoes = this.c.enderecoPosicoes() / 8;
-    this.iFases = this.c.enderecoFases() / 8;
+    this.iPedidos = this.c.enderecoPedidos() / 8; // [osc][wavetable, modo de Warp] escolhidos na tela
+    this.iVolume = this.c.enderecoVolume() / 8; // volume geral (1 valor ou 1 por amostra)
     this.iAjustesLfo = this.c.enderecoAjustesLfo() / 8;
     this.iAjustesEnv = this.c.enderecoAjustesEnv() / 8;
     this.iMacros = this.c.enderecoMacros() / 8;
@@ -83,8 +85,8 @@ export class Ponte {
     for (const { numero, campos } of Object.values(EFEITOS_NO_MOTOR)) {
       if (this.c.camposEfeito(numero) !== campos.length) throw new Error('motor.wasm e ponte.js não combinam (efeitos)');
     }
-    this.iEfeito = this.c.enderecoEfeito() / 8; // som passando pelos efeitos: esquerda; direita BLOCO depois
-    this.renovar(true); // (as vistas somE/somD precisam de iEfeito)
+    this.iSaida = this.c.enderecoSaida() / 4; // som pronto (float): esquerda; direita BLOCO depois
+    this.renovar(true); // (as vistas saidaE/saidaD precisam de iSaida)
   }
 
   renovar(forcar = false) {
@@ -95,21 +97,11 @@ export class Ponte {
     this.f32 = new Float32Array(b);
     this.i32 = new Int32Array(b);
     this.u8 = new Uint8Array(b);
-    // Som passando pelos efeitos do C++ (esquerda e direita)
-    if (this.iEfeito !== undefined) {
-      this.somE = this.f64.subarray(this.iEfeito, this.iEfeito + BLOCO);
-      this.somD = this.f64.subarray(this.iEfeito + BLOCO, this.iEfeito + 2 * BLOCO);
+    // Som pronto do bloco (esquerda e direita), para copiar para o alto-falante
+    if (this.iSaida !== undefined) {
+      this.saidaE = this.f32.subarray(this.iSaida, this.iSaida + BLOCO);
+      this.saidaD = this.f32.subarray(this.iSaida + BLOCO, this.iSaida + 2 * BLOCO);
     }
-  }
-
-  // Onde fica a modulação da voz v (posição em f64; um número por destino)
-  mod(v) {
-    return this.c.enderecoMod(v) / 8;
-  }
-
-  // Onde fica o som da voz v no bloco (posição em f64; a direita vem BLOCO depois)
-  vozSaida(v) {
-    return this.c.enderecoVozSaida(v) / 8;
   }
 
   // Lista nova de ligações: [{ fonte, destino, quantidade }] com os índices já convertidos

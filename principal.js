@@ -357,7 +357,7 @@ async function ligarSom() {
       botaoLigar.classList.remove('ligado');
     };
     // O volume geral e o soft clipper (nunca passa de 0 dB) ficam DENTRO do motor
-    // (parâmetro 'volume' e dsp/clipper.js): o motor sai direto para o alto-falante.
+    // (parâmetro 'volume'; o clipper está no motor.cpp): o motor sai direto para o alto-falante.
     synth.connect(contexto.destination);
 
     // Envia uma cópia da wavetable de cada oscilador para o motor de som (motor novo: vazio).

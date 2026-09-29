@@ -438,6 +438,31 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   73,3 → 27,8% (2,6× mais leve). Tela (Soft Pad, nota tocando, painel escondido = sem contar os
   desenhos): 7,0 → 3,8%. Achado: custo fixo por bloco alto (1 nota já 2,6%; 8 notas U1 5,4%) →
   candidato na F4 (o JS ainda faz o gerente de vozes, parâmetros, clipper).
+- F4 (29/09/2026, FEITA, em teste; versão 7): o C++ faz o bloco INTEIRO numa chamada só
+  (`processarBloco(tamanho, qtdVolume)` → som pronto em float em `enderecoSaida`; devolve bits dos
+  consertos: 0–9 efeitos, 10 vozes, 11 clipper). No C++ (bloco "F4", fim do motor.cpp): gerente de
+  vozes (`EstadoVoz gerente[]`, `notaOnPoly/Mono`, `notaOffPoly/Mono`, roubo, nota esperando,
+  Legato, Glide, `dona` = voz da última nota; exports `notaOn`, `notaOff`, `tudoOff`,
+  `definirGerente(campo, valor)` com G_MODO/VOZES/LEGATO/GLIDE/GLIDE_SEMPRE), trocas sem estalo
+  (`trocarSemEstalo`: o JS escreve só o PEDIDO em `enderecoPedidos` [osc][wavetable, Warp]; o C++
+  cuida de C_TABELA/C_GANHO/C_WARP_MODO), volume (`enderecoVolume`), soft clipper (`CanalClipper`,
+  cópia exata do dsp/clipper.js; `clipperPico()` para o recado), proteção NaN das vozes e do
+  clipper, referência do Filtro Track, `vozesTocando()` (medidor). SORTEIOS: todos no C++
+  (`sortearNota`, receita Lehmer igual ao `semente()` dos testes; o JS só sorteia a semente ao
+  ligar: `definirSemente`); o S&H a cada volta segue com o xorshift. Somas das vozes, volume e
+  clipper passam por float como no JS antigo (som idêntico). JS: processador-synth.js virou
+  "carteiro" (mensagens + valores dos knobs na mesa; nota de LFO Retrig/Livre escrita já na
+  mensagem, `escreverLfos`); `Voz` do JS saiu. Diferença proposital: pedir wavetable/Warp e
+  voltar ao atual antes de trocar não abaixa mais o oscilador (antes podia ficar mudo).
+  APAGADOS: dsp/clipper.js, dsp/meia-banda.js.
+  Medido (`_antigo/teste/teste-f4.js`, contra `_antigo/f3b` + `_antigo/motor-f3b.wasm`, mesma
+  semente dos dois lados): 9 cenários (Poly com Rand 100%, roubo com 4 vozes + notas esperando +
+  vozes 4→2, Mono Legato/Glide/Sempre, troca Poly↔Mono, ruído Loop + S&H Retrig + Retrig→Livre,
+  wavetable/Warp trocando com notas em A e B, volume em rampa a-rate + clipper segurando, silêncio
+  longo + efeitos, Filtro Track com Glide) → TODOS IDÊNTICOS, mesmos recados. Conserto: Nível NaN
+  (vozes) e volume NaN (clipper) = mesmo aviso e mesmo som da F3b. PESO (PC): 1 nota 5,4 → 1,9%;
+  8 notas U1 8,3 → 4,5%; 8 notas U1 + 10 efeitos 15,7 → 11,6%; silêncio 0,66 → 0,36%.
+  App: "motor C++ carregado (versão 7)", acorde com 3 vozes no medidor (motor 5%), sem erros.
 - Cópia "Web-F3b" (27/09/2026, pedido do dono, antes do medidor de desempenho e do novo teste com
   o Capacitor): pasta `Web-F3b/` (commit db1bd1b, motor C++ até a F3b) + branch `backup-f3b`.
   `Web-F3b/Iniciar.bat` abre na porta 8082; online em
@@ -712,10 +737,9 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 **Arquivos:**
 - `index.html`, `estilo.css` — a página e a aparência
 - `principal.js` — liga o som, teclado, toques, abas e controles
-- `processador-synth.js` — motor de som (AudioWorklet): gerente de vozes
-- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly): a voz inteira + os 10 efeitos (e a modulação dos knobs deles)
+- `processador-synth.js` — AudioWorklet: repassa mensagens e knobs ao motor em C++ (o "carteiro")
+- `motor/motor.cpp` + `motor/compilar.bat` → `motor/motor.wasm` — motor em C++ (WebAssembly): TODO o som (gerente de vozes, vozes, 10 efeitos, volume, soft clipper, sorteios)
 - `dsp/warp.js` — contas do Warp (Sync, Bend, PWM)
-- `dsp/meia-banda.js` — filtro para trabalhar em taxa dobrada (hoje só o soft clipper; o resto no C++)
 - `dsp/filtro.js`, `dsp/ruido.js` — tipos de filtro/ruído e a fórmula da curva desenhada (as contas estão no motor.cpp)
 - `dsp/lfo.js`, `dsp/modulacao.js` — listas de formas/fontes/destinos (as contas estão no motor.cpp)
 - `interface/knob.js` — knob reutilizável (escalas e formatos de número)
