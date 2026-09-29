@@ -441,7 +441,7 @@ rollback para c02048a; o estado com Capacitor está no branch `backup-antes-de-v
   73,3 → 27,8% (2,6× mais leve). Tela (Soft Pad, nota tocando, painel escondido = sem contar os
   desenhos): 7,0 → 3,8%. Achado: custo fixo por bloco alto (1 nota já 2,6%; 8 notas U1 5,4%) →
   candidato na F4 (o JS ainda faz o gerente de vozes, parâmetros, clipper).
-- F4 (29/09/2026, FEITA, em teste; versão 7): o C++ faz o bloco INTEIRO numa chamada só
+- F4 (29/09/2026, FEITA e APROVADA pelo dono no celular; versão 7): o C++ faz o bloco INTEIRO numa chamada só
   (`processarBloco(tamanho, qtdVolume)` → som pronto em float em `enderecoSaida`; devolve bits dos
   consertos: 0–9 efeitos, 10 vozes, 11 clipper). No C++ (bloco "F4", fim do motor.cpp): gerente de
   vozes (`EstadoVoz gerente[]`, `notaOnPoly/Mono`, `notaOffPoly/Mono`, roubo, nota esperando,
@@ -663,6 +663,8 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
    domínio → precisa do repositório `jjsantosyt-byte.github.io` (com arquivo `.nojekyll`, senão o
    GitHub esconde a pasta .well-known), com o SHA-256 da "chave de assinatura do app" do Play
    Console. Contas novas: teste fechado com 12 testadores por 14 dias antes da produção.
+   (29/09/2026) Teste fechado na Play Store JÁ COMEÇOU (app Capacitor, .aab do GitHub Actions).
+   Presets novos: o dono faz aos poucos e manda depois.
 4. Só se a latência no celular incomodar: motor de som em C++ (Oboe no Android),
    tela continua em HTML/JS dentro do Capacitor. Alternativa radical: JUCE (tela + motor
    em C++, gera também VST/AU). iPhone exige Mac + conta Apple.
