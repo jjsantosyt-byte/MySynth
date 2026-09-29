@@ -205,6 +205,11 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    sequenciador → 7d exportar (inclui o one shot da nota Dó) → 7e guardar.
    DECISÃO DO DONO (25/09/2026): "Gravar .wav" (7a) NÃO vai ser feito por enquanto. Não propor de
    novo sem ele pedir. (As opções "em breve" do menu da logo continuam lá.)
+   DECISÃO DO DONO (29/09/2026): o DAW talvez vire um app PAGO (app separado "synth + DAW" ou
+   desbloqueio pago; modelo a decidir quando o DAW for começar). REGRA: o código do DAW NUNCA vai
+   para o repositório público nem para o GitHub Pages — fica num repositório PRIVADO. Antes de
+   escrever a 1ª linha do DAW, combinar com o dono onde ele fica.
+   Antes do DAW: LFO desenhado (escolhido pelo dono em 29/09/2026).
 
 **Revisão geral de bugs e desempenho (24/09/2026):** anotada em `REVISAO-2026-09-24.md`
 (o dono decide o que entra). Ainda abertos (menores):
