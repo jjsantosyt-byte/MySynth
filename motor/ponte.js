@@ -87,6 +87,8 @@ export class Ponte {
     for (const { numero, campos } of Object.values(EFEITOS_NO_MOTOR)) {
       if (this.c.camposEfeito(numero) !== campos.length) throw new Error('motor.wasm e ponte.js não combinam (efeitos)');
     }
+    this.iSequencia = this.c.enderecoSequencia() / 8; // piano roll: [início, duração, nota] × máx.
+    this.maxNotasSeq = this.c.maxNotasSeq();
     this.iSaida = this.c.enderecoSaida() / 4; // som pronto (float): esquerda; direita BLOCO depois
     this.renovar(true); // (as vistas saidaE/saidaD precisam de iSaida)
   }
@@ -127,6 +129,18 @@ export class Ponte {
       for (let k = 0; k < 3; k++) this.f64[i + 3 * j + k] = Number(p[k]) || 0;
     }
     this.c.definirDesenhoLfo(l, n); // (menos de 2 pontos: o C++ usa o triângulo)
+  }
+
+  // Notas do piano roll [[início, duração, nota], ...] (em tempos) + tamanho do loop → C++
+  // (lá elas são conferidas e postas em ordem)
+  definirSequencia(notas, comprimento) {
+    const lista = Array.isArray(notas) ? notas : [];
+    const n = Math.min(lista.length, this.maxNotasSeq);
+    for (let j = 0; j < n; j++) {
+      const p = Array.isArray(lista[j]) ? lista[j] : [];
+      for (let k = 0; k < 3; k++) this.f64[this.iSequencia + 3 * j + k] = Number(p[k]);
+    }
+    this.c.definirSequencia(n, Number(comprimento));
   }
 
   // Tabela dos knobs moduláveis dos efeitos: [[efeito, ajuste, min, max, exp], ...]

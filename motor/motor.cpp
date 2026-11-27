@@ -2997,7 +2997,7 @@ bool temInvalido(int tamanho) {
 // ================= Funções que o JavaScript chama =================
 
 // Versão do motor em C++ (sobe a cada etapa; o JavaScript mostra no console).
-EXPORTAR int versao() { return 8; }
+EXPORTAR int versao() { return 9; }
 
 static void efeitoZerar(int ef); // (mais abaixo)
 static void iniciarF4();         // (no fim)
@@ -3548,6 +3548,34 @@ bool temInvalidoSaida(int tamanho) {
   return false;
 }
 
+// ---------- Sequenciador (piano roll, P2a): estado ----------
+// A música (notas do piano roll) fica AQUI, no motor: ele dispara cada nota na amostra exata,
+// mesmo no meio de um bloco, sem depender da tela (se a tela travar, o ritmo continua firme).
+// Tempos medidos em "tempos" (batidas: 1 = uma semínima); o BPM diz quantas amostras é um tempo.
+constexpr int MAX_NOTAS_SEQ = 2048;
+constexpr int MAX_SOANDO = 256;
+constexpr double QUASE = 1e-9; // folga nas comparações de tempo (bem menos que 1 amostra)
+double mesaSequencia[MAX_NOTAS_SEQ][3]; // a tela escreve: [início, duração, nota MIDI]
+struct NotaSeq {
+  double inicio, fim, nota;
+};
+NotaSeq notasSeq[MAX_NOTAS_SEQ]; // conferidas e em ordem de início
+int qtdSeq = 0;
+double comprimentoSeq = 4; // tamanho do loop, em tempos
+double bpmSeq = 120;
+bool seqTocando = false;
+double seqPos = 0;   // onde a música está, em tempos (sempre de 0 até o comprimento)
+int seqProxima = 0;  // a próxima nota a começar (índice em notasSeq)
+struct Soando {
+  double nota, fim;
+};
+Soando soando[MAX_SOANDO]; // notas que o sequenciador começou e ainda vai soltar
+int qtdSoando = 0;
+// Quem segura cada tecla: a tela (dedo, teclado do PC, Hold) e/ou o sequenciador. A nota só é
+// solta quando nenhum dos dois segura mais (o fim de uma nota do piano roll não corta o dedo).
+bool peloDedo[128];
+int pelaSeq[128];
+
 }  // namespace
 
 // ---------- Gerente de vozes: começar, soltar e roubar ----------
@@ -3796,6 +3824,16 @@ static void iniciarF4() {
   clipperD.zerar();
   silencioSaida = 0;
   for (double& v : volumes) v = 1;
+  // Sequenciador parado, sem notas
+  qtdSeq = qtdSoando = seqProxima = 0;
+  comprimentoSeq = 4;
+  bpmSeq = 120;
+  seqTocando = false;
+  seqPos = 0;
+  for (int t = 0; t < 128; t++) {
+    peloDedo[t] = false;
+    pelaSeq[t] = 0;
+  }
 }
 
 // ---------- Funções que o JavaScript chama (F4) ----------
@@ -3806,15 +3844,150 @@ EXPORTAR void definirSemente(double s) {
   sementeNotas = n == 0 ? 1 : n;
 }
 
-EXPORTAR void notaOn(double nota) {
+static void ligarNota(double nota) {
   if (modoMono) notaOnMono(nota);
   else notaOnPoly(nota);
 }
-EXPORTAR void notaOff(double nota) {
+static void desligarNota(double nota) {
   if (modoMono) notaOffMono(nota);
   else notaOffPoly(nota);
 }
-EXPORTAR void tudoOff() { soltarTudo(); }
+// Tecla 0–127 (nota inteira) ou -1 (nota fora disso: sem conta de quem segura)
+static int teclaDe(double nota) {
+  if (!(nota >= 0 && nota <= 127) || nota != std::floor(nota)) return -1;
+  return static_cast<int>(nota);
+}
+
+// Notas da tela (dedo, teclado do PC). Sem o sequenciador, igual a antes.
+EXPORTAR void notaOn(double nota) {
+  const int t = teclaDe(nota);
+  if (t >= 0) peloDedo[t] = true;
+  ligarNota(nota);
+}
+EXPORTAR void notaOff(double nota) {
+  const int t = teclaDe(nota);
+  if (t >= 0) {
+    peloDedo[t] = false;
+    if (pelaSeq[t] > 0) return; // o piano roll ainda segura esta nota
+  }
+  desligarNota(nota);
+}
+EXPORTAR void tudoOff() {
+  for (bool& d : peloDedo) d = false;
+  soltarTudo();
+}
+
+// ---------- Sequenciador (piano roll, P2a): funções ----------
+
+static void seqLigar(double nota) {
+  const int t = teclaDe(nota);
+  if (t < 0 || qtdSoando == MAX_SOANDO) return;
+  pelaSeq[t]++;
+  ligarNota(nota);
+}
+static void seqDesligar(double nota) {
+  const int t = teclaDe(nota);
+  if (t < 0 || pelaSeq[t] == 0) return;
+  if (--pelaSeq[t] == 0 && !peloDedo[t]) desligarNota(nota);
+}
+// Solta as notas do sequenciador que terminam até "ate" (todas, se ate < 0), na ordem em que
+// começaram (no Mono a ordem muda qual nota "volta"; assim é sempre a mesma)
+static void seqSoltarAte(double ate) {
+  int fica = 0;
+  for (int k = 0; k < qtdSoando; k++) {
+    if (ate < 0 || soando[k].fim <= ate + QUASE) seqDesligar(soando[k].nota);
+    else soando[fica++] = soando[k];
+  }
+  qtdSoando = fica;
+}
+
+// Dispara o que acontece na posição atual: primeiro solta as que terminam (assim uma nota que
+// termina e recomeça no mesmo lugar ataca de novo), no fim do loop volta ao começo, e então
+// começa as notas daqui.
+static void seqDisparar() {
+  seqSoltarAte(seqPos);
+  if (seqPos >= comprimentoSeq - QUASE) {
+    seqSoltarAte(-1); // (nenhuma passa do fim do loop; por segurança, solta todas)
+    seqPos -= comprimentoSeq;
+    if (seqPos < QUASE) seqPos = 0;
+    seqProxima = 0;
+  }
+  while (seqProxima < qtdSeq && notasSeq[seqProxima].inicio <= seqPos + QUASE) {
+    const NotaSeq& n = notasSeq[seqProxima++];
+    if (qtdSoando == MAX_SOANDO) continue;
+    seqLigar(n.nota);
+    soando[qtdSoando++] = { n.nota, n.fim };
+  }
+}
+
+// Mesa das notas do piano roll: [início, duração, nota] × MAX_NOTAS_SEQ (em tempos)
+EXPORTAR double* enderecoSequencia() { return &mesaSequencia[0][0]; }
+EXPORTAR int maxNotasSeq() { return MAX_NOTAS_SEQ; }
+
+// Lê as "n" notas da mesa e o tamanho do loop (em tempos). Notas inválidas (fora do loop,
+// duração 0, nota fora de 0–127) ficam de fora; a que passa do fim do loop é cortada nele.
+// Tocando: as notas que já estão soando terminam no tempo delas; segue da posição atual.
+EXPORTAR void definirSequencia(int n, double comprimento) {
+  comprimentoSeq = std::isfinite(comprimento) ? limitar(comprimento, 0.25, 4096) : 4;
+  if (n < 0) n = 0;
+  if (n > MAX_NOTAS_SEQ) n = MAX_NOTAS_SEQ;
+  qtdSeq = 0;
+  for (int j = 0; j < n; j++) {
+    const double inicio = mesaSequencia[j][0];
+    const double duracao = mesaSequencia[j][1];
+    const double nota = std::round(mesaSequencia[j][2]);
+    if (!std::isfinite(inicio) || !std::isfinite(duracao) || !std::isfinite(nota)) continue;
+    if (inicio < 0 || inicio >= comprimentoSeq - QUASE || duracao <= 0 || nota < 0 || nota > 127) continue;
+    // Entra na lista em ordem de início (as de mesmo início ficam na ordem da mesa)
+    NotaSeq nova = { inicio, std::fmin(inicio + duracao, comprimentoSeq), nota };
+    int k = qtdSeq++;
+    while (k > 0 && notasSeq[k - 1].inicio > nova.inicio) {
+      notasSeq[k] = notasSeq[k - 1];
+      k--;
+    }
+    notasSeq[k] = nova;
+  }
+  // Próxima a começar: a 1ª que ainda não passou (as do ponto atual ainda vão disparar)
+  seqProxima = 0;
+  while (seqProxima < qtdSeq && notasSeq[seqProxima].inicio < seqPos - QUASE) seqProxima++;
+}
+
+// Play (1: do começo) / Stop (0: solta as notas do piano roll e volta ao começo)
+EXPORTAR void seqTocar(int tocar) {
+  seqSoltarAte(-1);
+  seqTocando = tocar != 0;
+  seqPos = 0;
+  seqProxima = 0;
+}
+
+// Andamento (20 a 300 BPM). Mudar tocando não pula: a música segue do tempo em que está.
+EXPORTAR void seqBpm(double bpm) {
+  if (std::isfinite(bpm)) bpmSeq = limitar(bpm, 20, 300);
+}
+
+// Um passo do relógio: dispara o que acontece AGORA e diz quantas amostras faltam até o próximo
+// acontecimento (no máximo "maximo"; pelo menos 1). O relógio já anda essas amostras: o JS calcula
+// esse trecho (processarBloco) e chama de novo. Parado: devolve "maximo" (o bloco inteiro).
+EXPORTAR int seqPasso(int maximo) {
+  if (!seqTocando || maximo <= 0) return maximo;
+  seqDisparar();
+  double proximo = comprimentoSeq;
+  if (seqProxima < qtdSeq && notasSeq[seqProxima].inicio < proximo) proximo = notasSeq[seqProxima].inicio;
+  for (int k = 0; k < qtdSoando; k++) {
+    if (soando[k].fim < proximo) proximo = soando[k].fim;
+  }
+  const double amostrasPorTempo = taxa * 60 / bpmSeq;
+  // (o -1e-7 evita que um erro de arredondamento empurre o acontecimento 1 amostra para frente)
+  double falta = std::ceil((proximo - seqPos) * amostrasPorTempo - 1e-7);
+  if (falta < 1) falta = 1;
+  const int passo = falta < maximo ? static_cast<int>(falta) : maximo;
+  seqPos += passo / amostrasPorTempo;
+  return passo;
+}
+
+// Onde a música está (em tempos) e se está tocando (a tela desenha a linha que anda)
+EXPORTAR double seqPosicao() { return seqPos; }
+EXPORTAR int seqEstaTocando() { return seqTocando ? 1 : 0; }
 
 // Opções do gerente: modo (0 = Poly, 1 = Mono; trocar solta as notas), vozes (1 a 16),
 // Legato, Glide (segundos, 0 = sem) e Glide "Sempre"
@@ -3912,7 +4085,8 @@ EXPORTAR int processarBloco(int tamanho, int qtdVolume) {
 
   // Soft clipper, SEMPRE ligado. Silêncio há um tempo (mais que o atraso dele): nem passa.
   silencioSaida = picoEfeitos * (volumes[0] != 0 ? volumes[0] : 1) < LIMIAR_SILENCIO ? silencioSaida + tamanho : 0;
-  if (silencioSaida < 4 * tamanho) {
+  // (4 blocos inteiros: com o sequenciador o bloco pode vir em trechos menores)
+  if (silencioSaida < 4 * BLOCO) {
     for (int i = 0; i < tamanho; i++) {
       e[i] = static_cast<float>(clipperE.processar(e[i]));
       d[i] = static_cast<float>(clipperD.processar(d[i]));

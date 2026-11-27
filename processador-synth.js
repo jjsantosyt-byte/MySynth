@@ -411,6 +411,18 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       case 'tudoOff':
         c.tudoOff();
         break;
+      // Sequenciador (piano roll): a música fica no C++, que dispara cada nota na amostra exata
+      case 'sequencia':
+        this.ponte.definirSequencia(msg.notas, msg.comprimento);
+        break;
+      case 'seqTocar':
+        c.seqTocar(msg.tocar ? 1 : 0);
+        this.seqAvisar = true;
+        break;
+      case 'seqBpm':
+        c.seqBpm(msg.bpm);
+        this.seqAvisar = true;
+        break;
       case 'opcao':
         this.definirOpcao(msg.nome, msg.valor);
         break;
@@ -565,18 +577,44 @@ class ProcessadorSynth extends AudioWorkletProcessor {
 
     // Valores dos knobs → mesa do C++; depois, o bloco inteiro lá dentro
     this.enviarAjustesModulacao(parametros);
-    this.enviarAjustesVozes(parametros);
     const volume = parametros.volume;
-    ponte.f64.set(volume, ponte.iVolume);
-    const consertos = ponte.c.processarBloco(tamanhoBloco, volume.length);
-    saidaE.set(ponte.saidaE.subarray(0, tamanhoBloco));
-    saidaD.set(ponte.saidaD.subarray(0, tamanhoBloco));
+    let consertos = 0;
+    if (this.seqAvisar) this.avisarSequenciador();
+    if (!ponte.c.seqEstaTocando()) {
+      this.enviarAjustesVozes(parametros);
+      ponte.f64.set(volume, ponte.iVolume);
+      consertos = ponte.c.processarBloco(tamanhoBloco, volume.length);
+      saidaE.set(ponte.saidaE.subarray(0, tamanhoBloco));
+      saidaD.set(ponte.saidaD.subarray(0, tamanhoBloco));
+    } else {
+      // Piano roll tocando: o bloco é calculado em trechos, cortado onde cai cada nota (o C++
+      // dispara a nota e diz quantas amostras faltam até a próxima). Assim cada nota começa e
+      // termina na amostra exata. (Os valores "1 por amostra" vão em fatias do trecho.)
+      for (let inicio = 0; inicio < tamanhoBloco;) {
+        const qtd = ponte.c.seqPasso(tamanhoBloco - inicio);
+        this.enviarAjustesVozes(parametros, inicio, qtd);
+        const v = volume.length > 1 ? volume.subarray(inicio, inicio + qtd) : volume;
+        ponte.f64.set(v, ponte.iVolume);
+        consertos |= ponte.c.processarBloco(qtd, v.length);
+        saidaE.set(ponte.saidaE.subarray(0, qtd), inicio);
+        saidaD.set(ponte.saidaD.subarray(0, qtd), inicio);
+        inicio += qtd;
+      }
+    }
 
     if (consertos) this.avisarConsertos(consertos);
     if (this.tabelasSoltas.length) this.liberarTabelas();
     this.vigiarClipper();
     this.medidor.bloco(antes, Date.now(), tamanhoBloco, ponte.c.vozesTocando());
     return true;
+  }
+
+  // Play, Stop ou BPM novo: a tela recebe onde a música está (em tempos) e em que instante do
+  // relógio do som; com isso ela mesma calcula a linha que anda (sem recados a cada bloco).
+  avisarSequenciador() {
+    this.seqAvisar = false;
+    const c = this.ponte.c;
+    this.port.postMessage({ tipo: 'seq', tocando: c.seqEstaTocando() === 1, posicao: c.seqPosicao(), tempo: currentTime });
   }
 
   // Alguma peça do motor soltou valores inválidos (NaN ou infinito) e o C++ consertou (o bloco
@@ -645,8 +683,10 @@ class ProcessadorSynth extends AudioWorkletProcessor {
   }
 
   // Ajustes dos 3 osciladores, das vozes (rotas, ruído) e Cutoff/Reso dos Filtros 1 e 2
-  // (1 valor ou 1 por amostra) → mesa do C++, uma vez por bloco
-  enviarAjustesVozes(parametros) {
+  // (1 valor ou 1 por amostra) → mesa do C++, uma vez por bloco (ou por trecho do bloco, com o
+  // piano roll tocando: "inicio"/"qtd" = a fatia dos valores "1 por amostra")
+  enviarAjustesVozes(parametros, inicio = 0, qtd = BLOCO) {
+    const fatia = (lista) => (lista.length > 1 && qtd < lista.length ? lista.subarray(inicio, inicio + qtd) : lista);
     const ponte = this.ponte;
     const f64 = ponte.f64;
     const C = CAMPOS_OSC;
@@ -667,7 +707,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
       f64[a + C.rand] = ajustes.rand;
       f64[a + C.warp] = parametros[params.warp][0];
       // WT Pos: 1 valor (parado) ou 1 por amostra (mexendo)
-      const posicoes = parametros[params.wtPos];
+      const posicoes = fatia(parametros[params.wtPos]);
       f64.set(posicoes, ponte.iPosicoes + k * 128);
       f64[a + C.qtdPosicoes] = posicoes.length;
     }
@@ -683,7 +723,7 @@ class ProcessadorSynth extends AudioWorkletProcessor {
     f64[iv + V.ruidoTrack] = this.ruidoTrack ? 1 : 0;
     f64[iv + V.ruidoPitch] = this.ruidoPitch;
     f64[iv + V.ruidoUnico] = this.ruidoUnico ? 1 : 0;
-    const filtros = [parametros.cutoff, parametros.resonancia, parametros.cutoff2, parametros.resonancia2];
+    const filtros = [parametros.cutoff, parametros.resonancia, parametros.cutoff2, parametros.resonancia2].map(fatia);
     for (let n = 0; n < 4; n++) {
       f64.set(filtros[n], ponte.iCortesResos + n * BLOCO);
       f64[iv + V.qtdCortes1 + n] = filtros[n].length;

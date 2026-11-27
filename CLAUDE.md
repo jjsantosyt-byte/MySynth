@@ -209,6 +209,41 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
    desbloqueio pago; modelo a decidir quando o DAW for começar). REGRA: o código do DAW NUNCA vai
    para o repositório público nem para o GitHub Pages — fica num repositório PRIVADO. Antes de
    escrever a 1ª linha do DAW, combinar com o dono onde ele fica.
+   DECISÃO DO DONO (27/11/2026) — SUBSTITUI a de 29/09: o app inteiro (synth + DAW) é GRATUITO;
+   o código do DAW PODE ir para o repositório público e para o GitHub Pages, como o resto.
+   PIANO ROLL (27/11/2026, plano P1 maquetes → P2 relógio + tocar sequência fixa → P3 editor de
+   notas → P4 acabamento). P1: maquete `_antigo/maquetes/piano-roll.html`; dono ESCOLHEU a opção A:
+   tela cheia aberta por um botão na barra de cima; barra de controles em cima (‹ Synth = volta aos
+   knobs SEM parar o loop, Play/Stop, BPM, Grade 1/4·1/8·1/16·Off, Compassos, Loop, Desfazer; no
+   640 Grade/Compassos vão para o botão de 3 pontinhos); teclas do piano em pé à esquerda, régua em
+   cima, notas azuis chanfradas, linha verde de onde toca (única coisa que se mexe).
+   DECISÃO DO DONO (27/11/2026): o loop SÓ toca com a tela do piano roll aberta; sair dela
+   (‹ Synth, para mexer nos knobs) PARA a música.
+   - P2a (27/11/2026, FEITA; motor versão 9): sequenciador no C++ (bloco "Sequenciador" no
+     motor.cpp). Mesa `enderecoSequencia` [início, duração, nota] em TEMPOS (1 = semínima), máx.
+     2048 notas; `definirSequencia(n, comprimento)` confere (fora do loop/duração 0/nota fora de
+     0–127 = fora; passa do fim = cortada) e ordena por início; `seqTocar(1|0)` (Play do começo /
+     Stop solta as do piano roll), `seqBpm` (20–300; mudar tocando não pula), `seqPasso(max)`:
+     dispara o que acontece AGORA (solta as que terminam, na ordem em que começaram → fim do loop
+     volta ao 0 → começa as daqui) e devolve quantas amostras até o próximo acontecimento.
+     `seqPosicao`, `seqEstaTocando`. Quem segura cada tecla: `peloDedo[128]` + `pelaSeq[128]`
+     (a nota só é solta quando nenhum dos dois segura; sem sequenciador = igual a antes).
+     JS (processador-synth.js): tocando, o bloco é calculado em TRECHOS cortados onde cai cada
+     nota (`seqPasso` → `processarBloco(qtd)`; valores "1 por amostra" vão em fatias:
+     `enviarAjustesVozes(parametros, inicio, qtd)`); parado = o caminho de antes. Recados:
+     'sequencia' { notas, comprimento }, 'seqTocar' { tocar }, 'seqBpm' { bpm }; o motor responde
+     { tipo: 'seq', tocando, posicao, tempo: currentTime } só no Play/Stop/BPM (a tela calcula a
+     linha). Ponte: `definirSequencia(notas, comprimento)`. Clipper: "descansa" depois de 4 × BLOCO
+     amostras (antes 4 × tamanho; igual com blocos inteiros). Obs.: suavizações "por bloco"
+     (ligações, Macros, EQ, mod. dos efeitos) andam um pouco mais rápido nos blocos cortados.
+     Medido (`_antigo/teste/teste-seq.js`, contra `_antigo/v8` + `_antigo/motor-v8.wasm`): 9
+     cenários da F4 sem sequenciador IDÊNTICOS; sequência com notas no começo dos blocos (281,25
+     BPM) = IDÊNTICO a tocar à mão no v8 (Poly, Mono, Mono sem Legato + Glide, 3 vozes + Glide);
+     notas no meio dos blocos (20,5 / 97,3 / 123,7 / 300 BPM): todas começam na amostra da conta;
+     BPM 120 → 90 → 174 tocando: posição contínua; dedo × piano roll e Stop com dedo: certos.
+     Peso: acorde de 4 + 1 nota à mão 3,29% (v8 3,37%); pelo piano roll com semicolcheias 120 BPM
+     3,55%, 300 BPM 4,03%. App: "motor C++ carregado (versão 9)".
+   PRÓXIMO: P2b (tela cheia da opção A, Play/Stop/BPM, loop fixo de 1 compasso, linha verde).
    Antes do DAW: LFO desenhado (escolhido pelo dono em 29/09/2026).
 
 **LFO DESENHADO (29/09/2026, plano aprovado: L1 motor → L2 editor → L3 acabamento).** Decidido:
