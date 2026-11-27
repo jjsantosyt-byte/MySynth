@@ -13,6 +13,9 @@ const DESENHOS = {
   salvar: 'M2.5 2.5H11L13.5 5V13.5H2.5ZM5 2.5V6H10V2.5M4.5 13.5V9H11.5V13.5',
   lapis:'M2.5 13.5L3.2 10.3L10.5 3L13 5.5L5.7 12.8ZM9 4.5L11.5 7',
   espelhar: 'M8 1.5V14.5M6 4L2 8L6 12ZM10 4L14 8L10 12Z',
+  // Desenhos genéricos (não são as logos das marcas): nota musical e tela com "play"
+  nota: 'M6 12.5V3.5L13 2V11M6 12.5A2 1.6 0 1 1 2 12.5A2 1.6 0 1 1 6 12.5ZM13 11A2 1.6 0 1 1 9 11A2 1.6 0 1 1 13 11Z',
+  video: 'M2 3.5H14V12.5H2ZM6.5 5.8V10.2L10.3 8Z',
 };
 
 // Devolve o <svg> do ícone (texto HTML), para pôr dentro de um botão

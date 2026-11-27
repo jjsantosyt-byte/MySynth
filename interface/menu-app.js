@@ -10,6 +10,7 @@ import { criar, criarJanela } from './janela.js';
 import { IDIOMA, mudarIdioma } from './idioma.js';
 import { TEMA, TEMAS, NOMES_TEMAS, mudarTema } from './tema.js';
 import { medidor } from './medidor.js';
+import { icone } from './icones.js';
 
 export function criarMenuApp() {
   const botao = document.getElementById('botao-logo');
@@ -142,8 +143,29 @@ export function criarMenuApp() {
   const janelaSobre = criarJanela('Sobre o MySynth');
   janelaSobre.corpo.append(
     criar('p', 'config-texto', 'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, 3 LFOs e 2 envelopes arrastáveis e 10 efeitos.'),
-    criar('p', 'config-texto', 'Versão beta · setembro de 2026')
+    criar('p', 'config-texto', 'Versão beta · novembro de 2026')
   );
+
+  // Redes do criador do app. Só os perfis (sem "compre/doe/apoie": regra de pagamentos do
+  // Google Play). Abrem fora do app: no navegador ele abre outra aba; no app da loja o
+  // Android abre o navegador ou o app do TikTok/YouTube (o MySynth continua sem Internet).
+  const secaoRedes = criar('section', 'config-secao');
+  secaoRedes.appendChild(criar('h3', 'config-titulo', 'Siga'));
+  const grupoRedes = criar('div', 'sobre-redes');
+  for (const [nome, perfil, endereco, desenho] of [
+    ['TikTok', '@j.obas_', 'https://www.tiktok.com/@j.obas_', 'nota'],
+    ['YouTube', '@JayJayBeats01', 'https://www.youtube.com/@JayJayBeats01', 'video'],
+  ]) {
+    const link = criar('a', 'botao sobre-rede');
+    link.href = endereco;
+    link.target = '_blank';
+    link.rel = 'noopener';
+    link.setAttribute('aria-label', `${nome} ${perfil}`);
+    link.innerHTML = `${icone(desenho)}<span class="sobre-rede-nome">${nome}</span><span class="sobre-rede-perfil">${perfil}</span>`;
+    grupoRedes.appendChild(link);
+  }
+  secaoRedes.appendChild(grupoRedes);
+  janelaSobre.corpo.appendChild(secaoRedes);
 
   return { fechar };
 }

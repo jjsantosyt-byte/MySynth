@@ -92,7 +92,8 @@ const TEXTOS = new Map(
     Claro: 'Light',
     'Sintetizador wavetable feito para tocar no celular: 3 osciladores, 2 filtros, 3 LFOs e 2 envelopes arrastáveis e 10 efeitos.':
       'A wavetable synthesizer made to play on your phone: 3 oscillators, 2 filters, 3 draggable LFOs and 2 envelopes, and 10 effects.',
-    'Versão beta · setembro de 2026': 'Beta version · September 2026',
+    'Versão beta · novembro de 2026': 'Beta version · November 2026',
+    Siga: 'Follow',
     // Medidor de desempenho (Configurações)
     'Medidor de desempenho': 'Performance meter',
     'Mostra no canto da tela quanto o motor de som está ocupado (100% = no limite), os atrasos do som (engasgos) e as travadas da tela. Ligar de novo zera os números.':

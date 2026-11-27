@@ -749,6 +749,10 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
    Console. Contas novas: teste fechado com 12 testadores por 14 dias antes da produção.
    (29/09/2026) Teste fechado na Play Store JÁ COMEÇOU (app Capacitor, .aab do GitHub Actions).
    Presets novos: o dono faz aos poucos e manda depois.
+   (27/11/2026) App 100% GRATUITO. Sobre (menu-app.js) ganhou a seção "Siga" com TikTok
+   (@j.obas_) e YouTube (@JayJayBeats01), botões-link `.sobre-rede` (ícones genéricos `nota`/
+   `video`). REGRA (política de pagamentos do Google Play): no app e na ficha da loja NADA de
+   "compre/doe/apoie" nem link do Gumroad — só perfis neutros. Status de comerciante: "Sim".
 4. Só se a latência no celular incomodar: motor de som em C++ (Oboe no Android),
    tela continua em HTML/JS dentro do Capacitor. Alternativa radical: JUCE (tela + motor
    em C++, gera também VST/AU). iPhone exige Mac + conta Apple.

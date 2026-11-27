@@ -4304,3 +4304,39 @@ html[data-tema='basico'] .lfo-editar {
     text-align: center;
   }
 }
+
+/* ==========================================================================================
+   SOBRE: redes do criador (27/11/2026). Dois botões-link lado a lado (ícone + nome + @perfil),
+   do tamanho dos outros botões; em telas estreitas um embaixo do outro.
+   ========================================================================================== */
+.sobre-redes {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.sobre-rede {
+  flex: 1 1 180px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  font-size: 15px;
+}
+.sobre-redes .sobre-rede {
+  /* Fica com 40 px mesmo no celular deitado (lá os botões comuns encolhem para 32 px) */
+  min-height: 40px;
+}
+.sobre-rede .icone {
+  width: 18px;
+  height: 18px;
+}
+.sobre-rede-nome {
+  font-weight: 600;
+}
+.sobre-rede-perfil {
+  color: var(--texto-suave);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
