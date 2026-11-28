@@ -48,6 +48,7 @@ const ARQUIVOS = [
   'interface/knob.js',
   'interface/modulacao.js',
   'interface/lfo-desenho.js',
+  'interface/piano-roll.js',
   'interface/presets-projeto.js',
   'interface/presets.js',
   'interface/seletor.js',

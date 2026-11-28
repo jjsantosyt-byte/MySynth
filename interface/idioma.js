@@ -57,6 +57,11 @@ const TEXTOS = new Map(
     Desfazer: 'Undo',
     Refazer: 'Redo',
     'Segura as notas depois de soltar as teclas': 'Keeps notes playing after you release the keys',
+    // Piano roll
+    'Abrir o piano roll': 'Open the piano roll',
+    'Voltar ao synth (a música para)': 'Back to the synth (stops the music)',
+    Tocar: 'Play',
+    Parar: 'Stop',
     'Sem nome': 'Untitled',
     'Preset anterior': 'Previous preset',
     'Próximo preset': 'Next preset',

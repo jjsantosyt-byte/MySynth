@@ -243,7 +243,26 @@ Um synth wavetable no estilo Serum e Vital, pensado para toque:
      BPM 120 → 90 → 174 tocando: posição contínua; dedo × piano roll e Stop com dedo: certos.
      Peso: acorde de 4 + 1 nota à mão 3,29% (v8 3,37%); pelo piano roll com semicolcheias 120 BPM
      3,55%, 300 BPM 4,03%. App: "motor C++ carregado (versão 9)".
-   PRÓXIMO: P2b (tela cheia da opção A, Play/Stop/BPM, loop fixo de 1 compasso, linha verde).
+   - P2b (27/11/2026, FEITA, em teste): `interface/piano-roll.js` (`criarPianoRoll({ obterSynth,
+     obterContexto, ligarSom, garantirSom })` → { abrir, fechar, receber }). Botão
+     `#botao-piano-roll` (ícone `pianoRoll`) depois do Hold na barra de cima. Tela `.piano-roll`
+     (fixa, z-index 180; medidor 190) com `.pr-barra` [‹ Synth][Play][Stop][BPM: seletor 20–300,
+     4 px por passo] e `.pr-area` (canvas: teclas 46 px / 40 px ≤ 700, régua 20 px, grade em
+     semicolcheias, notas chanfradas — redondas no Básico; faixa de notas = do loop ± 1). Linha
+     verde = `.pr-cabeca` movida por transform (não redesenha o canvas); canvas só é redesenhado
+     quando as teclas acesas mudam. Posição = recado 'seq' do motor + relógio do som − (base +
+     output latency). Play liga o som se precisar e manda as notas 1× por motor. ‹ Synth / Esc =
+     fecha e PARA. App no fundo: o principal.js já pausa o áudio (música e linha pausam juntas e
+     continuam ao voltar). `LOOP_FIXO` (1 compasso: baixo em semicolcheias C3/F3/G3 + 3 acordes)
+     até a P3. Cores novas `--pr-linha-clara/-escura`, `--pr-guia-fina/--pr-guia/--pr-guia-forte`
+     (com valores do tema Claro). Barra de cima ≤ 700 px apertada para caber o botão: espaços 5 px,
+     visor 96 px, volume 54 px, setas 27 px. Ícones novos: `pianoRoll`, `tocar`, `parar`.
+     Testado: linha a 120 BPM anda 94 px / 250 ms (conta: 94,25); Play/BPM/‹ Synth mandam os
+     recados certos; barra sem sobrepor em 640×360, 800×360, 852×340 e 393×760; piano roll em
+     800×360, 640×360, em pé, inglês + Claro. FALTA: ouvir no celular (o painel do navegador do
+     Claude pausa o áudio sozinho; ritmo firme por minutos só dá para conferir no aparelho).
+   PRÓXIMO: P3 (editor de notas: criar/mover/esticar/apagar, grade 1/4·1/8·1/16·Off, compassos,
+     rolar/zoom com 2 dedos, desfazer, guardar no aparelho).
    Antes do DAW: LFO desenhado (escolhido pelo dono em 29/09/2026).
 
 **LFO DESENHADO (29/09/2026, plano aprovado: L1 motor → L2 editor → L3 acabamento).** Decidido:
@@ -882,6 +901,7 @@ Medido (serra, LP24 +12 st): 4º harmônico vs 1º = -36,3 dB em C3 e em C5 (Tra
 - `interface/modulacao.js` — fichas, arrastar/tocar para ligar, listas de ligações
 - `interface/presets.js` — barra de presets, lista, salvar, apagar, exportar/importar
 - `interface/janela.js` — janela por cima da tela (usada por presets e wavetables)
+- `interface/piano-roll.js` — piano roll (tela cheia; a música toca no sequenciador do motor.cpp)
 - `interface/medidor.js` — medidor de desempenho (caixinha no canto; liga nas Configurações)
 - `interface/wavetables.js` — lista de wavetables e botão Importar .wav
 - `interface/armazem-wavetables.js` — guarda as wavetables importadas no aparelho (IndexedDB)

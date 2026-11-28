@@ -25,6 +25,7 @@ import {
 import { criarSeletor } from './interface/seletor.js';
 import { criarModulacao, NOMES_DESTINOS } from './interface/modulacao.js';
 import { criarEditorLfo, caminhoDoDesenho } from './interface/lfo-desenho.js';
+import { criarPianoRoll } from './interface/piano-roll.js';
 import { envelopeArrastavel } from './interface/envelope-arrastar.js';
 import { icone, botaoComIcone } from './interface/icones.js';
 import { criarHistorico } from './interface/historico.js';
@@ -375,6 +376,10 @@ async function ligarSom() {
     synth.port.onmessage = (evento) => {
       if (evento.data.tipo === 'clipper') {
         avisarClipper(evento.data.pico);
+        return;
+      }
+      if (evento.data.tipo === 'seq') {
+        pianoRoll.receber(evento.data); // onde a música está (Play, Stop, BPM)
         return;
       }
       if (evento.data.tipo === 'medidor') {
@@ -1874,6 +1879,16 @@ function definirHold(ligado) {
 }
 const botaoHold = document.getElementById('botao-hold');
 botaoHold.addEventListener('click', () => definirHold(!hold));
+
+// ---------- Piano roll (tela cheia; a música toca dentro do motor) ----------
+// O Play liga o som se ele ainda estiver desligado. Sair da tela para a música.
+const pianoRoll = criarPianoRoll({
+  obterSynth: () => estado.synth,
+  obterContexto: () => estado.contexto,
+  ligarSom,
+  garantirSom: garantirSomRodando,
+});
+botaoComIcone(document.getElementById('botao-piano-roll'), 'pianoRoll').addEventListener('click', () => pianoRoll.abrir());
 
 function soltarTudo() {
   sustentadas.clear();

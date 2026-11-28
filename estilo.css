@@ -4171,20 +4171,21 @@ html[data-tema='basico'] .lfo-editar {
   }
 }
 @media (orientation: landscape) and (max-height: 500px) and (max-width: 700px) {
-  /* Menor: menos espaço entre os grupos, visor e barra de volume mais estreitos */
+  /* Menor: menos espaço entre os grupos, visor e barra de volume mais estreitos
+     (27/11/2026: um pouco mais, para caber o botão do piano roll) */
   .barra-topo {
-    gap: 6px;
+    gap: 5px;
   }
   .presets-nome {
-    min-width: 104px;
-    max-width: 104px;
+    min-width: 96px;
+    max-width: 96px;
     padding: 0 6px;
   }
   .presets-seta {
-    min-width: 28px;
+    min-width: 27px;
   }
   .grupo-volume {
-    min-width: 64px;
+    min-width: 54px;
   }
   #botao-hold {
     padding: 0 8px;
@@ -4339,4 +4340,119 @@ html[data-tema='basico'] .lfo-editar {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* =====================================================================================
+   PIANO ROLL (interface/piano-roll.js): tela cheia por cima do synth (opção A das maquetes de
+   27/11/2026). Barra de cima: ‹ Synth, Play, Stop, BPM. Embaixo: canvas com as teclas, a régua,
+   a grade e as notas; a linha verde (.pr-cabeca) anda por cima sem redesenhar o canvas.
+   ===================================================================================== */
+:root {
+  --pr-linha-clara: #1c2130; /* linha de tecla branca */
+  --pr-linha-escura: #161a26; /* linha de tecla preta */
+  --pr-guia-fina: #191d29; /* semicolcheia */
+  --pr-guia: #2a3045; /* tempo */
+  --pr-guia-forte: #46506e; /* compasso e oitava */
+}
+html[data-tema='claro'] {
+  --pr-linha-clara: #ffffff;
+  --pr-linha-escura: #eef1f5;
+  --pr-guia-fina: #e3e7ee;
+  --pr-guia: #c9cfda;
+  --pr-guia-forte: #9aa3b4;
+}
+
+.piano-roll {
+  position: fixed;
+  inset: 0;
+  z-index: 180; /* acima do synth e dos menus; abaixo das janelas e dos recados */
+  display: flex;
+  flex-direction: column;
+  background: var(--fundo);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.piano-roll[hidden] {
+  display: none;
+}
+.medidor {
+  z-index: 190; /* o medidor (não pega o toque) fica visível também no piano roll */
+}
+
+.pr-barra {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 4px 6px;
+  background: var(--barra);
+}
+/* (40 px mesmo no celular deitado, onde os botões comuns encolhem para 32 px) */
+.piano-roll .pr-barra .botao {
+  min-height: 40px;
+  min-width: 40px;
+  padding: 0 12px;
+  font-size: 14px;
+}
+.piano-roll .pr-barra .botao-icone {
+  width: 44px;
+  min-width: 44px;
+  padding: 0;
+}
+.piano-roll .pr-barra .icone {
+  width: 18px;
+  height: 18px;
+}
+.pr-voltar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.pr-tocar .icone path,
+.pr-parar .icone path {
+  fill: currentColor;
+}
+.piano-roll .pr-barra .pr-tocar.tocando {
+  background: var(--verde);
+  color: var(--texto-sobre-cor);
+}
+.pr-bpm {
+  margin-left: 4px;
+}
+.piano-roll .pr-bpm .seletor-botao {
+  height: 20px;
+}
+
+.pr-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.pr-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+/* A linha que toca (verde) com a setinha na régua */
+.pr-cabeca {
+  position: absolute;
+  left: -1px;
+  top: 12px;
+  bottom: 0;
+  width: 2px;
+  background: var(--verde);
+  pointer-events: none;
+  will-change: transform;
+}
+.pr-cabeca::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--verde);
 }
